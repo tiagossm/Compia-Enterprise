@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Test Dropdown</title>
+    <style>
+        .relative {
+            position: relative;
+        }
+
+        .absolute {
+            position: absolute;
+            right: 0;
+            margin-top: 8px;
+        }
+
+        .dropdown-menu {
+            width: 224px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            border: 1px solid #e2e8f0;
+            padding: 8px 0;
+            z-index: 50;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #1d4ed8;
+        }
+
+        .menu-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .menu-item:hover {
+            background: #f8fafc;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="padding: 20px;">
+        <div class="relative" id="dropdown-container">
+            <button class="btn" onclick="toggleDropdown()">
+                + Novo ▼
+            </button>
+            <div id="dropdown-menu" class="absolute dropdown-menu" style="display: none;">
+                <button class="menu-item" onclick="alert('Novo Template Manual')">
+                    <strong>Novo Template Manual</strong>
+                </button>
+                <button class="menu-item" onclick="alert('Gerar com IA')">
+                    <strong>Gerar com IA</strong>
+                </button>
+                <button class="menu-item" onclick="alert('Importar CSV')">
+                    <strong>Importar CSV</strong>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isOpen = false;
+
+        function toggleDropdown() {
+            isOpen = !isOpen;
+            const menu = document.getElementById('dropdown-menu');
+            menu.style.display = isOpen ? 'block' : 'none';
+            console.log('Dropdown toggled:', isOpen);
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function (event) {
+            const container = document.getElementById('dropdown-container');
+            if (!container.contains(event.target)) {
+                const menu = document.getElementById('dropdown-menu');
+                menu.style.display = 'none';
+                isOpen = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

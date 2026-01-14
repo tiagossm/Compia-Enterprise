@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>COMPIA - Reset do Sistema</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 40px; 
+            background: #f8fafc;
+            color: #334155;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 { 
+            color: #1e293b; 
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        button { 
+            padding: 12px 24px; 
+            margin: 10px; 
+            font-size: 16px; 
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary { 
+            background: #3b82f6; 
+            color: white; 
+        }
+        .btn-primary:hover { 
+            background: #2563eb; 
+        }
+        .btn-danger { 
+            background: #ef4444; 
+            color: white; 
+        }
+        .btn-danger:hover { 
+            background: #dc2626; 
+        }
+        .btn-success { 
+            background: #10b981; 
+            color: white; 
+        }
+        .btn-success:hover { 
+            background: #059669; 
+        }
+        .success { 
+            color: #059669; 
+            background: #ecfdf5;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #bbf7d0;
+        }
+        .error { 
+            color: #dc2626; 
+            background: #fef2f2;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #fecaca;
+        }
+        pre { 
+            background: #f1f5f9; 
+            padding: 20px; 
+            border-radius: 8px; 
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        .button-group {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status-info {
+            background: #eff6ff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 COMPIA - Reset do Sistema</h1>
+        
+        <div class="status-info">
+            <strong>ℹ️ Sistema de Reparo COMPIA</strong><br>
+            Use este painel para diagnosticar e corrigir problemas do sistema COMPIA.
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="checkStatus()">📊 Verificar Status</button>
+            <button class="btn-danger" onclick="resetDatabase()">🔄 Reset Completo</button>
+            <button class="btn-success" onclick="openSystem()">🌐 Abrir Sistema</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            document.getElementById('result').innerHTML = '<p>⏳ Verificando status do sistema...</p>';
+            
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                if (data.database_connected) {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="success">
+                            <h3>✅ Sistema Funcionando</h3>
+                            <p><strong>Banco:</strong> Conectado</p>
+                            <p><strong>Tabelas:</strong> ${data.tables.length}</p>
+                            <p><strong>Última verificação:</strong> ${new Date(data.timestamp).toLocaleString()}</p>
+                            <details>
+                                <summary>Ver detalhes técnicos</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>`;
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="error">
+                            <h3>❌ Problema no Sistema</h3>
+                            <p>Banco de dados desconectado. Clique em "Reset Completo".</p>
+                            <pre>${data.error}</pre>
+                        </div>`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="error">
+                        <h3>❌ Erro de Conexão</h3>
+                        <p>Não foi possível conectar ao servidor. Verifique se está rodando.</p>
+                        <pre>Erro: ${error.message}</pre>
+                        <p><strong>Soluções:</strong></p>
+                        <ol>
+                            <li>Execute: <code>npm run dev</code></li>
+                            <li>Aguarde alguns segundos e tente novamente</li>
+                            <li>Verifique se a porta 5174 está disponível</li>
+                        </ol>
+                    </div>`;
+            }
+        }
+
+        async function resetDatabase() {
+            if (!confirm('⚠️ ATENÇÃO: Isso vai apagar todos os dados e recriar o banco de dados.\\n\\nTem certeza que quer continuar?')) {
+                return;
+            }
+            
+            document.getElementById('result').innerHTML = '<p>⏳ Resetando sistema... Pode demorar alguns segundos.</p>';
+            
+            try {
+                const response = await fetch('/api/reset/database', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="success">
+                            <h3>✅ ${data.message}</h3>
+                            <p>🎉 O sistema foi completamente resetado e está funcionando!</p>
+                            <p><strong>Dados criados:</strong></p>
+                            <ul>
+                                <li>✅ Tabelas do banco recriadas</li>
+                                <li>✅ Organização demo criada</li>
+                                <li>✅ Usuário admin criado (eng.tiagosm@gmail.com)</li>
+                                <li>✅ Template demo criado</li>
+                            </ul>
+                            <div style="margin-top: 20px;">
+                                <button class="btn-success" onclick="openSystem()">🌐 Abrir Sistema Agora</button>
+                                <button class="btn-primary" onclick="checkStatus()">📊 Verificar Status</button>
+                            </div>
+                        </div>`;
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="error">
+                            <h3>❌ Erro no Reset</h3>
+                            <p>Algo deu errado durante o reset.</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="error">
+                        <h3>❌ Erro de Conexão</h3>
+                        <p>Não foi possível executar o reset.</p>
+                        <pre>Erro: ${error.message}</pre>
+                    </div>`;
+            }
+        }
+
+        function openSystem() {
+            const systemUrl = 'http://localhost:5174/';
+            window.open(systemUrl, '_blank');
+        }
+
+        // Verificar status automaticamente ao carregar a página
+        window.addEventListener('load', function() {
+            setTimeout(checkStatus, 1000);
+        });
+    </script>
+</body>
+</html>

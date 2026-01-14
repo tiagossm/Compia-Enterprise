@@ -1,0 +1,7 @@
+﻿src/react-app/components/OrganizationHierarchy.tsx(186,38): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/react-app/components/OrganizationHierarchy.tsx(194,122): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/react-app/components/OrganizationHierarchy.tsx(202,36): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/react-app/pages/NewInspection.tsx(49,25): error TS6133: 'setSelectedOrgId' is declared but its value is never read.

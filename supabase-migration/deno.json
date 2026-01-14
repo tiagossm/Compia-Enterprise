@@ -1,0 +1,9 @@
+﻿{
+  "tasks": {
+    "start": "deno run --allow-net --allow-env supabase/functions/api/index.ts"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": false
+  }
+}

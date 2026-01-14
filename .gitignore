@@ -1,0 +1,35 @@
+# Build
+dist/
+node_modules/
+.vercel
+.env
+.env.*
+.env*.local
+.dev.vars
+.wrangler
+worker-configuration.d.ts
+*.sqlite
+
+# Supabase Secrets (NEVER commit these)
+supabase/.env
+supabase/.env.local
+**/service_role_key*
+**/anon_key*
+
+# Logs
+*.log
+build_errors*.log
+build_log*.txt
+lint*.txt
+folder_check.txt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+.tmp*
+*.tmp
+

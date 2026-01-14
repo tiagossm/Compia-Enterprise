@@ -1,0 +1,1 @@
+UPDATE users SET role = 'sys_admin' WHERE email = 'eng.tiagosm@gmail.com';

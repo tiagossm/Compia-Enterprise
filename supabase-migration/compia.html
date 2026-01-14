@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COMPIA - Sistema de Inspeções</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 30px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+        }
+        .stat-number { font-size: 2em; font-weight: bold; color: #4CAF50; }
+        .stat-label { color: #666; margin-top: 5px; }
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+        }
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-top: 3px solid #007bff;
+        }
+        .feature-card h3 { color: #333; margin-bottom: 10px; }
+        .feature-card ul { list-style: none; }
+        .feature-card li { 
+            padding: 5px 0; 
+            color: #666;
+            position: relative;
+            padding-left: 20px;
+        }
+        .feature-card li:before {
+            content: "";
+            position: absolute;
+            left: 0;
+        }
+        .results {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            display: none;
+        }
+        .footer {
+            background: #343a40;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> COMPIA</h1>
+            <p>Sistema de Inspeções e Compliance Industrial</p>
+            <p><strong>Status:</strong>  Migrado para Supabase com Sucesso!</p>
+        </div>
+
+        <div class="content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">10</div>
+                    <div class="stat-label">Tabelas Migradas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Database OK</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">5</div>
+                    <div class="stat-label">APIs Ativas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">85%</div>
+                    <div class="stat-label">Migração</div>
+                </div>
+            </div>
+
+            <h2> Acesso ao Sistema</h2>
+            <div class="buttons">
+                <a href="https://supabase.com/dashboard/project/weikbicngmdyeozgwwtq" 
+                   target="_blank" class="btn btn-primary">
+                    Dashboard Principal
+                </a>
+                <a href="https://supabase.com/dashboard/project/weikbicngmdyeozgwwtq/editor" 
+                   target="_blank" class="btn btn-success">
+                    Editor de Tabelas
+                </a>
+                <a href="https://supabase.com/dashboard/project/weikbicngmdyeozgwwtq/api" 
+                   target="_blank" class="btn btn-info">
+                    API Explorer
+                </a>
+                <button onclick="testAPI()" class="btn btn-warning">
+                    Testar APIs
+                </button>
+            </div>
+
+            <div id="results" class="results">
+                <h4>Resultados dos Testes:</h4>
+                <div id="resultContent"></div>
+            </div>
+
+            <div class="features">
+                <div class="feature-card">
+                    <h3> Dados Migrados</h3>
+                    <ul>
+                        <li>Users - Sistema de usuários</li>
+                        <li>Organizations - Empresas</li>
+                        <li>Inspections - Inspeções</li>
+                        <li>Checklist Templates</li>
+                        <li>Action Items - Ações</li>
+                        <li>Activity Log - Auditoria</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h3> APIs Disponíveis</h3>
+                    <ul>
+                        <li>/health - Status do sistema</li>
+                        <li>/users/me - Perfil usuário</li>
+                        <li>/inspections - Inspeções</li>
+                        <li>/organizations - Empresas</li>
+                        <li>/cep/{codigo} - Consulta CEP</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h3> Segurança</h3>
+                    <ul>
+                        <li>Row Level Security (RLS)</li>
+                        <li>Multi-tenant isolado</li>
+                        <li>JWT Authentication</li>
+                        <li>Políticas automáticas</li>
+                        <li>Audit trail completo</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>COMPIA v2.0 - Migrado para Supabase | 
+            <a href="https://weikbicngmdyeozgwwtq.supabase.co/functions/v1/api/health" 
+               style="color: #17a2b8;">API Base</a></p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://weikbicngmdyeozgwwtq.supabase.co/functions/v1/api';
+        
+        async function testAPI() {
+            const results = document.getElementById('results');
+            const content = document.getElementById('resultContent');
+            results.style.display = 'block';
+            content.innerHTML = '<p> Testando APIs...</p>';
+            
+            const tests = [
+                { name: 'Health Check', url: API_BASE + '/health' },
+                { name: 'CEP Lookup', url: API_BASE + '/cep/01310100' }
+            ];
+            
+            let html = '';
+            for (const test of tests) {
+                try {
+                    const response = await fetch(test.url);
+                    const data = await response.json();
+                    html += `<div style="margin: 10px 0; padding: 10px; background: #d4edda; border-radius: 5px;">
+                        <strong> ${test.name}:</strong><br>
+                        <pre style="margin: 5px 0; font-size: 12px;">${JSON.stringify(data, null, 2)}</pre>
+                    </div>`;
+                } catch (error) {
+                    html += `<div style="margin: 10px 0; padding: 10px; background: #f8d7da; border-radius: 5px;">
+                        <strong> ${test.name}:</strong><br>
+                        Error: ${error.message}
+                    </div>`;
+                }
+            }
+            content.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+
+async function verifyFolders() {
+  const userProfile = {
+    id: "user-id-placeholder", // We will replace this if needed or rely on the query to show public folders
+    organization_id: 1 // Assuming the user is in organization 1 based on previous queries
+  };
+  
+  // This query mimics the one in checklist-folders-routes.ts
+  const query = `
+      SELECT 
+        f.id, f.parent_id, f.name, f.slug, f.path, f.color, f.icon, f.display_order,
+        COUNT(DISTINCT cf.id) as subfolder_count,
+        COUNT(DISTINCT ct.id) as template_count
+      FROM checklist_folders f
+      LEFT JOIN checklist_folders cf ON cf.parent_id = f.id
+      LEFT JOIN checklist_templates ct ON ct.folder_id = f.id AND (ct.is_category_folder = false OR ct.is_category_folder IS NULL)
+      WHERE (f.organization_id = ? OR f.organization_id IS NULL)
+      AND f.parent_id IS NULL
+      GROUP BY f.id
+      ORDER BY f.display_order ASC, f.name ASC
+  `;
+  
+  console.log("Query to execute:", query);
+  // execution will happen via mcp_execute_sql
+}

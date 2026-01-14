@@ -1,0 +1,3 @@
+﻿src/react-app/pages/ActivitiesHub.tsx(5,26): error TS2307: Cannot find module '@/react-app/components/NewTaskModal' or its corresponding type declarations.
+src/react-app/pages/ActivitiesHub.tsx(6,32): error TS2307: Cannot find module '@/react-app/components/GamificationWidget' or its corresponding type declarations.
+src/react-app/pages/ActivitiesHub.tsx(7,25): error TS2307: Cannot find module '@/react-app/components/KanbanBoard' or its corresponding type declarations.

@@ -1,0 +1,1 @@
+UPDATE users SET role = 'admin', updated_at = datetime('now') WHERE id = '01990d69-5246-738d-8605-1ed319a3f98d';

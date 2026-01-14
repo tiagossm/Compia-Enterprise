@@ -1,0 +1,1885 @@
+import { useState } from 'react';
+import { FileDown, Loader2, X, Image } from 'lucide-react';
+import { InspectionType, InspectionItemType, InspectionMediaType } from '@/shared/types';
+import { useToast } from '@/react-app/hooks/useToast';
+
+interface PDFGeneratorProps {
+  inspection: InspectionType;
+  items: InspectionItemType[];
+  templateItems?: any[];
+  media: InspectionMediaType[];
+  responses: Record<number, any>;
+  signatures: { inspector?: string; responsible?: string };
+  isOpen: boolean;
+  onClose: () => void;
+  qrCodeDataUrl?: string;
+  shareLink?: string;
+  actionItems?: any[];
+  organizationLogoUrl?: string;
+  parentOrganizationLogoUrl?: string;
+  organizationName?: string;
+  parentOrganizationName?: string;
+  complianceEnabled?: boolean;
+}
+
+type LogoPreference = 'organization' | 'parent' | 'both' | 'none';
+export default function PDFGenerator({
+  inspection,
+  items,
+  templateItems = [],
+  media,
+  responses,
+  signatures,
+  isOpen,
+  onClose,
+  qrCodeDataUrl,
+  shareLink,
+  actionItems = [],
+  organizationLogoUrl,
+  parentOrganizationLogoUrl,
+  organizationName = 'Organização',
+  parentOrganizationName = 'Organização Matriz',
+  complianceEnabled = true
+}: PDFGeneratorProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // === ESTRUTURA DO RELATÓRIO ===
+  const [includeCover, setIncludeCover] = useState(true);
+  const [includeChecklist, setIncludeChecklist] = useState(true);
+  const [includeStats, setIncludeStats] = useState(complianceEnabled);
+
+  // === MÍDIAS ===
+  const [includeMedia, setIncludeMedia] = useState(true);
+  const [imageGridSize, setImageGridSize] = useState<'2x2' | '3x3' | '6x6'>('3x3');
+  const [includeAudioRefs, setIncludeAudioRefs] = useState(true);
+  const [includeMediaDownloadLink, setIncludeMediaDownloadLink] = useState(true);
+
+  // === PLANOS DE AÇÃO ===
+  const [includeActionPlan, setIncludeActionPlan] = useState(true);
+  const [actionPlanFormat, setActionPlanFormat] = useState<'compact' | 'full'>('compact');
+  const [inlineActionsPerQuestion, setInlineActionsPerQuestion] = useState(false);
+
+  // === VALIDAÇÃO E RASTREABILIDADE ===
+  const [includeSignatures, setIncludeSignatures] = useState(true);
+  const [includeQRCode, setIncludeQRCode] = useState(true);
+  const [logoPreference, setLogoPreference] = useState<LogoPreference>(
+    organizationLogoUrl && parentOrganizationLogoUrl ? 'both' :
+      organizationLogoUrl ? 'organization' :
+        parentOrganizationLogoUrl ? 'parent' : 'none'
+  );
+  const { success, error } = useToast();
+
+  if (!isOpen) return null;
+
+  const formatResponseValue = (value: any, fieldType: string) => {
+    switch (fieldType) {
+      case 'boolean':
+        const isTrue = value === true || value === 'true';
+        const isFalse = value === false || value === 'false';
+
+        if (!isTrue && !isFalse) {
+          return 'Não respondido';
+        }
+
+        return isTrue ? 'Conforme ✓' : 'Não Conforme ✗';
+      case 'rating':
+        if (value === null || value === undefined || value === '') {
+          return 'Não respondido';
+        }
+        return `${value}/5 estrelas`;
+      case 'multiselect':
+        if (value === null || value === undefined || value === '') {
+          return 'Não respondido';
+        }
+        if (Array.isArray(value)) {
+          return value.join(', ');
+        }
+        return String(value);
+      default:
+        if (value === null || value === undefined || value === '') {
+          return 'Não respondido';
+        }
+        return String(value);
+    }
+  };
+
+  // Calculate statistics
+  const stats = {
+    totalItems: 0,
+    compliantItems: 0,
+    nonCompliantItems: 0,
+    conformanceRate: 0
+  };
+
+  // Count manual items
+  items.forEach(item => {
+    if (item.is_compliant === true) {
+      stats.compliantItems++;
+      stats.totalItems++;
+    } else if (item.is_compliant === false) {
+      stats.nonCompliantItems++;
+      stats.totalItems++;
+    }
+  });
+
+  // Count template items
+  templateItems.forEach((item) => {
+    try {
+      const fieldData = JSON.parse(item.field_responses);
+      const response = responses[fieldData.field_id];
+      if (fieldData.field_type === 'boolean') {
+        if (response === true || response === 'true') {
+          stats.compliantItems++;
+          stats.totalItems++;
+        } else if (response === false || response === 'false') {
+          stats.nonCompliantItems++;
+          stats.totalItems++;
+        }
+      } else if (response !== null && response !== undefined && response !== '') {
+        stats.compliantItems++;
+        stats.totalItems++;
+      }
+    } catch (error) {
+      console.error('Error processing template item:', error);
+    }
+  });
+
+  stats.conformanceRate = stats.totalItems > 0 ? Math.round((stats.compliantItems / stats.totalItems) * 100) : 0;
+
+  const generatePDFHTML = () => {
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Inspeção - ${inspection.title}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    @page { margin: 10mm; size: A4; }
+    @media print {
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .page-break { page-break-before: always; }
+      .no-break { page-break-inside: avoid; }
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: 'Inter', sans-serif; 
+      line-height: 1.5; 
+      color: #0f172a;
+      background: #f6f7f8;
+      font-size: 12px;
+    }
+    
+    /* Container */
+    .report-container {
+      max-width: 100%;
+      background: white;
+      min-height: 100vh;
+    }
+    
+    /* Header */
+    .report-header {
+      padding: 24px 20px 8px;
+    }
+    .header-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #f1f5f9;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .report-id {
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .report-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+    .report-meta {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .report-meta strong {
+      color: #334155;
+      font-weight: 500;
+    }
+    /* Stats Row */
+    .stats-row {
+      display: flex;
+      gap: 12px;
+      padding: 16px 20px;
+    }
+    .stat-card {
+      flex: 1;
+      min-width: 80px;
+      padding: 16px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .stat-card.warning {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+    .stat-card.warning .stat-label { color: #ea580c; }
+    .stat-card.warning .stat-value { color: #c2410c; }
+    .stat-card.success {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .stat-card.success .stat-label { color: #16a34a; }
+    .stat-card.success .stat-value { color: #15803d; }
+    .stat-card.danger {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .stat-card.danger .stat-label { color: #dc2626; }
+    .stat-card.danger .stat-value { color: #b91c1c; }
+    .stat-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .stat-value small {
+      font-size: 12px;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+    
+    /* Dividers */
+    .divider { height: 1px; background: #e2e8f0; margin: 8px 20px; }
+    .divider-thick { height: 8px; background: #f1f5f9; margin: 8px 0; }
+    
+    /* Section */
+    .section-header {
+      padding: 16px 20px;
+      background: white;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Checklist Items */
+    .checklist-item {
+      padding: 16px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      page-break-inside: avoid;
+    }
+    .checklist-item.non-compliant {
+      background: rgba(239, 68, 68, 0.03);
+    }
+    .item-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .item-icon {
+      width: 20px;
+      font-size: 18px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .item-icon.success { color: #22c55e; }
+    .item-icon.danger { color: #ef4444; }
+    .item-icon.warning { color: #f59e0b; }
+    .item-content { flex: 1; }
+    .item-question {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .item-answer {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.5;
+    }
+    
+    /* AI Analysis Box */
+    .ai-box {
+      margin-top: 12px;
+      background: rgba(19, 127, 236, 0.05);
+      border: 1px solid rgba(19, 127, 236, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ai-box::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: #137fec;
+    }
+    .ai-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #137fec;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      padding-left: 8px;
+    }
+    .ai-text {
+      font-size: 12px;
+      color: #334155;
+      font-style: italic;
+      line-height: 1.5;
+      padding-left: 8px;
+    }
+    
+    /* Media Grid */
+    .media-grid {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .media-thumb {
+      width: 120px;
+      height: 90px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #e2e8f0;
+    }
+    .media-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .media-audio {
+      width: 120px;
+      height: 90px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .media-audio-icon { font-size: 24px; }
+    .media-audio-text { font-size: 10px; color: #137fec; font-weight: 500; }
+    
+    /* Action Cards */
+    .action-card {
+      background: white;
+      padding: 16px;
+      margin: 8px 20px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      position: relative;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    .action-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+    }
+    .action-card.high::before { background: #ef4444; }
+    .action-card.medium::before { background: #f59e0b; }
+    .action-card.low::before { background: #22c55e; }
+    .action-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      padding-left: 8px;
+    }
+    .priority-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+    .priority-badge.high { background: #fef2f2; color: #dc2626; }
+    .priority-badge.medium { background: #fff7ed; color: #ea580c; }
+    .priority-badge.low { background: #f0fdf4; color: #16a34a; }
+    .action-deadline {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+    .action-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+      padding-left: 8px;
+    }
+    .action-desc {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 12px;
+      padding-left: 8px;
+    }
+    .action-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0 0 8px;
+      border-top: 1px solid #f1f5f9;
+    }
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    
+    /* Signatures */
+    .signature-card {
+      padding: 16px;
+      margin: 8px 20px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px dashed #cbd5e1;
+      page-break-inside: avoid;
+    }
+    .signature-area {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .signature-area img {
+      max-height: 50px;
+      max-width: 150px;
+    }
+    .signature-name-display {
+      font-size: 28px;
+      font-family: 'Brush Script MT', cursive;
+      color: #334155;
+      font-style: italic;
+      opacity: 0.8;
+    }
+    .signature-line {
+      height: 1px;
+      background: #cbd5e1;
+      margin-bottom: 12px;
+    }
+    .signature-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .signature-role {
+      font-size: 10px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .signature-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .signature-date-label {
+      font-size: 9px;
+      color: #94a3b8;
+    }
+    .signature-date-value {
+      font-size: 11px;
+      color: #64748b;
+    }
+    
+    /* Footer */
+    .report-footer {
+      padding: 24px 20px;
+      text-align: center;
+      color: #64748b;
+      font-size: 11px;
+      border-top: 1px solid #e2e8f0;
+      margin-top: 24px;
+    }
+    .report-footer strong {
+      color: #0f172a;
+    }
+    
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  </style>
+</head>
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      color: white;
+    }
+    .cover-page::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0; left: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.3;
+    }
+    .cover-logo-area {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+      z-index: 1;
+    }
+    .cover-logo {
+      max-height: 80px;
+      max-width: 200px;
+      background: white;
+      padding: 15px 25px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .cover-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .cover-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      position: relative;
+      z-index: 1;
+    }
+    .cover-subtitle {
+      font-size: 16px;
+      opacity: 0.9;
+      margin-bottom: 40px;
+      position: relative;
+      z-index: 1;
+    }
+    .cover-info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin: 30px 0;
+      position: relative;
+      z-index: 1;
+    }
+    .cover-info-card {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .cover-info-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.8;
+      margin-bottom: 5px;
+    }
+    .cover-info-value {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .cover-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-top: auto;
+      position: relative;
+      z-index: 1;
+    }
+    .cover-stat {
+      background: white;
+      color: var(--gray-900);
+      padding: 20px 15px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .cover-stat-number {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .cover-stat-number.success { color: var(--success); }
+    .cover-stat-number.danger { color: var(--danger); }
+    .cover-stat-number.primary { color: var(--primary); }
+    .cover-stat-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--gray-500);
+      font-weight: 600;
+    }
+    .cover-footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 11px;
+      opacity: 0.7;
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* CONTENT PAGES */
+    .content-page {
+      padding: 30px;
+      background: var(--gray-50);
+      min-height: 100vh;
+    }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--primary);
+      margin-bottom: 25px;
+    }
+    .page-header-logo {
+      max-height: 40px;
+    }
+    .page-header-info {
+      text-align: right;
+      font-size: 10px;
+      color: var(--gray-500);
+    }
+    
+    /* SECTION TITLES */
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 30px 0 20px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+    .section-title-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+    }
+    
+    /* CHECKLIST CARDS */
+    .checklist-item {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 15px 0;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      border: 1px solid var(--gray-200);
+      page-break-inside: avoid;
+    }
+    .item-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .item-number {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .item-content { flex: 1; }
+    .item-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gray-900);
+      margin-bottom: 5px;
+    }
+    .item-response {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .item-response.conforme {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .item-response.nao-conforme {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .item-response.pendente {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    /* AI ANALYSIS */
+    .ai-analysis {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-left: 4px solid var(--primary);
+      padding: 15px;
+      margin: 12px 0;
+      border-radius: 0 12px 12px 0;
+    }
+    .ai-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--primary);
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    
+    /* MEDIA GRID */
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(${imageGridSize === '2x2' ? 2 : imageGridSize === '3x3' ? 3 : 6}, 1fr);
+      gap: 15px;
+      margin: 15px 0;
+    }
+    .media-item {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid var(--gray-200);
+    }
+    .media-item img {
+      width: 100%;
+      height: ${imageGridSize === '2x2' ? '180px' : imageGridSize === '3x3' ? '140px' : '80px'};
+      object-fit: cover;
+      background: var(--gray-100);
+    }
+    .media-info {
+      padding: 10px;
+      background: white;
+    }
+    .media-filename {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--gray-700);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .media-audio {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      padding: 20px;
+      text-align: center;
+      border-radius: 12px;
+    }
+    .media-audio-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    
+    /* SIGNATURES */
+    .signatures-section {
+      margin-top: 40px;
+    }
+    .signatures-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 30px;
+      margin-top: 20px;
+    }
+    .signature-box {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      border: 1px solid var(--gray-200);
+    }
+    .signature-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 15px;
+    }
+    .signature-preview {
+      height: 100px;
+      border: 2px dashed var(--gray-300);
+      border-radius: 12px;
+      margin: 15px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gray-50);
+    }
+    .signature-preview img {
+      max-height: 80px;
+      max-width: 90%;
+    }
+    .signature-line {
+      border-top: 2px solid var(--gray-900);
+      width: 180px;
+      margin: 15px auto 10px;
+    }
+    .signature-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+    .signature-role {
+      font-size: 11px;
+      color: var(--gray-500);
+      margin-top: 3px;
+    }
+    
+    /* ACTION PLANS */
+    .action-plans-section {
+      margin: 30px 0;
+    }
+    .action-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .action-table th {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      padding: 14px 12px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .action-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 11px;
+      background: white;
+    }
+    .action-table tr:last-child td {
+      border-bottom: none;
+    }
+    .action-table tr:nth-child(even) td {
+      background: var(--gray-50);
+    }
+    .priority-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .priority-badge.alta, .priority-badge.critica {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .priority-badge.media {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .priority-badge.baixa {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 9px;
+      font-weight: 600;
+    }
+    .status-badge.pendente {
+      background: var(--gray-200);
+      color: var(--gray-700);
+    }
+    .status-badge.em-progresso {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .status-badge.concluido {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    /* FOOTER */
+    .footer {
+      margin-top: 50px;
+      padding: 25px;
+      background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-700) 100%);
+      border-radius: 16px;
+      color: white;
+      text-align: center;
+    }
+    .footer-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .footer-text {
+      font-size: 10px;
+      opacity: 0.8;
+      margin: 3px 0;
+    }
+    .footer-link {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    
+    /* QR CODE SECTION */
+    .qr-section {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-radius: 16px;
+      padding: 30px;
+      margin: 30px 0;
+      display: flex;
+      align-items: center;
+      gap: 30px;
+    }
+    .qr-code-box {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .qr-code-box img {
+      width: 120px;
+      height: 120px;
+    }
+    .qr-info {
+      flex: 1;
+    }
+    .qr-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+    .qr-features {
+      list-style: none;
+      font-size: 11px;
+      color: var(--gray-700);
+      line-height: 1.8;
+    }
+    .qr-features li::before {
+      content: '✓ ';
+      color: var(--success);
+      font-weight: bold;
+    }
+    
+    /* DOWNLOAD SECTION */
+    .download-section {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      margin: 30px 0;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      border: 1px solid var(--gray-200);
+    }
+    .download-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .download-item {
+      background: var(--gray-50);
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--gray-700);
+    }
+    .download-icon {
+      font-size: 20px;
+    }
+    
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+    <!-- Report Header -->
+    <div class="report-header">
+      <div class="header-meta">
+        <span class="status-badge">${inspection.status === 'concluida' ? 'Finalizado' : inspection.status === 'em_andamento' ? 'Em Andamento' : 'Pendente'}</span>
+        <span class="report-id">ID #${String(inspection.id || '').substring(0, 8) || '0000'}</span>
+      </div>
+      <h1 class="report-title">${inspection.title}</h1>
+      <p class="report-meta">
+        Realizado por <strong>${inspection.inspector_name}</strong><br/>
+        ${inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('pt-BR')} • ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+      </p>
+    </div>
+    
+    <!-- Stats Row -->
+    ${includeStats ? `
+    <div class="stats-row">
+      <div class="stat-card">
+        <p class="stat-label">Pontuação</p>
+        <p class="stat-value">${stats.conformanceRate}<small>/100</small></p>
+      </div>
+      <div class="stat-card ${stats.nonCompliantItems > 0 ? 'warning' : 'success'}">
+        <p class="stat-label">Status</p>
+        <p class="stat-value">${stats.nonCompliantItems > 0 ? 'Atenção' : 'OK'}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label">Local</p>
+        <p class="stat-value">${inspection.location || '-'}</p>
+      </div>
+    </div>
+    ` : ''}
+    
+    <div class="divider"></div>
+
+
+  ${templateItems.length > 0 ? `
+  <h2>Checklist Respondido</h2>
+  ${templateItems.map((item, index) => {
+      try {
+        const fieldData = JSON.parse(item.field_responses);
+        const response = responses[fieldData.field_id];
+        const comment = (responses as Record<string, any>)[`comment_${fieldData.field_id}`];
+        const itemMedia = media.filter(m => m.inspection_item_id === item.id);
+
+        return `
+      <div class="checklist-item">
+        <div class="item-header">
+          <div class="item-number">${index + 1}</div>
+          <div class="item-title">${item.item_description}</div>
+        </div>
+        <div class="item-response">
+          <div class="response-label">Resposta:</div>
+          <div class="${response === true || response === 'true' ? 'conforme' : response === false || response === 'false' ? 'nao-conforme' : ''}">${formatResponseValue(response, fieldData.field_type)}</div>
+        </div>
+        ${comment ? `
+        <div class="item-response">
+          <div class="response-label">Comentário:</div>
+          <div>${comment}</div>
+        </div>` : ''}
+        ${item.ai_pre_analysis ? `
+        <div class="ai-analysis">
+          <div class="ai-label">Análise IA:</div>
+          <div>${item.ai_pre_analysis}</div>
+        </div>` : ''}
+        ${includeActionPlan && item.ai_action_plan ? (() => {
+            try {
+              const actionPlan = JSON.parse(item.ai_action_plan);
+              if (!actionPlan?.actions?.length) return '';
+              return `
+            <div class="action-plan">
+              <h4>Plano de Ação (IA)</h4>
+              ${actionPlan.summary ? `<p style="margin-bottom: 10px;">${actionPlan.summary}</p>` : ''}
+              ${actionPlan.actions.map((action: any, i: number) => `
+                <div class="action-item">
+                  <strong>Ação ${i + 1}:</strong> ${action.item || action.what}
+                  <div class="w5-grid">
+                    <div class="w5-item"><span class="w5-label">O que:</span> ${action.what}</div>
+                    <div class="w5-item"><span class="w5-label">Onde:</span> ${action.where}</div>
+                    <div class="w5-item"><span class="w5-label">Por que:</span> ${action.why}</div>
+                    <div class="w5-item"><span class="w5-label">Como:</span> ${action.how}</div>
+                    <div class="w5-item"><span class="w5-label">Quando:</span> ${action.when}</div>
+                    <div class="w5-item"><span class="w5-label">Quem:</span> ${action.who}</div>
+                    <div class="w5-item" style="grid-column: 1/-1;"><span class="w5-label">Quanto:</span> ${action.how_much}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>`;
+            } catch (e) {
+              return '';
+            }
+          })() : ''
+          }
+        ${includeMedia && itemMedia.length > 0 ? `
+        <div>
+          <div class="response-label">Evidências (${itemMedia.length}):</div>
+          <div class="media-grid">
+            ${itemMedia.map(mediaItem => {
+            if (mediaItem.media_type === 'image' && mediaItem.file_url.startsWith('data:image/')) {
+              return `
+                <div class="media-item">
+                  <img src="${mediaItem.file_url}" alt="${mediaItem.file_name}" />
+                  <div class="media-info">
+                    <div class="media-filename">${mediaItem.file_name}</div>
+                    ${mediaItem.description ? `<div class="media-description">${mediaItem.description}</div>` : ''}
+                  </div>
+                </div>`;
+            }
+            if (mediaItem.media_type === 'audio' && includeAudioRefs) {
+              return `
+                <div class="media-item" style="background: #f0f9ff; border-color: #60a5fa;">
+                  <div class="media-info" style="padding: 12px; text-align: center;">
+                    <div style="font-size: 24px; margin-bottom: 8px;">🔊</div>
+                    <div class="media-filename">${mediaItem.file_name}</div>
+                    <a href="${mediaItem.file_url}" target="_blank" style="color: #2563eb; font-size: 10px; text-decoration: underline; display: block; margin-top: 4px;">Ouvir online</a>
+                    ${mediaItem.description ? `<div class="media-description">${mediaItem.description}</div>` : ''}
+                  </div>
+                </div>`;
+            }
+            return `
+              <div class="media-item">
+                <div class="media-info">
+                  <div class="media-filename">📁 ${mediaItem.file_name}</div>
+                  <div class="media-description">${mediaItem.media_type.toUpperCase()}</div>
+                  ${mediaItem.description ? `<div class="media-description">${mediaItem.description}</div>` : ''}
+                </div>
+              </div>`;
+          }).join('')}
+          </div>
+        </div>` : ''
+          }
+      </div>`;
+      } catch (e) {
+        return '';
+      }
+    }).join('')}` : ''
+      }
+
+  ${items.length > 0 ? `
+  <h2>Itens Manuais</h2>
+  ${items.map((item, index) => {
+        const itemMedia = media.filter(m => m.inspection_item_id === item.id);
+        return `
+    <div class="checklist-item">
+      <div class="item-header">
+        <div class="item-number">${index + 1}</div>
+        <div>
+          <div class="item-title">${item.item_description}</div>
+          <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">📂 ${item.category}</div>
+        </div>
+      </div>
+      <div class="item-response">
+        <div class="response-label">Status:</div>
+        <div class="${item.is_compliant === true ? 'conforme' : item.is_compliant === false ? 'nao-conforme' : ''}">
+          ${item.is_compliant === true ? 'Conforme ✓' : item.is_compliant === false ? 'Não Conforme ✗' : 'Não Avaliado'}
+        </div>
+      </div>
+      ${item.observations ? `
+      <div class="item-response">
+        <div class="response-label">Observações:</div>
+        <div>${item.observations}</div>
+      </div>` : ''}
+      ${includeMedia && itemMedia.length > 0 ? `
+      <div>
+        <div class="response-label">Evidências (${itemMedia.length}):</div>
+        <div class="media-grid">
+          ${itemMedia.map(mediaItem => {
+          if (mediaItem.media_type === 'image' && mediaItem.file_url.startsWith('data:image/')) {
+            return `
+              <div class="media-item">
+                <img src="${mediaItem.file_url}" alt="${mediaItem.file_name}" />
+                <div class="media-info">
+                  <div class="media-filename">${mediaItem.file_name}</div>
+                  ${mediaItem.description ? `<div class="media-description">${mediaItem.description}</div>` : ''}
+                </div>
+              </div>`;
+          }
+          if (mediaItem.media_type === 'audio' && includeAudioRefs) {
+            return `
+              <div class="media-item" style="background: #f0f9ff; border-color: #60a5fa;">
+                <div class="media-info" style="padding: 12px; text-align: center;">
+                  <div style="font-size: 24px; margin-bottom: 8px;">🔊</div>
+                  <div class="media-filename">${mediaItem.file_name}</div>
+                  <a href="${mediaItem.file_url}" target="_blank" style="color: #2563eb; font-size: 10px; text-decoration: underline; display: block; margin-top: 4px;">Ouvir online</a>
+                  ${mediaItem.description ? `<div class="media-description">${mediaItem.description}</div>` : ''}
+                </div>
+              </div>`;
+          }
+          return `
+            <div class="media-item">
+              <div class="media-info">
+                <div class="media-filename">📁 ${mediaItem.file_name}</div>
+                <div class="media-description">${mediaItem.media_type.toUpperCase()}</div>
+                ${mediaItem.description ? `<div class="media-description">${mediaItem.description}</div>` : ''}
+              </div>
+            </div>`;
+        }).join('')}
+        </div>
+      </div>` : ''
+          }
+    </div>`;
+      }).join('')}` : ''
+      }
+
+  ${includeActionPlan && actionItems.length > 0 ? `
+  <h2>Planos de Ação Executivos</h2>
+  <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+    <p style="color: #1e40af; font-weight: 600; margin-bottom: 15px;">
+      Total de ${actionItems.length} ${actionItems.length === 1 ? 'ação identificada' : 'ações identificadas'}
+    </p>
+    ${actionPlanFormat === 'compact' ? `
+    <!-- FORMATO RESUMIDO -->
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr style="background: #e0e7ff;">
+          <th style="padding: 10px; text-align: left; border: 1px solid #c7d2fe;">#</th>
+          <th style="padding: 10px; text-align: left; border: 1px solid #c7d2fe;">Ação</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #c7d2fe;">Prioridade</th>
+          <th style="padding: 10px; text-align: left; border: 1px solid #c7d2fe;">Responsável</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #c7d2fe;">Prazo</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #c7d2fe;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${actionItems.map((action: any, index: number) => `
+        <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">${index + 1}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb;">${action.title}${action.what_description ? ` - ${action.what_description.substring(0, 60)}...` : ''}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">
+            <span style="background: ${action.priority === 'alta' || action.priority === 'critica' ? '#fef2f2; color: #991b1b' : action.priority === 'media' ? '#fefce8; color: #92400e' : '#f0fdf4; color: #166534'}; padding: 2px 8px; border-radius: 10px; font-size: 10px;">${action.priority || 'média'}</span>
+          </td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb;">${action.who_responsible || '-'}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${action.when_deadline ? new Date(action.when_deadline).toLocaleDateString('pt-BR') : '-'}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">
+            <span style="background: ${action.status === 'completed' ? '#f0fdf4; color: #166534' : action.status === 'in_progress' ? '#eff6ff; color: #1d4ed8' : '#f3f4f6; color: #374151'}; padding: 2px 8px; border-radius: 10px; font-size: 10px;">${action.status === 'pending' ? 'Pendente' : action.status === 'in_progress' ? 'Em Progresso' : action.status === 'completed' ? 'Concluído' : action.status}</span>
+          </td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ` : `
+    <!-- FORMATO COMPLETO -->
+    ${actionItems.map((action: any, index: number) => `
+      <div class="checklist-item" style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 15px;">
+          <h4 style="color: #111827; font-size: 16px; font-weight: 600;">${index + 1}. ${action.title}</h4>
+          <div style="display: flex; gap: 8px;">
+            <span style="background: ${action.priority === 'alta' || action.priority === 'critica' ? '#fef2f2; color: #991b1b' :
+          action.priority === 'media' ? '#fefce8; color: #92400e' :
+            '#f0fdf4; color: #166534'
+        }; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+              ${action.priority || 'média'}
+            </span>
+            <span style="background: ${action.status === 'completed' ? '#f0fdf4; color: #166534' :
+          action.status === 'in_progress' ? '#eff6ff; color: #1d4ed8' :
+            '#f3f4f6; color: #374151'
+        }; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+              ${action.status === 'pending' ? 'Pendente' :
+          action.status === 'in_progress' ? 'Em Progresso' :
+            action.status === 'completed' ? 'Concluído' : action.status}
+            </span>
+          </div>
+        </div>
+        
+        ${action.is_ai_generated ? `
+        <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: #7c3aed; font-size: 11px;">
+          <span>Gerado por Inteligência Artificial</span>
+        </div>` : ''}
+        
+        <div class="w5-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 10px;">
+          ${action.what_description ? `
+          <div style="background: #fef2f2; padding: 10px; border-radius: 6px; border-left: 3px solid #ef4444;">
+            <div class="w5-label" style="font-weight: 600; color: #b91c1c; margin-bottom: 4px;">O que:</div>
+            <div style="color: #7f1d1d; font-size: 13px;">${action.what_description}</div>
+          </div>` : ''}
+          ${action.where_location ? `
+          <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border-left: 3px solid #22c55e;">
+            <div class="w5-label" style="font-weight: 600; color: #15803d; margin-bottom: 4px;">Onde:</div>
+            <div style="color: #14532d; font-size: 13px;">${action.where_location}</div>
+          </div>` : ''}
+          ${action.why_reason ? `
+          <div style="background: #eff6ff; padding: 10px; border-radius: 6px; border-left: 3px solid #3b82f6;">
+            <div class="w5-label" style="font-weight: 600; color: #1d4ed8; margin-bottom: 4px;">Por que:</div>
+            <div style="color: #1e3a8a; font-size: 13px;">${action.why_reason}</div>
+          </div>` : ''}
+          ${action.how_method ? `
+          <div style="background: #f0f9ff; padding: 10px; border-radius: 6px; border-left: 3px solid #6366f1;">
+            <div class="w5-label" style="font-weight: 600; color: #4338ca; margin-bottom: 4px;">Como:</div>
+            <div style="color: #312e81; font-size: 13px;">${action.how_method}</div>
+          </div>` : ''}
+          ${action.who_responsible ? `
+          <div style="background: #faf5ff; padding: 10px; border-radius: 6px; border-left: 3px solid #a855f7;">
+            <div class="w5-label" style="font-weight: 600; color: #7c2d12; margin-bottom: 4px;">Quem:</div>
+            <div style="color: #581c87; font-size: 13px;">${action.who_responsible}</div>
+          </div>` : ''}
+          ${action.when_deadline ? `
+          <div style="background: #fefce8; padding: 10px; border-radius: 6px; border-left: 3px solid #eab308;">
+            <div class="w5-label" style="font-weight: 600; color: #92400e; margin-bottom: 4px;">Quando:</div>
+            <div style="color: #78350f; font-size: 13px;">${new Date(action.when_deadline).toLocaleDateString('pt-BR')}</div>
+          </div>` : ''}
+          ${action.how_much_cost ? `
+          <div style="grid-column: 1/-1; background: #fff7ed; padding: 10px; border-radius: 6px; border-left: 3px solid #f97316;">
+            <div class="w5-label" style="font-weight: 600; color: #c2410c; margin-bottom: 4px;">Quanto:</div>
+            <div style="color: #9a3412; font-size: 13px;">${action.how_much_cost}</div>
+          </div>` : ''}
+        </div>
+        
+        ${action.assigned_to ? `
+        <div style="margin-top: 12px; padding: 8px; background: #f8fafc; border-radius: 4px; font-size: 11px;">
+          <span style="font-weight: 600; color: #374151;">Atribuído a:</span>
+          <span style="color: #111827; margin-left: 6px;">${action.assigned_to}</span>
+        </div>` : ''}
+      </div>
+    `).join('')}
+    `}
+  </div>` : ''
+      }
+
+  ${includeSignatures ? `
+  <div class="signatures-section page-break">
+    <h2>Assinaturas Digitais</h2>
+    <div class="signatures-grid">
+      <div class="signature-box">
+        <h3>Assinatura do Inspetor</h3>
+        <div class="signature-preview">
+          ${signatures.inspector ? `<img src="${signatures.inspector}" alt="Assinatura do Inspetor" />` : '<div style="color: #9ca3af;">Assinatura não disponível</div>'}
+        </div>
+        <div class="signature-line"></div>
+        <div class="signature-name">${inspection.inspector_name}</div>
+        <div class="signature-role">Inspetor Responsável</div>
+      </div>
+      <div class="signature-box">
+        <h3>Assinatura do Responsável</h3>
+        <div class="signature-preview">
+          ${signatures.responsible ? `<img src="${signatures.responsible}" alt="Assinatura do Responsável" />` : '<div style="color: #9ca3af;">Assinatura não disponível</div>'}
+        </div>
+        <div class="signature-line"></div>
+        <div class="signature-name">${inspection.responsible_name || 'Responsável Técnico'}</div>
+        <div class="signature-role">Empresa</div>
+      </div>
+    </div>
+  </div>` : ''
+      }
+
+  ${includeQRCode && qrCodeDataUrl ? `
+  <div class="page-break" style="text-align: center; margin-top: 40px; padding: 30px; border-top: 3px solid #3b82f6; background: linear-gradient(135deg, #f0f9ff, #e0f2fe);">
+    <h2 style="color: #1e40af; font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+      Acesse o Relatório Digital
+    </h2>
+    
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; align-items: center; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center;">
+        <div style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); display: inline-block;">
+          <img src="${qrCodeDataUrl}" alt="QR Code do Relatório" style="width: 150px; height: 150px; display: block;">
+        </div>
+        <p style="font-size: 12px; color: #1e40af; margin-top: 15px; font-weight: 600;">
+          Escaneie com a câmera do celular
+        </p>
+      </div>
+      
+      <div style="text-align: left;">
+        <h3 style="color: #1e40af; font-size: 16px; margin-bottom: 15px;">Recursos Digitais:</h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 12px; line-height: 1.8;">
+          <li style="margin-bottom: 8px;"><strong>Evidências Interativas:</strong> Visualize fotos, vídeos e áudios</li>
+          <li style="margin-bottom: 8px;"><strong>GPS Navegável:</strong> Coordenadas clicáveis para mapas</li>
+          <li style="margin-bottom: 8px;"><strong>Análises da IA:</strong> Planos de ação detalhados</li>
+          <li style="margin-bottom: 8px;"><strong>Assinaturas Digitais:</strong> Verificação de autenticidade</li>
+          <li style="margin-bottom: 8px;"><strong>Dashboard Dinâmico:</strong> Estatísticas atualizadas</li>
+        </ul>
+        
+        ${shareLink ? `
+        <div style="margin-top: 20px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #d1d5db;">
+          <p style="font-size: 10px; color: #374151; margin: 0 0 5px 0;"><strong>🔗 Link direto:</strong></p>
+          <p style="font-size: 9px; color: #6b7280; word-break: break-all; margin: 0;">${shareLink}</p>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+  </div>
+  ` : ''
+      }
+  ${includeMediaDownloadLink && media.length > 0 ? `
+  <div style="margin-top: 30px; padding: 20px; background: #f0f9ff; border: 1px solid #60a5fa; border-radius: 8px;">
+    <h3 style="color: #1e40af; font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+      📥 Mídias Disponíveis para Download
+    </h3>
+    <p style="font-size: 12px; color: #374151; margin-bottom: 15px;">
+      Acesse as mídias completas através do relatório digital ou dos links abaixo:
+    </p>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 11px;">
+      ${media.slice(0, 12).map((m, i) => `
+        <div style="background: white; padding: 8px; border-radius: 4px; border: 1px solid #e5e7eb;">
+          <span style="margin-right: 6px;">${m.media_type === 'image' ? '🖼️' : m.media_type === 'video' ? '🎬' : m.media_type === 'audio' ? '🔊' : '📁'}</span>
+          <span style="color: #374151;">${m.file_name?.substring(0, 25) || 'Arquivo ' + (i + 1)}${m.file_name && m.file_name.length > 25 ? '...' : ''}</span>
+        </div>
+      `).join('')}
+      ${media.length > 12 ? `
+        <div style="background: #e0e7ff; padding: 8px; border-radius: 4px; text-align: center; color: #4338ca;">
+          +${media.length - 12} arquivos adicionais
+        </div>
+      ` : ''}
+    </div>
+    ${shareLink ? `
+    <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 4px; border: 1px dashed #60a5fa;">
+      <span style="font-size: 11px; color: #1e40af;">🔗 Acesse todas as mídias em: </span>
+      <span style="font-size: 10px; color: #6b7280; word-break: break-all;">${shareLink}</span>
+    </div>
+    ` : ''}
+  </div>
+  ` : ''}
+
+                      <div class="footer">
+                        <div class="footer-title">📋 Relatório gerado pelo Sistema Compia</div>
+                        <div class="footer-text">Este documento possui validade legal conforme legislação vigente</div>
+                        <div class="footer-text">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+                        ${inspection.latitude && inspection.longitude ? `
+                        <div class="footer-text" style="margin-top: 10px;">
+                          📍 <strong>GPS:</strong> 
+                          <a href="https://www.google.com/maps/search/?api=1&query=${inspection.latitude},${inspection.longitude}" target="_blank" class="footer-link">
+                            ${inspection.latitude.toFixed(6)}, ${inspection.longitude.toFixed(6)}
+                          </a>
+                        </div>` : ''}
+                        ${media.length > 0 ? `<div class="footer-text">🎬 <strong>${media.length} mídias</strong> disponíveis na versão digital</div>` : ''}
+                      </div>
+  </div><!-- close content-page -->
+</body>
+</html>`;
+  };
+
+  const handleGeneratePDF = async () => {
+    setIsGenerating(true);
+    try {
+      // Show initial progress
+      success('Gerando PDF', 'Preparando o relatório... Por favor, aguarde.');
+
+      const htmlContent = generatePDFHTML();
+
+      // Create Blob URL to avoid about:blank in print header
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Open with Blob URL - this gives the window a proper URL instead of about:blank
+      const printWindow = window.open(blobUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+      if (!printWindow) {
+        URL.revokeObjectURL(blobUrl); // Clean up
+        throw new Error('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está desativado.');
+      }
+
+      // Set up error handling for the new window
+      printWindow.onerror = (msg, url, lineNo, columnNo, error) => {
+        console.error('Erro na janela de PDF:', { msg, url, lineNo, columnNo, error });
+        URL.revokeObjectURL(blobUrl); // Clean up
+        throw new Error('Erro ao carregar conteúdo do PDF');
+      };
+      // Enhanced loading wait with multiple fallbacks
+      await new Promise((resolve, reject) => {
+        let resolved = false;
+
+        // Primary load event
+        printWindow.onload = () => {
+          if (!resolved) {
+            resolved = true;
+            resolve(true);
+          }
+        };
+
+        // Fallback for when document is ready
+        const checkReady = () => {
+          if (printWindow.document.readyState === 'complete' && !resolved) {
+            resolved = true;
+            resolve(true);
+          }
+        };
+
+        // Check readiness multiple times
+        setTimeout(checkReady, 500);
+        setTimeout(checkReady, 1000);
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve(true); // Force resolve after timeout
+          }
+        }, 3000);
+
+        // Error timeout
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            reject(new Error('Timeout ao carregar conteúdo do PDF'));
+          }
+        }, 10000);
+      });
+
+      // Additional delay to ensure all images are loaded
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Focus window and trigger print dialog
+      printWindow.focus();
+
+      // Check if window is still available before printing
+      if (printWindow.closed) {
+        throw new Error('A janela foi fechada prematuramente');
+      }
+
+      // Trigger print dialog with error handling
+      try {
+        printWindow.print();
+      } catch (printError) {
+        console.warn('Erro ao abrir diálogo de impressão:', printError);
+        // Even if print dialog fails, the window is open for manual printing
+      }
+
+      success('PDF Pronto', 'Relatório aberto em nova janela! Use Ctrl+P (Windows) ou Cmd+P (Mac) para imprimir/salvar. Se a impressão não abriu automaticamente, use o menu do navegador.');
+
+      // Don't auto-close the window - let user control it
+      // User can close it manually after printing/saving
+
+      onClose();
+    } catch (err) {
+      console.error('Erro detalhado ao gerar PDF:', err);
+
+      let errorMessage = 'Erro desconhecido ao gerar relatório';
+      let errorTitle = 'Erro ao Gerar PDF';
+
+      if (err instanceof Error) {
+        const msg = err.message.toLowerCase();
+        errorMessage = err.message;
+
+        if (msg.includes('pop-up') || msg.includes('janela')) {
+          errorTitle = 'Bloqueador de Pop-ups';
+          errorMessage = 'Desative o bloqueador de pop-ups do seu navegador e tente novamente.';
+        } else if (msg.includes('timeout')) {
+          errorTitle = 'Timeout';
+          errorMessage = 'O PDF demorou muito para carregar. Tente novamente com menos imagens ou conteúdo.';
+        } else if (msg.includes('fechada')) {
+          errorTitle = 'Janela Fechada';
+          errorMessage = 'A janela do PDF foi fechada. Tente gerar o relatório novamente.';
+        }
+      }
+
+      error(errorTitle, errorMessage);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <FileDown className="w-6 h-6 text-blue-600" />
+              <h2 className="font-heading text-2xl font-bold text-slate-900">
+                Gerar Relatório PDF
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {/* Preview Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-900 mb-2">
+                {inspection.title}
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
+                <div>
+                  <span className="font-medium">Total de Itens:</span> {stats.totalItems}
+                </div>
+                <div>
+                  <span className="font-medium">Conformidade:</span> {stats.conformanceRate}%
+                </div>
+                <div>
+                  <span className="font-medium">Mídias:</span> {media.length}
+                </div>
+                <div>
+                  <span className="font-medium">Status:</span> {inspection.status === 'concluida' ? 'Finalizada' : 'Em andamento'}
+                </div>
+              </div>
+            </div>
+
+            {/* Options */}
+            <div className="space-y-5">
+              {/* === ESTRUTURA DO RELATÓRIO === */}
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  📄 Estrutura do Relatório
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={includeCover} onChange={(e) => setIncludeCover(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">Incluir Capa Executiva</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={includeChecklist} onChange={(e) => setIncludeChecklist(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">Incluir Checklist Detalhado</span>
+                  </label>
+                  {complianceEnabled && (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={includeStats} onChange={(e) => setIncludeStats(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                      <span className="text-sm text-slate-700">Mostrar Estatísticas de Conformidade</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* === MÍDIAS === */}
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  📷 Mídias e Evidências
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={includeMedia} onChange={(e) => setIncludeMedia(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">Incluir Imagens</span>
+                  </label>
+                  {includeMedia && (
+                    <div className="ml-6 space-y-2">
+                      <span className="text-xs text-slate-500">Layout das imagens:</span>
+                      <div className="flex gap-2">
+                        {(['2x2', '3x3', '6x6'] as const).map((size) => (
+                          <button key={size} onClick={() => setImageGridSize(size)} className={`px-3 py-1 text-xs rounded-lg border ${imageGridSize === size ? 'bg-blue-100 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-600'}`}>
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={includeAudioRefs} onChange={(e) => setIncludeAudioRefs(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <div>
+                      <span className="text-sm text-slate-700">Referência a Áudios</span>
+                      <p className="text-xs text-slate-500">Mostra ícone 🔊 com link para ouvir online</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={includeMediaDownloadLink} onChange={(e) => setIncludeMediaDownloadLink(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">Link para Download de Mídias no Final</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* === PLANOS DE AÇÃO === */}
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  🎯 Planos de Ação
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={includeActionPlan} onChange={(e) => setIncludeActionPlan(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">Incluir Plano de Ação (5W2H)</span>
+                  </label>
+                  {includeActionPlan && (
+                    <div className="ml-6 space-y-2">
+                      <span className="text-xs text-slate-500">Formato:</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => setActionPlanFormat('compact')} className={`px-3 py-1 text-xs rounded-lg border ${actionPlanFormat === 'compact' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-600'}`}>
+                          Resumido
+                        </button>
+                        <button onClick={() => setActionPlanFormat('full')} className={`px-3 py-1 text-xs rounded-lg border ${actionPlanFormat === 'full' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-600'}`}>
+                          Completo
+                        </button>
+                      </div>
+                      <label className="flex items-center gap-3 cursor-pointer mt-2">
+                        <input type="checkbox" checked={inlineActionsPerQuestion} onChange={(e) => setInlineActionsPerQuestion(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                        <span className="text-xs text-slate-600">Vincular ações inline às perguntas</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* === VALIDAÇÃO === */}
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  ✍️ Validação e Rastreabilidade
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={includeSignatures} onChange={(e) => setIncludeSignatures(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">Assinaturas</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={includeQRCode} onChange={(e) => setIncludeQRCode(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                    <span className="text-sm text-slate-700">QR Code</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Logo Selection */}
+              {
+                (organizationLogoUrl || parentOrganizationLogoUrl) && (
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+                      <Image className="w-4 h-4" />
+                      Logo no Relatório
+                    </h4>
+                    <div className="space-y-2">
+                      {parentOrganizationLogoUrl && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="logoPreference"
+                            value="parent"
+                            checked={logoPreference === 'parent'}
+                            onChange={() => setLogoPreference('parent')}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">
+                            Apenas logo da {parentOrganizationName}
+                          </span>
+                        </label>
+                      )}
+                      {organizationLogoUrl && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="logoPreference"
+                            value="organization"
+                            checked={logoPreference === 'organization'}
+                            onChange={() => setLogoPreference('organization')}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">
+                            Apenas logo da {organizationName}
+                          </span>
+                        </label>
+                      )}
+                      {organizationLogoUrl && parentOrganizationLogoUrl && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="logoPreference"
+                            value="both"
+                            checked={logoPreference === 'both'}
+                            onChange={() => setLogoPreference('both')}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">
+                            Ambos os logos
+                          </span>
+                        </label>
+                      )}
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="logoPreference"
+                          value="none"
+                          checked={logoPreference === 'none'}
+                          onChange={() => setLogoPreference('none')}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-slate-700">
+                          Sem logo
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )
+              }
+            </div>
+
+            {/* Preview */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <h4 className="font-medium text-slate-900 mb-2">📄 Será incluído no PDF:</h4>
+              <ul className="text-sm text-slate-700 space-y-1">
+                <li>✓ Informações da inspeção e estatísticas</li>
+                <li>✓ Todas as respostas do checklist</li>
+                <li>✓ Análises da IA (quando disponíveis)</li>
+                {includeMedia && <li>✓ Evidências visuais (fotos, vídeos, áudios)</li>}
+                {includeActionPlan && <li>✓ Planos de ação 5W2H detalhados</li>}
+                {includeSignatures && <li>✓ Assinaturas digitais</li>}
+                <li>✓ Rodapé com data/hora de geração</li>
+              </ul>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGeneratePDF}
+                disabled={isGenerating}
+                className="flex-1 flex items-center justify-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Gerando PDF...
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Gerar Relatório PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

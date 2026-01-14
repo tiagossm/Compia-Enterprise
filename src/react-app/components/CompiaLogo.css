@@ -1,0 +1,13 @@
+.compia-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    user-select: none;
+}
+
+.compia-logotype {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -0.03em;
+}
