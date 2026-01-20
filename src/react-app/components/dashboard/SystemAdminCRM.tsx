@@ -140,10 +140,17 @@ export default function SystemAdminCRM() {
             const url = isEditing && formData.id ? `/api/crm/leads/${formData.id}` : '/api/crm/leads';
             const method = isEditing ? 'PUT' : 'POST';
 
+            // Sanitize numeric fields to prevent NaN
+            const payload = {
+                ...formData,
+                deal_value: isNaN(Number(formData.deal_value)) ? 0 : Number(formData.deal_value),
+                probability: isNaN(Number(formData.probability)) ? 0 : Number(formData.probability),
+            };
+
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -438,13 +445,15 @@ export default function SystemAdminCRM() {
                 <CRMPipelineBoard
                     leads={leads}
                     onStatusChange={handleStatusChange}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDelete}
                 />
             )}
 
             {/* Modal Form */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                    <div className="bg-white rounded-xl w-full max-w-[95vw] md:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
                         {/* Header */}
                         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                             <h2 className="text-xl font-bold text-slate-800">
@@ -477,37 +486,37 @@ export default function SystemAdminCRM() {
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex border-b border-slate-200 px-6">
+                        <div className="flex flex-wrap border-b border-slate-200 px-2 md:px-6 gap-1">
                             <button
                                 onClick={() => setActiveTab('general')}
-                                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'general' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors ${activeTab === 'general' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
                                 Geral
                             </button>
                             <button
                                 onClick={() => setActiveTab('address')}
-                                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'address' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors ${activeTab === 'address' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
                                 Endereço
                             </button>
                             <button
                                 onClick={() => setActiveTab('fiscal')}
-                                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'fiscal' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors ${activeTab === 'fiscal' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
-                                Fiscal & Detalhes
+                                Fiscal
                             </button>
                             <button
                                 onClick={() => setActiveTab('timeline')}
                                 disabled={!isEditing}
-                                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'timeline' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'timeline' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
-                                Timeline (Atividades)
+                                Timeline
                             </button>
                         </div>
 
                         {/* Body Content */}
                         {activeTab === 'timeline' && formData.id ? (
-                            <ActivityTimeline leadId={formData.id} />
+                            <ActivityTimeline leadId={formData.id} lead={formData} />
 
                         ) : (
                             /* Form Body */
@@ -524,7 +533,7 @@ export default function SystemAdminCRM() {
                                                 placeholder="Ex: Cliente Alpha (Será preenchido pelo CNPJ)"
                                             />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-slate-700 mb-1">Contato</label>
                                                 <input
@@ -563,6 +572,7 @@ export default function SystemAdminCRM() {
                                                     <option value="contacted">Contatado</option>
                                                     <option value="qualified">Qualificado</option>
                                                     <option value="proposal">Proposta Enviada</option>
+                                                    <option value="negotiation">Negociação</option>
                                                     <option value="won">Ganho (Cliente)</option>
                                                     <option value="lost">Perdido</option>
                                                 </select>

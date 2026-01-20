@@ -69,7 +69,7 @@ async function checkConflict(
                 }
             }
         } catch (e) {
-            // Ignorar erro se tabela não existir
+            // Log warning instead of silently swallowing
             console.warn('[Chronos] Calendar settings check skipped:', e);
         }
 

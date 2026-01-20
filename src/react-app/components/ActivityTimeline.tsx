@@ -24,9 +24,9 @@ interface Activity {
 interface ActivityTimelineProps {
     leadId: number;
     lead?: {
-        phone?: string;
-        email?: string;
-        contact_name?: string;
+        phone?: string | null;
+        email?: string | null;
+        contact_name?: string | null;
     };
 }
 

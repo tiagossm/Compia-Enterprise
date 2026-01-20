@@ -617,41 +617,58 @@ inspectionRoutes.put("/:id/configure", tenantAuthMiddleware, async (c) => {
                ORDER BY order_index ASC
            `).bind(template_id).all();
 
-        // Create inspection items for each template field
-        for (const field of (fields.results || [])) {
-          const fieldData = field as any;
+        // OPTIMIZATION: Batch Insert (fix N+1 query)
+        const fieldResults = fields.results || [];
+        if (fieldResults.length > 0) {
+          const category = template?.category || 'Geral';
+          const nowIso = new Date().toISOString();
 
-          // Fallback for types
-          const validTypes = [
-            'text', 'textarea', 'select', 'multiselect', 'radio', 'checkbox',
-            'number', 'date', 'time', 'boolean', 'rating', 'file'
-          ];
-          if (!validTypes.includes(fieldData.field_type)) {
-            fieldData.field_type = 'text';
+          let insertQuery = `
+            INSERT INTO inspection_items(
+              inspection_id, category, item_description, template_id,
+              field_responses, created_at, updated_at
+            ) VALUES 
+          `;
+          const insertParams: any[] = [];
+          const placeholders: string[] = [];
+
+          for (const field of fieldResults) {
+            const fieldData = field as any;
+
+            // Fallback for types
+            const validTypes = [
+              'text', 'textarea', 'select', 'multiselect', 'radio', 'checkbox',
+              'number', 'date', 'time', 'boolean', 'rating', 'file'
+            ];
+            if (!validTypes.includes(fieldData.field_type)) {
+              fieldData.field_type = 'text';
+            }
+
+            const fieldResponseData = {
+              field_id: fieldData.id,
+              field_name: fieldData.field_name,
+              field_type: fieldData.field_type,
+              is_required: fieldData.is_required,
+              options: fieldData.options,
+              response_value: null,
+              comment: null
+            };
+
+            placeholders.push('(?, ?, ?, ?, ?, ?, ?)');
+            insertParams.push(
+              inspectionId,
+              category,
+              fieldData.field_name,
+              template_id,
+              JSON.stringify(fieldResponseData),
+              nowIso,
+              nowIso
+            );
           }
 
-          const fieldResponseData = {
-            field_id: fieldData.id,
-            field_name: fieldData.field_name,
-            field_type: fieldData.field_type,
-            is_required: fieldData.is_required,
-            options: fieldData.options,
-            response_value: null,
-            comment: null
-          };
-
-          await env.DB.prepare(`
-                  INSERT INTO inspection_items(
-                    inspection_id, category, item_description, template_id,
-                    field_responses, created_at, updated_at
-                  ) VALUES(?, ?, ?, ?, ?, NOW(), NOW())
-                `).bind(
-            inspectionId,
-            template?.category || 'Geral',
-            fieldData.field_name,
-            template_id,
-            JSON.stringify(fieldResponseData)
-          ).run();
+          insertQuery += placeholders.join(', ');
+          await env.DB.prepare(insertQuery).bind(...insertParams).run();
+          console.log(`[CONFIGURE] Batch inserted ${fieldResults.length} items for inspection ${inspectionId}`);
         }
       } else {
         console.log(`[CONFIGURE] Skipping item generation: Items already exist for inspection ${inspectionId}`);

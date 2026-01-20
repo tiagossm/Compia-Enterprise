@@ -467,23 +467,39 @@ checklistRoutes.post("/checklist-templates/:id/duplicate", tenantAuthMiddleware,
 
     const newTemplateId = result.meta.last_row_id as number;
 
-    // Duplicate fields
+    // OPTIMIZATION: Batch Insert (fix N+1 query)
+    // Fetch fields first
     const fields = await env.DB.prepare("SELECT * FROM checklist_fields WHERE template_id = ?").bind(templateId).all();
+    const fieldResults = fields.results || [];
+    if (fieldResults.length > 0) {
+      const nowIso = new Date().toISOString();
 
-    for (const field of fields.results) {
-      await env.DB.prepare(`
+      let insertQuery = `
         INSERT INTO checklist_fields (
           template_id, field_name, field_type, is_required, options, order_index,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `).bind(
-        newTemplateId,
-        (field as any).field_name,
-        (field as any).field_type,
-        (field as any).is_required,
-        (field as any).options,
-        (field as any).order_index
-      ).run();
+        ) VALUES 
+      `;
+      const insertParams: any[] = [];
+      const placeholders: string[] = [];
+
+      for (const field of fieldResults) {
+        placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?)');
+        insertParams.push(
+          newTemplateId,
+          (field as any).field_name,
+          (field as any).field_type,
+          (field as any).is_required,
+          (field as any).options,
+          (field as any).order_index,
+          nowIso,
+          nowIso
+        );
+      }
+
+      insertQuery += placeholders.join(', ');
+      await env.DB.prepare(insertQuery).bind(...insertParams).run();
+      console.log(`[DUPLICATE] Batch inserted ${fieldResults.length} fields for template ${newTemplateId}`);
     }
 
     return c.json({

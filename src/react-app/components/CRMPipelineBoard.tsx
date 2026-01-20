@@ -21,7 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Lead } from './dashboard/SystemAdminCRM';
-import { User, Clock } from 'lucide-react';
+import { User, Clock, Pencil, Trash2 } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
 
 // Status Columns Definition
@@ -40,12 +40,14 @@ const COLUMNS = [
 interface CRMPipelineBoardProps {
     leads: Lead[];
     onStatusChange: (leadId: number, newStatus: string) => Promise<void>;
+    onEdit?: (lead: Lead) => void;
+    onDelete?: (leadId: number, companyName: string) => void;
 }
 
 // ----------------------------------------------------------------------
 // Sortable Lead Card Item
 // ----------------------------------------------------------------------
-function LeadCard({ lead, isOverlay = false }: { lead: Lead, isOverlay?: boolean }) {
+function LeadCard({ lead, isOverlay = false, onEdit, onDelete }: { lead: Lead, isOverlay?: boolean, onEdit?: (lead: Lead) => void, onDelete?: (leadId: number, name: string) => void }) {
     const {
         setNodeRef,
         attributes,
@@ -107,6 +109,30 @@ function LeadCard({ lead, isOverlay = false }: { lead: Lead, isOverlay?: boolean
                     {lead.deal_value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
                 </div>
             </div>
+
+            {/* Action Buttons */}
+            {(onEdit || onDelete) && !isOverlay && (
+                <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-slate-100">
+                    {onEdit && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(lead); }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                    {onDelete && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onDelete(lead.id, lead.company_name); }}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Excluir"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -114,7 +140,7 @@ function LeadCard({ lead, isOverlay = false }: { lead: Lead, isOverlay?: boolean
 // ----------------------------------------------------------------------
 // Column Container
 // ----------------------------------------------------------------------
-function Column({ id, title, color, leads }: { id: string, title: string, color: string, leads: Lead[] }) {
+function Column({ id, title, color, leads, onEdit, onDelete }: { id: string, title: string, color: string, leads: Lead[], onEdit?: (lead: Lead) => void, onDelete?: (leadId: number, name: string) => void }) {
     const { setNodeRef } = useSortable({
         id: id,
         data: {
@@ -143,7 +169,7 @@ function Column({ id, title, color, leads }: { id: string, title: string, color:
             <div className="p-2 flex-1 overflow-y-auto min-h-[150px]">
                 <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                     {leads.map(lead => (
-                        <LeadCard key={lead.id} lead={lead} />
+                        <LeadCard key={lead.id} lead={lead} onEdit={onEdit} onDelete={onDelete} />
                     ))}
                     {leads.length === 0 && (
                         <div className="h-full flex items-center justify-center text-xs text-slate-300 italic min-h-[100px]">
@@ -159,7 +185,7 @@ function Column({ id, title, color, leads }: { id: string, title: string, color:
 // ----------------------------------------------------------------------
 // Main Board Component
 // ----------------------------------------------------------------------
-export default function CRMPipelineBoard({ leads, onStatusChange }: CRMPipelineBoardProps) {
+export default function CRMPipelineBoard({ leads, onStatusChange, onEdit, onDelete }: CRMPipelineBoardProps) {
     const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
     const sensors = useSensors(
@@ -262,6 +288,8 @@ export default function CRMPipelineBoard({ leads, onStatusChange }: CRMPipelineB
                         title={col.title}
                         color={col.color}
                         leads={columns[col.id] || []}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
                     />
                 ))}
 
