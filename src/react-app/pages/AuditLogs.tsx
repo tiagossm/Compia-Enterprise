@@ -54,6 +54,32 @@ interface Pagination {
     totalPages: number;
 }
 
+// Dicionários de Tradução
+const ACTION_TRANSLATIONS: Record<string, string> = {
+    'CREATE': 'CRIAÇÃO',
+    'INSERT': 'CRIAÇÃO',
+    'UPDATE': 'ATUALIZAÇÃO',
+    'DELETE': 'EXCLUSÃO',
+    'LOGIN': 'LOGIN',
+    'LOGOUT': 'LOGOUT',
+    'USER_APPROVED': 'APROVAÇÃO DE USUÁRIO',
+    'EXPORT': 'EXPORTAÇÃO',
+    'VIEW': 'VISUALIZAÇÃO',
+    'REJECT': 'REJEIÇÃO',
+    'APPROVE': 'APROVAÇÃO'
+};
+
+const TARGET_TRANSLATIONS: Record<string, string> = {
+    'USER': 'USUÁRIO',
+    'ORGANIZATION': 'ORGANIZAÇÃO',
+    'INSPECTION': 'INSPEÇÃO',
+    'CHECKLIST': 'CHECKLIST',
+    'TEMPLATE': 'MODELO',
+    'ACTION_PLAN': 'PLANO DE AÇÃO',
+    'MEDIA': 'MÍDIA',
+    'DOCUMENT': 'DOCUMENTO'
+};
+
 export default function AuditLogs() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -400,7 +426,9 @@ export default function AuditLogs() {
                                         >
                                             <option value="">Todos</option>
                                             {actionTypes.map((type) => (
-                                                <option key={type} value={type}>{type}</option>
+                                                <option key={type} value={type}>
+                                                    {ACTION_TRANSLATIONS[type] || type}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
@@ -414,7 +442,9 @@ export default function AuditLogs() {
                                         >
                                             <option value="">Todos</option>
                                             {targetTypes.map((type) => (
-                                                <option key={type} value={type}>{type}</option>
+                                                <option key={type} value={type}>
+                                                    {TARGET_TRANSLATIONS[type] || type}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
@@ -514,12 +544,14 @@ export default function AuditLogs() {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getActionColor(log.action_type)}`}>
-                                                            {log.action_type || '-'}
+                                                            {ACTION_TRANSLATIONS[log.action_type] || log.action_type || '-'}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="text-sm">
-                                                            <p className="text-slate-900 font-medium">{log.target_type || '-'}</p>
+                                                            <p className="text-slate-900 font-medium">
+                                                                {TARGET_TRANSLATIONS[log.target_type] || log.target_type || '-'}
+                                                            </p>
                                                             <p className="text-xs text-slate-500">ID: {log.target_id || '-'}</p>
                                                         </div>
                                                     </td>
@@ -597,12 +629,14 @@ export default function AuditLogs() {
                                             <div>
                                                 <label className="text-xs font-medium text-slate-500 uppercase">Tipo de Ação</label>
                                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getActionColor(selectedLog.action_type)}`}>
-                                                    {selectedLog.action_type}
+                                                    {ACTION_TRANSLATIONS[selectedLog.action_type] || selectedLog.action_type}
                                                 </span>
                                             </div>
                                             <div>
                                                 <label className="text-xs font-medium text-slate-500 uppercase">Recurso</label>
-                                                <p className="text-sm text-slate-900">{selectedLog.target_type} (ID: {selectedLog.target_id})</p>
+                                                <p className="text-sm text-slate-900">
+                                                    {TARGET_TRANSLATIONS[selectedLog.target_type] || selectedLog.target_type} (ID: {selectedLog.target_id})
+                                                </p>
                                             </div>
                                             {selectedLog.organization_name && (
                                                 <div className="col-span-2">

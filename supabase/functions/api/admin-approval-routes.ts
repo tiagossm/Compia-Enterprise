@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { tenantAuthMiddleware as authMiddleware } from './tenant-auth-middleware.ts';
+import { logActivity } from './audit-logger.ts';
 
 /**
  * Rotas de administração para Aprovação de Usuários
@@ -146,6 +148,22 @@ adminApprovalRoutes.post("/users/:id/approve", async (c) => {
                     })
                 }).catch(err => console.error("Failed to trigger approved email:", err));
             }
+
+            // Log de Auditoria
+            await logActivity(env, {
+                userId: user.id,
+                orgId: user.organization_id || null, // Quem aprovou
+                actionType: 'USER_APPROVED',
+                actionDescription: `Aprovou o usuário ${targetUser?.name || 'ID ' + targetUserId} (${targetUser?.email})`,
+                targetType: 'USER',
+                targetId: targetUserId,
+                metadata: {
+                    approved_user_email: targetUser?.email,
+                    approved_user_name: targetUser?.name
+                },
+                req: c.req
+            });
+
         } catch (emailErr) {
             console.error("Error triggering approved email:", emailErr);
         }

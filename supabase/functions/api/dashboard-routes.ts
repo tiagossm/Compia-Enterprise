@@ -253,7 +253,157 @@ dashboardRoutes.get("/bi-analytics", tenantAuthMiddleware, async (c) => {
     console.error('[BI-ANALYTICS] Error:', error);
     return c.json({ error: 'Failed to fetch BI analytics' }, 500);
   }
+
 });
+
+// GET Org Admin Analytics (Productivity & Quality)
+dashboardRoutes.get("/org-admin-analytics", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const organizationId = c.req.query("organization_id");
+
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+  try {
+    const userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+
+    let targetOrgId = organizationId;
+    if (!targetOrgId) {
+      if (userProfile.role === USER_ROLES.ORG_ADMIN) {
+        targetOrgId = userProfile.managed_organization_id || userProfile.organization_id;
+      } else {
+        targetOrgId = userProfile.organization_id;
+      }
+    }
+
+    if (!targetOrgId) return c.json({ error: "Organization ID required" }, 400);
+
+    // 1. Productivity (Inspections by Inspector)
+    const productivityParam = targetOrgId; // bind param
+    const productivityQuery = `
+      SELECT 
+        inspector_name, 
+        COUNT(*) as total_inspections 
+      FROM inspections 
+      WHERE organization_id = ? 
+      AND created_at > (NOW() - INTERVAL '30 days')
+      GROUP BY inspector_name 
+      ORDER BY total_inspections DESC 
+      LIMIT 10
+    `;
+    const productivity = await env.DB.prepare(productivityQuery).bind(productivityParam).all();
+
+    // 2. Action Plan Bottlenecks (Overdue by Responsible/Area)
+    // Note: 'department' or 'responsible' might not be normalized, using inspector_email as proxy for now if needed, 
+    // or better, just grouping by priority/status for this org.
+    const bottlenecksQuery = `
+      SELECT 
+        priority,
+        COUNT(*) as count
+      FROM action_items 
+      JOIN inspections ON action_items.inspection_id = inspections.id
+      WHERE inspections.organization_id = ?
+      AND action_items.status = 'pending'
+      AND (action_items.when_deadline < NOW() OR action_items.priority = 'alta')
+      GROUP BY priority
+    `;
+    const bottlenecks = await env.DB.prepare(bottlenecksQuery).bind(targetOrgId).all();
+
+    // 3. Quality Risks (Fast inspections or Many Non-Conformities)
+    // For now, let's just count average non-conformities per inspection
+    // assuming we have a way to count items. Since we don't have 'items' table joined easily here without complexity,
+    // we will return a placeholder or simple metric like "Avg Action Items per Inspection"
+    const qualityQuery = `
+      SELECT 
+        AVG(sub.action_count) as avg_actions_per_inspection
+      FROM (
+        SELECT inspection_id, COUNT(*) as action_count
+        FROM action_items ai
+        JOIN inspections i ON ai.inspection_id = i.id
+        WHERE i.organization_id = ?
+        GROUP BY inspection_id
+      ) sub
+    `;
+    const quality = await env.DB.prepare(qualityQuery).bind(targetOrgId).first();
+
+    return c.json({
+      productivity: productivity.results || [],
+      bottlenecks: bottlenecks.results || [],
+      quality: {
+        avg_actions: Math.round(Number(quality?.avg_actions_per_inspection || 0))
+      }
+    });
+
+  } catch (error) {
+    console.error('[ORG-ADMIN-ANALYTICS] Error:', error);
+    return c.json({ error: 'Failed to fetch analytics' }, 500);
+  }
+});
+
+
+
+// GET Inspector Personal Analytics (My Performance)
+dashboardRoutes.get("/inspector-analytics", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const organizationId = c.req.query("organization_id");
+
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+  try {
+    const userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+
+    // For inspector analytics, we strictly use the logged-in user's email/id
+    const inspectorEmail = userProfile.email || user.email;
+    const targetOrgId = organizationId || userProfile.organization_id;
+
+    if (!targetOrgId) return c.json({ error: "Organization context required" }, 400);
+
+    // 1. My Inspections (This Month vs Total)
+    const statsQuery = `
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN created_at > DATE('now', 'start of month') THEN 1 ELSE 0 END) as this_month,
+        SUM(CASE WHEN status = 'concluida' THEN 1 ELSE 0 END) as completed
+      FROM inspections
+      WHERE organization_id = ? AND inspector_email = ?
+    `;
+    const stats = await env.DB.prepare(statsQuery).bind(targetOrgId, inspectorEmail).first();
+
+    // 2. My Pending Actions ( Assigned to me or My Inspections)
+    const pendingActionsQuery = `
+      SELECT COUNT(*) as count
+      FROM action_items ai
+      JOIN inspections i ON ai.inspection_id = i.id
+      WHERE i.organization_id = ? 
+      AND i.inspector_email = ?
+      AND ai.status = 'pending'
+    `;
+    const pendingActions = await env.DB.prepare(pendingActionsQuery).bind(targetOrgId, inspectorEmail).first();
+
+    // 3. Motivational Feedback
+    let feedback = "Continue o bom trabalho!";
+    const monthlyCount = Number(stats?.this_month || 0);
+    if (monthlyCount > 10) feedback = "🔥 Incrível! Você está voando baixo este mês!";
+    else if (monthlyCount > 5) feedback = "Ótimo ritmo! Continue assim.";
+    else if (monthlyCount === 0) feedback = "Que tal iniciar sua primeira inspeção do mês hoje?";
+
+    return c.json({
+      my_stats: {
+        total: stats?.total || 0,
+        this_month: stats?.this_month || 0,
+        completed: stats?.completed || 0,
+        pending_actions: pendingActions?.count || 0
+      },
+      feedback_message: feedback
+    });
+
+  } catch (error) {
+    console.error('[INSPECTOR-ANALYTICS] Error:', error);
+    return c.json({ error: 'Failed to fetch personal analytics' }, 500);
+  }
+});
+
 
 export default dashboardRoutes;
 

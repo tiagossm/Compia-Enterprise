@@ -26,12 +26,50 @@ const requireSysAdmin = async (c: any, next: any) => {
 app.use('*', tenantAuthMiddleware);
 app.use('*', requireSysAdmin);
 
-// List Leads
+// List Leads (with Pagination)
 app.get('/leads', async (c) => {
     try {
         const db = getDatabase(c.env);
-        const { results } = await db.prepare("SELECT * FROM leads ORDER BY created_at DESC LIMIT 100").all();
-        return c.json({ leads: results });
+        const { page = '1', limit = '50', search = '', status = 'all' } = c.req.query();
+
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const limitVal = parseInt(limit);
+
+        let query = "SELECT * FROM leads";
+        let countQuery = "SELECT COUNT(*) as total FROM leads";
+        const params: any[] = [];
+        const conditions: string[] = [];
+
+        // Apply filters
+        if (search) {
+            conditions.push("(company_name LIKE ? OR contact_name LIKE ? OR email LIKE ?)");
+            const term = `%${search}%`;
+            params.push(term, term, term);
+        }
+
+        if (status !== 'all') {
+            conditions.push("status = ?");
+            params.push(status);
+        }
+
+        if (conditions.length > 0) {
+            const whereClause = " WHERE " + conditions.join(" AND ");
+            query += whereClause;
+            countQuery += whereClause;
+        }
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+
+        // Execute queries
+        const { results: leads } = await db.prepare(query).bind(...params, limitVal, offset).all();
+        const { total } = await db.prepare(countQuery).bind(...params).first() || { total: 0 };
+
+        return c.json({
+            leads,
+            total,
+            page: parseInt(page),
+            totalPages: Math.ceil(total / limitVal)
+        });
     } catch (error) {
         console.error('Error fetching leads:', error);
         return c.json({ error: 'Erro ao buscar leads' }, 500);
@@ -114,6 +152,21 @@ app.put('/leads/:id', async (c) => {
 
         if (fields.length === 0) return c.json({ message: 'Nothing to update' });
 
+        // Auto-log Status Change
+        if (body.status) {
+            const currentLead = await db.prepare("SELECT status FROM leads WHERE id = ?").bind(leadId).first();
+            if (currentLead && currentLead.status !== body.status) {
+                await db.prepare(`
+                    INSERT INTO crm_activities (lead_id, type, title, description, created_by) 
+                    VALUES (?, 'status_change', 'Alteração de Status', ?, ?)
+                 `).bind(
+                    leadId,
+                    `Status alterado de ${currentLead.status.toUpperCase()} para ${body.status.toUpperCase()}`,
+                    (c.get('user') as any).id
+                ).run();
+            }
+        }
+
         fields.push("updated_at = NOW()");
 
         await db.prepare(`UPDATE leads SET ${fields.join(', ')} WHERE id = ?`)
@@ -124,6 +177,49 @@ app.put('/leads/:id', async (c) => {
     } catch (error) {
         console.error('Error updating lead:', error);
         return c.json({ error: 'Erro ao atualizar lead' }, 500);
+    }
+});
+
+// List Activities
+app.get('/leads/:id/activities', async (c) => {
+    try {
+        const db = getDatabase(c.env);
+        const leadId = c.req.param('id');
+
+        const { results } = await db.prepare(`
+            SELECT a.*, u.email as user_email 
+            FROM crm_activities a
+            LEFT JOIN auth.users u ON a.created_by = u.id 
+            WHERE lead_id = ? 
+            ORDER BY created_at DESC
+        `).bind(leadId).all();
+
+        return c.json(results || []);
+    } catch (error) {
+        console.error('Error fetching activities:', error);
+        return c.json({ error: 'Erro ao buscar atividades' }, 500);
+    }
+});
+
+// Create Activity
+app.post('/leads/:id/activities', async (c) => {
+    try {
+        const db = getDatabase(c.env);
+        const user = c.get('user') as ExtendedMochaUser;
+        const leadId = c.req.param('id');
+        const body = await c.req.json();
+
+        const { type, title, description } = body;
+
+        await db.prepare(`
+            INSERT INTO crm_activities (lead_id, type, title, description, created_by)
+            VALUES (?, ?, ?, ?, ?)
+        `).bind(leadId, type, title, description, user.id).run();
+
+        return c.json({ success: true });
+    } catch (error) {
+        console.error('Error creating activity:', error);
+        return c.json({ error: 'Erro ao criar atividade' }, 500);
     }
 });
 

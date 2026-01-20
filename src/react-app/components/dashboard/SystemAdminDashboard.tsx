@@ -96,6 +96,9 @@ export default function SystemAdminDashboard() {
         }
     };
 
+    // State for expanded view
+    const [expandedCard, setExpandedCard] = useState<'churn' | 'upsell' | 'ai' | 'velocity' | null>(null);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -128,8 +131,6 @@ export default function SystemAdminDashboard() {
         { name: 'Jan', revenue: 8100, users: metrics.users.total, inspections: metrics.inspections.volume_30d * 4 } // Estimativa simples
     ];
 
-    // State for expanded view
-    const [expandedCard, setExpandedCard] = useState<'churn' | 'upsell' | 'ai' | 'velocity' | null>(null);
 
     const closeModal = () => setExpandedCard(null);
 
