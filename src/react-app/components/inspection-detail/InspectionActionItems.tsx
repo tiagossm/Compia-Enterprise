@@ -1,7 +1,8 @@
 import { Target, Brain } from 'lucide-react';
+import { ActionItem } from '@/shared/types';
 
 interface InspectionActionItemsProps {
-    actionItems: any[];
+    actionItems: ActionItem[];
 }
 
 export default function InspectionActionItems({ actionItems }: InspectionActionItemsProps) {
@@ -20,7 +21,7 @@ export default function InspectionActionItems({ actionItems }: InspectionActionI
             </div>
 
             <div className="space-y-4">
-                {actionItems.map((action: any, index: number) => (
+                {actionItems.map((action: ActionItem, index: number) => (
                     <div key={action.id} className="border border-slate-200 rounded-lg p-4">
                         <div className="flex items-start justify-between mb-3">
                             <h4 className="font-medium text-slate-900">

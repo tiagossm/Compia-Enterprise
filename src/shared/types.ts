@@ -181,3 +181,64 @@ export interface CalendarEvent {
   cidade?: string;
   uf?: string;
 }
+
+export interface InspectionTemplateItem {
+  id: number;
+  template_id: number;
+  category: string;
+  item_description: string;
+  field_type: 'text' | 'checkbox' | 'radio' | 'select' | 'date' | 'number' | 'photo' | 'signature';
+  is_required: boolean;
+  order_index: number;
+  options?: any; // JSON
+  // Runtime
+  field_responses?: string;
+  response?: any;
+  comment?: string;
+  media?: InspectionMediaType[];
+  ai_pre_analysis?: string;
+  ai_action_plan?: string;
+}
+
+export interface ActionItem {
+  id?: number;
+  inspection_id: number;
+  inspection_item_id?: number;
+  title: string;
+  what_description?: string;
+  where_location?: string;
+  why_reason?: string;
+  how_method?: string;
+  who_responsible?: string;
+  when_deadline?: string;
+  how_much_cost?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  priority: 'baixa' | 'media' | 'alta' | 'critica';
+  is_ai_generated: boolean;
+}
+
+export interface InspectionHistoryEntry {
+  id: number;
+  action: string;
+  field_changed?: string;
+  old_value?: string;
+  new_value?: string;
+  user_name?: string;
+  created_at: string;
+  ip_address?: string;
+}
+
+export interface AuditLog {
+  id: number;
+  user_id: string;
+  organization_id: number;
+  action_type: string;
+  action_description: string;
+  target_type: string;
+  target_id: string;
+  metadata: any;
+  created_at: string;
+  user_email: string;
+  user_name: string;
+  organization_name: string;
+}

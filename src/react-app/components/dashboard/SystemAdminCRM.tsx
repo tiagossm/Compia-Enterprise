@@ -44,6 +44,11 @@ export interface Lead {
     uf?: string;
 
     converted_organization_id?: number | null;
+
+    // Professional Fields
+    deal_value?: number;
+    probability?: number;
+    status_updated_at?: string;
 }
 
 export default function SystemAdminCRM() {
@@ -561,6 +566,36 @@ export default function SystemAdminCRM() {
                                                     <option value="won">Ganho (Cliente)</option>
                                                     <option value="lost">Perdido</option>
                                                 </select>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Valor do Deal (R$)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                    value={formData.deal_value || ''}
+                                                    onChange={e => setFormData({ ...formData, deal_value: parseFloat(e.target.value) })}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Probabilidade (%)</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="0"
+                                                        max="100"
+                                                        step="10"
+                                                        className="flex-1"
+                                                        value={formData.probability || 0}
+                                                        onChange={e => setFormData({ ...formData, probability: parseInt(e.target.value) })}
+                                                    />
+                                                    <span className="text-sm font-bold text-slate-700 w-12 text-right">
+                                                        {formData.probability || 0}%
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div>

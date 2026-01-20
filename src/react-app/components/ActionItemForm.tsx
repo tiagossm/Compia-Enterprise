@@ -1,22 +1,7 @@
 import { useState } from 'react';
 import { Save, X } from 'lucide-react';
 
-interface ActionItem {
-  id?: number;
-  inspection_id: number;
-  inspection_item_id?: number;
-  title: string;
-  what_description?: string;
-  where_location?: string;
-  why_reason?: string;
-  how_method?: string;
-  who_responsible?: string;
-  when_deadline?: string;
-  how_much_cost?: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority: 'baixa' | 'media' | 'alta';
-  is_ai_generated: boolean;
-}
+import { ActionItem } from '@/shared/types';
 
 interface Inspection {
   action_plan_type: '5w2h' | 'simple';
@@ -175,6 +160,7 @@ export default function ActionItemForm({ action, inspection, onSave, onCancel }:
             <option value="baixa">Baixa</option>
             <option value="media">Média</option>
             <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
           </select>
         </div>
       </div>

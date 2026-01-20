@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '@/react-app/components/Layout';
 import ActionItemForm from '@/react-app/components/ActionItemForm';
-import { 
+import {
   ArrowLeft,
   Plus,
   Edit,
@@ -15,23 +15,9 @@ import {
   Clock,
   Target
 } from 'lucide-react';
+import { ActionItem } from '@/shared/types';
 
-interface ActionItem {
-  id?: number;
-  inspection_id: number;
-  inspection_item_id?: number;
-  title: string;
-  what_description?: string;
-  where_location?: string;
-  why_reason?: string;
-  how_method?: string;
-  who_responsible?: string;
-  when_deadline?: string;
-  how_much_cost?: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority: 'baixa' | 'media' | 'alta';
-  is_ai_generated: boolean;
-}
+
 
 interface Inspection {
   id: number;
@@ -72,7 +58,7 @@ export default function ActionPlan() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const highlightActionId = urlParams.get('highlightAction');
-    
+
     if (highlightActionId) {
       setTimeout(() => {
         const actionElement = document.getElementById(`action-${highlightActionId}`);
@@ -105,7 +91,7 @@ export default function ActionPlan() {
   const handleSaveAction = async (action: Partial<ActionItem>) => {
     try {
       const method = action.id ? 'PUT' : 'POST';
-      const url = action.id 
+      const url = action.id
         ? `/api/action-items/${action.id}`
         : `/api/inspections/${id}/action-items`;
 
@@ -200,7 +186,7 @@ export default function ActionPlan() {
     }
   };
 
-  
+
 
   if (loading) {
     return (
@@ -244,11 +230,10 @@ export default function ActionPlan() {
             <p className="text-slate-600 mt-1">{inspection.title}</p>
           </div>
           <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-              inspection.action_plan_type === '5w2h' 
-                ? 'bg-blue-100 text-blue-800' 
+            <span className={`px-3 py-1 text-sm font-medium rounded-full ${inspection.action_plan_type === '5w2h'
+                ? 'bg-blue-100 text-blue-800'
                 : 'bg-green-100 text-green-800'
-            }`}>
+              }`}>
               {inspection.action_plan_type === '5w2h' ? '5W2H' : 'Simples'}
             </span>
             <button

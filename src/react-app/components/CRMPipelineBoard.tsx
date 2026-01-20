@@ -21,7 +21,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Lead } from './dashboard/SystemAdminCRM';
-import { User } from 'lucide-react';
+import { User, Clock } from 'lucide-react';
+import { differenceInDays, parseISO } from 'date-fns';
 
 // Status Columns Definition
 const COLUMNS = [
@@ -66,6 +67,9 @@ function LeadCard({ lead, isOverlay = false }: { lead: Lead, isOverlay?: boolean
         opacity: isDragging ? 0.3 : 1,
     };
 
+    const daysInStage = differenceInDays(new Date(), parseISO(lead.status_updated_at || lead.created_at || new Date().toISOString()));
+    const isRotting = daysInStage > 30;
+
     return (
         <div
             ref={setNodeRef}
@@ -73,23 +77,34 @@ function LeadCard({ lead, isOverlay = false }: { lead: Lead, isOverlay?: boolean
             {...attributes}
             {...listeners}
             className={`
-                bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow
+                bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow relative
                 ${isOverlay ? 'shadow-xl rotate-2 scale-105 cursor-grabbing' : ''}
+                ${isRotting && !isDragging ? 'border-l-4 border-l-red-500' : ''}
             `}
         >
-            <div className="font-semibold text-slate-800 text-sm mb-1">{lead.company_name}</div>
+            <div className="flex justify-between items-start mb-1">
+                <div className="font-semibold text-slate-800 text-sm truncate pr-2">{lead.company_name}</div>
+                {isRotting && (
+                    <div className="text-[10px] text-red-500 flex items-center bg-red-50 px-1 rounded whitespace-nowrap" title={`${daysInStage} dias neste estágio`}>
+                        <Clock className="w-3 h-3 mr-1" />
+                        {daysInStage}d
+                    </div>
+                )}
+            </div>
+
             {lead.contact_name && (
-                <div className="flex items-center text-xs text-slate-500 mb-1">
+                <div className="flex items-center text-xs text-slate-500 mb-2">
                     <User className="w-3 h-3 mr-1" />
                     {lead.contact_name}
                 </div>
             )}
-            <div className="flex items-center justify-between mt-2">
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
                 <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">
-                    #{lead.id}
+                    {lead.probability ? `${lead.probability}%` : '0%'}
                 </span>
-                <div className="text-xs font-medium text-emerald-600">
-                    {/* Placeholder for value if exists */}
+                <div className="text-xs font-bold text-emerald-600">
+                    {lead.deal_value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
                 </div>
             </div>
         </div>
@@ -115,9 +130,14 @@ function Column({ id, title, color, leads }: { id: string, title: string, color:
                     <span className={`w-2.5 h-2.5 rounded-full ${color.split(' ')[0]}`}></span>
                     <h3 className="font-semibold text-slate-700 text-sm">{title}</h3>
                 </div>
-                <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {leads.length}
-                </span>
+                <div className="flex flex-col items-end">
+                    <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full mb-1">
+                        {leads.length}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500">
+                        {leads.reduce((acc, curr) => acc + (curr.deal_value || 0), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                    </span>
+                </div>
             </div>
 
             <div className="p-2 flex-1 overflow-y-auto min-h-[150px]">

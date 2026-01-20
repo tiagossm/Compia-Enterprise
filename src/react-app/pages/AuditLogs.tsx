@@ -21,21 +21,9 @@ import {
     Building2
 } from 'lucide-react';
 import Layout from '@/react-app/components/Layout';
+import { AuditLog } from '@/shared/types';
 
-interface AuditLog {
-    id: number;
-    user_id: string;
-    organization_id: number;
-    action_type: string;
-    action_description: string;
-    target_type: string;
-    target_id: string;
-    metadata: any;
-    created_at: string;
-    user_email: string;
-    user_name: string;
-    organization_name: string;
-}
+
 
 interface AuditStats {
     period: { days: number; start_date: string };
