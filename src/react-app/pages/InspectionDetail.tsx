@@ -50,30 +50,9 @@ export default function InspectionDetail() {
   const [reopenJustification, setReopenJustification] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
-
-  // Form states moved up for handler access or passed down?
-  // They are UI states for the "Add" forms, so they fit here or in List.
-  // InspectionItemsList receives them as props.
-  const [newItem, setNewItem] = useState({
-    category: '',
-    item_description: '',
-    is_compliant: null as boolean | null,
-    observations: ''
-  });
-
   const [showNewAction, setShowNewAction] = useState(false);
-  const [newAction, setNewAction] = useState({
-    title: '',
-    what_description: '',
-    where_location: '',
-    why_reason: '',
-    how_method: '',
-    who_responsible: '',
-    when_deadline: '',
-    how_much_cost: '',
-    status: 'pending' as const,
-    priority: 'media' as 'baixa' | 'media' | 'alta'
-  });
+
+  // Form states moved to sub-components (NewItemForm, NewActionForm)
 
   // Fetch audit logs when PDF modal opens (UI Effect)
   useEffect(() => {
@@ -91,24 +70,21 @@ export default function InspectionDetail() {
 
 
   // UI Handlers wrappers
-  const onAddItemClick = async () => {
-    const success = await handleAddItem(newItem);
+  // Now updated to receive data from the child forms
+  const onAddItemClick = async (itemData: any) => {
+    const success = await handleAddItem(itemData);
     if (success) {
-      setNewItem({ category: '', item_description: '', is_compliant: null, observations: '' });
       setShowAddItem(false);
     }
+    return success;
   };
 
-  const onCreateActionClick = async () => {
-    const success = await handleCreateManualAction(newAction);
+  const onCreateActionClick = async (actionData: any) => {
+    const success = await handleCreateManualAction(actionData);
     if (success) {
-      setNewAction({
-        title: '', what_description: '', where_location: '', why_reason: '',
-        how_method: '', who_responsible: '', when_deadline: '', how_much_cost: '',
-        status: 'pending', priority: 'media'
-      });
       setShowNewAction(false);
     }
+    return success;
   };
 
   const onFinalizeClick = async () => {
@@ -259,10 +235,6 @@ export default function InspectionDetail() {
           setShowNewAction={setShowNewAction}
           showAddItem={showAddItem}
           setShowAddItem={setShowAddItem}
-          newItem={newItem}
-          setNewItem={setNewItem}
-          newAction={newAction}
-          setNewAction={setNewAction}
           onAddItemClick={onAddItemClick}
           onCreateActionClick={onCreateActionClick}
           generateAIAnalysis={generateAIAnalysis}
