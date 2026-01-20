@@ -3,6 +3,8 @@ import { Target, Sparkles, Plus, AlertTriangle, Check, X, Trash2, CheckCircle2, 
 import LoadingSpinner from '@/react-app/components/LoadingSpinner';
 import ChecklistForm from '@/react-app/components/ChecklistForm';
 import { InspectionType, InspectionItemType } from '@/shared/types';
+import NewItemForm from './NewItemForm';
+import NewActionForm from './NewActionForm';
 
 interface InspectionItemsListProps {
     inspection: InspectionType;
@@ -16,12 +18,8 @@ interface InspectionItemsListProps {
     setShowNewAction: (show: boolean) => void;
     showAddItem: boolean;
     setShowAddItem: (show: boolean) => void;
-    newItem: any;
-    setNewItem: (item: any) => void;
-    newAction: any;
-    setNewAction: (action: any) => void;
-    onAddItemClick: () => void;
-    onCreateActionClick: () => void;
+    onAddItemClick: (item: any) => Promise<boolean> | boolean | void;
+    onCreateActionClick: (action: any) => Promise<boolean> | boolean | void;
     generateAIAnalysis: () => void;
     updateItemAnalysis: (itemId: number, analysis: string | null) => Promise<void> | void;
     handleFormSubmit: (responses: any[]) => Promise<void> | void;
@@ -43,10 +41,6 @@ export default function InspectionItemsList({
     setShowNewAction,
     showAddItem,
     setShowAddItem,
-    newItem,
-    setNewItem,
-    newAction,
-    setNewAction,
     onAddItemClick,
     onCreateActionClick,
     generateAIAnalysis,
@@ -121,194 +115,28 @@ export default function InspectionItemsList({
 
             {/* New Action Form */}
             {showNewAction && (
-                <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <h3 className="font-heading text-lg font-semibold text-slate-900 mb-4">
-                        Nova Ação Manual
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Título da Ação *
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                value={newAction.title}
-                                onChange={(e) => setNewAction({ ...newAction, title: e.target.value })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Ex: Instalar equipamento de proteção"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-red-600">O que?</span> (Descrição)
-                            </label>
-                            <textarea
-                                value={newAction.what_description}
-                                onChange={(e) => setNewAction({ ...newAction, what_description: e.target.value })}
-                                rows={2}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="O que precisa ser feito..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-green-600">Onde?</span> (Local)
-                            </label>
-                            <input
-                                type="text"
-                                value={newAction.where_location}
-                                onChange={(e) => setNewAction({ ...newAction, where_location: e.target.value })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Local especÃ­fico..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-blue-600">Por que?</span> (Justificativa)
-                            </label>
-                            <textarea
-                                value={newAction.why_reason}
-                                onChange={(e) => setNewAction({ ...newAction, why_reason: e.target.value })}
-                                rows={2}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Justificativa da aÃ§Ã£o..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-indigo-600">Como?</span> (MÃ©todo)
-                            </label>
-                            <textarea
-                                value={newAction.how_method}
-                                onChange={(e) => setNewAction({ ...newAction, how_method: e.target.value })}
-                                rows={2}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Como serÃ¡ executado..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-purple-600">Quem?</span> (Responsável)
-                            </label>
-                            <input
-                                type="text"
-                                value={newAction.who_responsible}
-                                onChange={(e) => setNewAction({ ...newAction, who_responsible: e.target.value })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Responsável pela execução..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-yellow-600">Quando?</span> (Prazo)
-                            </label>
-                            <input
-                                type="date"
-                                value={newAction.when_deadline}
-                                onChange={(e) => setNewAction({ ...newAction, when_deadline: e.target.value })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Prioridade</label>
-                            <select
-                                value={newAction.priority}
-                                onChange={(e) => setNewAction({ ...newAction, priority: e.target.value as 'baixa' | 'media' | 'alta' })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            >
-                                <option value="baixa">Baixa</option>
-                                <option value="media">MÃ©dia</option>
-                                <option value="alta">Alta</option>
-                            </select>
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                <span className="text-orange-600">Quanto?</span> (Custo estimado)
-                            </label>
-                            <input
-                                type="text"
-                                value={newAction.how_much_cost}
-                                onChange={(e) => setNewAction({ ...newAction, how_much_cost: e.target.value })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                placeholder="Estimativa de custo..."
-                            />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-4">
-                        <button
-                            onClick={onCreateActionClick}
-                            disabled={!newAction.title || isSubmitting}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {isSubmitting ? (
-                                <div className="flex items-center gap-2">
-                                    <LoadingSpinner size="sm" />
-                                    Criando...
-                                </div>
-                            ) : (
-                                'Criar Ação'
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setShowNewAction(false)}
-                            className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
+                <NewActionForm
+                    onCreateAction={async (action) => {
+                        await onCreateActionClick(action);
+                        setShowNewAction(false);
+                        return true;
+                    }}
+                    onCancel={() => setShowNewAction(false)}
+                    isSubmitting={isSubmitting}
+                />
             )}
 
             {/* Add Item Form */}
             {showAddItem && (
-                <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input
-                            type="text"
-                            placeholder="Categoria (ex: EPIs, Equipamentos)"
-                            value={newItem.category}
-                            onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Descrição do item"
-                            value={newItem.item_description}
-                            onChange={(e) => setNewItem({ ...newItem, item_description: e.target.value })}
-                            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
-                    <textarea
-                        placeholder="Observações (opcional)"
-                        value={newItem.observations}
-                        onChange={(e) => setNewItem({ ...newItem, observations: e.target.value })}
-                        className="w-full mt-4 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                    />
-                    <div className="flex items-center gap-2 mt-4">
-                        <button
-                            onClick={onAddItemClick}
-                            disabled={!newItem.category || !newItem.item_description || isSubmitting}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {isSubmitting ? (
-                                <div className="flex items-center gap-2">
-                                    <LoadingSpinner size="sm" />
-                                    Adicionando...
-                                </div>
-                            ) : (
-                                'Adicionar'
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setShowAddItem(false)}
-                            className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
+                <NewItemForm
+                    onAddItem={async (item) => {
+                        await onAddItemClick(item);
+                        setShowAddItem(false);
+                        return true;
+                    }}
+                    onCancel={() => setShowAddItem(false)}
+                    isSubmitting={isSubmitting}
+                />
             )}
 
             {/* Template Checklist */}
@@ -388,7 +216,7 @@ export default function InspectionItemsList({
                         <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                         <p className="text-slate-500 font-medium">Nenhum item de checklist adicionado</p>
                         <p className="text-slate-400 text-sm mt-1">
-                            Adicione itens para comeÃ§ar a inspeÃ§Ã£o
+                            Adicione itens para começar a inspeção
                         </p>
                     </div>
                 ) : items.length === 0 ? (
