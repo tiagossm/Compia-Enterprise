@@ -4,6 +4,8 @@ import {
   Layout, Target, ShieldCheck, Volume2
 } from 'lucide-react';
 import { InspectionType, InspectionItemType, InspectionMediaType } from '@/shared/types';
+import { calculateInspectionStats } from '@/shared/utils/compliance';
+import { formatResponseValue } from '@/shared/utils/formatters';
 import { useToast } from '@/react-app/hooks/useToast';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -392,45 +394,8 @@ export default function PDFGenerator({
 
   if (!isOpen) return null;
 
-  const formatResponseValue = (value: any, fieldType: string) => {
-    switch (fieldType) {
-      case 'boolean':
-        const isTrue = value === true || value === 'true';
-        const isFalse = value === false || value === 'false';
-
-        if (!isTrue && !isFalse) {
-          return 'Não respondido';
-        }
-
-        return isTrue ? 'Conforme ✓' : 'Não Conforme ✗';
-      case 'rating':
-        if (value === null || value === undefined || value === '') {
-          return 'Não respondido';
-        }
-        return `${value}/5 estrelas`;
-      case 'multiselect':
-        if (value === null || value === undefined || value === '') {
-          return 'Não respondido';
-        }
-        if (Array.isArray(value)) {
-          return value.join(', ');
-        }
-        return String(value);
-      default:
-        if (value === null || value === undefined || value === '') {
-          return 'Não respondido';
-        }
-        return String(value);
-    }
-  };
-
-  // Calculate statistics
-  const stats = {
-    totalItems: 0,
-    compliantItems: 0,
-    nonCompliantItems: 0,
-    conformanceRate: 0
-  };
+  // Calculate statistics using shared utility
+  const stats = calculateInspectionStats(items, templateItems, responses);
 
   // Debug log para entender os dados
   console.log('[PDFGenerator] Received data:', {
@@ -439,40 +404,6 @@ export default function PDFGenerator({
     media: media?.length || 0,
     responsesKeys: Object.keys(responses || {}).length
   });
-
-  // Count manual items - always count all items, not just those with compliance set
-  items.forEach(item => {
-    stats.totalItems++;
-    if (item.is_compliant === true) {
-      stats.compliantItems++;
-    } else if (item.is_compliant === false) {
-      stats.nonCompliantItems++;
-    }
-  });
-
-  // Count template items - use item.id to lookup responses (same as InspectionSummary)
-  templateItems.forEach((item) => {
-    stats.totalItems++;
-    try {
-      const fieldData = JSON.parse(item.field_responses);
-      // Use item.id instead of fieldData.field_id - this is how responses are indexed
-      const response = responses[item.id];
-
-      if (fieldData.field_type === 'boolean') {
-        if (response === true || response === 'true') {
-          stats.compliantItems++;
-        } else if (response === false || response === 'false') {
-          stats.nonCompliantItems++;
-        }
-      } else if (response !== null && response !== undefined && response !== '') {
-        stats.compliantItems++;
-      }
-    } catch (error) {
-      console.error('Error processing template item:', error);
-    }
-  });
-
-  stats.conformanceRate = stats.totalItems > 0 ? Math.round((stats.compliantItems / stats.totalItems) * 100) : 0;
 
   const generatePDFHTML = (mapImageB64: string = '') => {
     // Helper for Inline Mode: Track rendered actions to avoid duplication
@@ -1266,7 +1197,7 @@ export default function PDFGenerator({
         <div class="content-indented">
             <div class="item-response">
             <div class="response-label">Resposta:</div>
-            <div class="${response === true || response === 'true' ? 'conforme' : response === false || response === 'false' ? 'nao-conforme' : ''}">${formatResponseValue(response, fieldData.field_type)}</div>
+            <div class="${response === true || response === 'true' ? 'conforme' : response === false || response === 'false' ? 'nao-conforme' : ''}">${formatResponseValue(response, fieldData.field_type, false)}</div>
             </div>
             ${comment ? `
             <div class="item-response">

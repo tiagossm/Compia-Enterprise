@@ -26,7 +26,7 @@ interface InspectionItemsListProps {
     updateItemAnalysis: (itemId: number, analysis: string | null) => Promise<void> | void;
     handleFormSubmit: (responses: any[]) => Promise<void> | void;
     handleDeleteItem: (itemId: number) => Promise<boolean> | Promise<void> | void;
-    updateItemCompliance: (itemId: number, isCompliant: boolean) => Promise<boolean> | Promise<void> | void;
+    updateItemCompliance: (itemId: number, item: InspectionItemType, isCompliant: boolean) => Promise<boolean> | Promise<void> | void;
     // ChecklistForm requires strict Promise<void> for await compatibility
     handleAutoSave: (responses: Record<string, any>, comments: Record<string, any>, complianceStatuses?: Record<string, any>) => Promise<void>;
 }
@@ -413,16 +413,16 @@ export default function InspectionItemsList({
                                 {item.is_compliant === null ? (
                                     <>
                                         <button
-                                            onClick={() => updateItemCompliance(item.id!, true)}
+                                            onClick={() => updateItemCompliance(item.id!, item, true)}
                                             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                             title="Marcar como conforme"
                                         >
                                             <Check className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => updateItemCompliance(item.id!, false)}
+                                            onClick={() => updateItemCompliance(item.id!, item, false)}
                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Marcar como nÃ£o conforme"
+                                            title="Marcar como não conforme"
                                         >
                                             <X className="w-4 h-4" />
                                         </button>

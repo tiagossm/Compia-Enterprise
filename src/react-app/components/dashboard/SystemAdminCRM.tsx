@@ -502,7 +502,8 @@ export default function SystemAdminCRM() {
 
                         {/* Body Content */}
                         {activeTab === 'timeline' && formData.id ? (
-                            <ActivityTimeline leadId={formData.id} lead={formData as any} />
+                            <ActivityTimeline leadId={formData.id} />
+
                         ) : (
                             /* Form Body */
                             <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6">

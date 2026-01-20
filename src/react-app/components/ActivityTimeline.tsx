@@ -23,9 +23,14 @@ interface Activity {
 
 interface ActivityTimelineProps {
     leadId: number;
+    lead?: {
+        phone?: string;
+        email?: string;
+        contact_name?: string;
+    };
 }
 
-export default function ActivityTimeline({ leadId }: ActivityTimelineProps) {
+export default function ActivityTimeline({ leadId, lead }: ActivityTimelineProps) {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [loading, setLoading] = useState(true);
     const [adding, setAdding] = useState(false);
@@ -33,6 +38,55 @@ export default function ActivityTimeline({ leadId }: ActivityTimelineProps) {
     // New Note State
     const [newNote, setNewNote] = useState('');
     const [noteType, setNoteType] = useState<Activity['type']>('note');
+
+    const logActivity = async (type: Activity['type'], title: string, description: string) => {
+        try {
+            await fetch(`/api/crm/leads/${leadId}/activities`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, title, description })
+            });
+            fetchActivities();
+        } catch (error) {
+            console.error("Auto-log failed", error);
+        }
+    };
+
+    const handleQuickAction = (action: 'whatsapp' | 'email' | 'call') => {
+        if (!lead) return;
+
+        let url = '';
+        let logTitle = '';
+        let logDesc = '';
+
+        if (action === 'whatsapp') {
+            if (!lead.phone) return alert('Telefone não cadastrado.');
+            const phone = lead.phone.replace(/\D/g, '');
+            const text = encodeURIComponent(`Olá ${lead.contact_name || ''}, tudo bem?`);
+            url = `https://wa.me/55${phone}?text=${text}`;
+            logTitle = 'Conversa WhatsApp Iniciada';
+            logDesc = `Clicou para iniciar conversa via WhatsApp com ${lead.phone}`;
+        }
+        else if (action === 'email') {
+            if (!lead.email) return alert('Email não cadastrado.');
+            url = `mailto:${lead.email}`;
+            logTitle = 'Email Iniciado';
+            logDesc = `Abriu cliente de email para ${lead.email}`;
+        }
+        else if (action === 'call') {
+            if (!lead.phone) return alert('Telefone não cadastrado.');
+            url = `tel:${lead.phone}`;
+            logTitle = 'Ligação Iniciada';
+            logDesc = `Clicou para ligar para ${lead.phone}`;
+        }
+
+        window.open(url, '_blank');
+        logActivity(
+            action === 'call' ? 'call' : action === 'email' ? 'email' : 'whatsapp',
+            logTitle,
+            logDesc
+        );
+    };
 
     const fetchActivities = async () => {
         try {
@@ -59,20 +113,8 @@ export default function ActivityTimeline({ leadId }: ActivityTimelineProps) {
 
         try {
             setAdding(true);
-            const res = await fetch(`/api/crm/leads/${leadId}/activities`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: noteType,
-                    title: getTitleByType(noteType),
-                    description: newNote
-                })
-            });
-
-            if (res.ok) {
-                setNewNote('');
-                fetchActivities();
-            }
+            await logActivity(noteType, getTitleByType(noteType), newNote);
+            setNewNote('');
         } catch (error) {
             console.error(error);
             alert("Erro ao salvar atividade.");
@@ -115,6 +157,31 @@ export default function ActivityTimeline({ leadId }: ActivityTimelineProps) {
 
     return (
         <div className="flex flex-col h-full">
+            {/* Quick Actions Bar */}
+            <div className="bg-white p-4 border-b border-slate-200 grid grid-cols-3 gap-2">
+                <button
+                    onClick={() => handleQuickAction('whatsapp')}
+                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 transition-colors border border-green-200"
+                >
+                    <MessageSquare className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-semibold">WhatsApp</span>
+                </button>
+                <button
+                    onClick={() => handleQuickAction('email')}
+                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200"
+                >
+                    <Mail className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-semibold">Email</span>
+                </button>
+                <button
+                    onClick={() => handleQuickAction('call')}
+                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors border border-emerald-200"
+                >
+                    <Phone className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-semibold">Ligar</span>
+                </button>
+            </div>
+
             {/* Input Area */}
             <div className="bg-slate-50 p-4 border-b border-slate-200">
                 <form onSubmit={handleAddActivity}>

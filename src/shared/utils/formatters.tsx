@@ -1,5 +1,6 @@
 
-import React from 'react';
+// React removed
+
 import { CheckCircle2, AlertCircle, Star } from 'lucide-react';
 
 export const formatResponseValue = (value: any, fieldType: string, useJsx: boolean = true) => {

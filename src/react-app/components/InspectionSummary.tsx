@@ -1,9 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Printer, CheckCircle2, AlertCircle, Star, Calendar, User, MapPin, Building2, Target, Percent,
-  TrendingUp, AlertTriangle, Play, Volume2, Image as ImageIcon, MessageSquare, Brain, PenTool, X,
-  QrCode, Smartphone, Globe, MinusCircle, HelpCircle
+  Printer, CheckCircle2, AlertCircle, Calendar, User, MapPin, Building2, Percent,
+  TrendingUp, AlertTriangle, Play, Volume2, Image as ImageIcon, MessageSquare, Brain, X,
+  Globe, MinusCircle, HelpCircle
+
 } from 'lucide-react';
 import { fetchWithAuth } from '@/react-app/utils/auth';
 import { InspectionType, InspectionItemType, InspectionMediaType } from '@/shared/types';
@@ -33,7 +34,8 @@ export default function InspectionSummary({
   actionItems = []
 }: InspectionSummaryProps) {
   const [shareLink, setShareLink] = useState<string>('');
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>(''); // Backend generated mostly
+  const [qrCodeDataUrl] = useState<string>(''); // Backend generated mostly
+
 
   useEffect(() => {
     const generateQRCode = async () => {
@@ -362,7 +364,8 @@ export default function InspectionSummary({
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 print:shadow-none print:border-gray-300 mt-8">
             <h2 className="font-heading text-xl font-semibold text-slate-900 mb-6">Itens Manuais</h2>
             <div className="space-y-6">
-              {items.map((item, index) => (
+              {items.map((item, _) => (
+
                 <div key={item.id} className="border border-slate-300 rounded-lg p-6 space-y-4 print:border-gray-400 print:page-break-inside-avoid">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -399,8 +402,9 @@ export default function InspectionSummary({
           <h2 className="font-heading text-xl font-semibold text-slate-900 mb-6">Assinaturas</h2>
           {(signatures.inspector || signatures.responsible) ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <SignaturePreview signature={signatures.inspector} signerName={inspection.inspector_name} signerRole="Inspetor" title="Assinatura do Inspetor" />
-              <SignaturePreview signature={signatures.responsible} signerName={inspection.responsible_name} signerRole="Responsável" title="Assinatura do Responsável" />
+              <SignaturePreview signature={signatures.inspector} signerName={inspection.inspector_name || ''} signerRole="Inspetor" title="Assinatura do Inspetor" />
+              <SignaturePreview signature={signatures.responsible} signerName={inspection.responsible_name || ''} signerRole="Responsável" title="Assinatura do Responsável" />
+
             </div>
           ) : <p className="text-center text-slate-500">Pendente</p>}
         </div>
