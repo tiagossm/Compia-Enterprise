@@ -1,4 +1,5 @@
 import { db, SyncMutation } from './db';
+import { inspectionCache } from '@/lib/cache/inspection-cache';
 
 class SyncService {
     private isSyncing = false;
@@ -199,13 +200,38 @@ class SyncService {
             if (!templatesRes.ok) throw new Error('Failed to fetch templates');
             const templates = await templatesRes.json();
 
-            // 3. Save to Dexie
+            // 3. Save to Dexie (Summary List)
             await db.transaction('rw', db.inspections, db.templates, async () => {
                 await db.inspections.bulkPut(inspections);
                 await db.templates.bulkPut(templates);
             });
 
-            console.log(`[Sync] Downloaded ${inspections.length} inspections and ${templates.length} templates.`);
+            // 4. Prefetch Details for Active/Relevant Inspections
+            // Logic: Fetch details for any inspection that is NOT completed, or last 5 completed ones.
+            // We use global fetch (auth injected) to avoid circular dependency
+            const activeInspections = inspections.filter((i: any) =>
+                i.status !== 'concluida' ||
+                (i.updated_at && (Date.now() - new Date(i.updated_at).getTime() < 7 * 24 * 60 * 60 * 1000)) // Last 7 days
+            );
+
+            console.log(`[Sync] Prefetching details for ${activeInspections.length} active/recent inspections...`);
+
+            let syncedDetails = 0;
+            for (const inspection of activeInspections) {
+                try {
+                    // Manual fetch to bypass inspectionService cycle, but use inspectionCache
+                    const detailRes = await fetch(`/api/inspections/${inspection.id}`);
+                    if (detailRes.ok) {
+                        const detailData = await detailRes.json();
+                        await inspectionCache.save(inspection.id, detailData);
+                        syncedDetails++;
+                    }
+                } catch (e) {
+                    console.warn(`[Sync] Failed to prefetch detail for ${inspection.id}`, e);
+                }
+            }
+
+            console.log(`[Sync] Downloaded ${inspections.length} summaries, ${syncedDetails} details, and ${templates.length} templates.`);
 
         } catch (error) {
             console.error('[Sync] Prefetch failed:', error);

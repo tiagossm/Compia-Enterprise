@@ -85,6 +85,7 @@ app.post('/leads', async (c) => {
         const body = await c.req.json();
         const {
             company_name, contact_name, email, phone, status, source, notes,
+            deal_value, probability,
             cnpj, razao_social, nome_fantasia, website,
             cep, logradouro, numero, complemento, bairro, cidade, uf
         } = body;
@@ -92,11 +93,11 @@ app.post('/leads', async (c) => {
         const result = await db.prepare(`
       INSERT INTO leads (
           company_name, contact_name, email, phone, status, source, notes, 
-          owner_id,
+          deal_value, probability, owner_id,
           cnpj, razao_social, nome_fantasia, website,
           cep, logradouro, numero, complemento, bairro, cidade, uf
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).bind(
             company_name,
@@ -106,6 +107,8 @@ app.post('/leads', async (c) => {
             status || 'new',
             source || null,
             notes || null,
+            deal_value || 0,
+            probability || 0,
             user.id,
             cnpj || null,
             razao_social || null,
@@ -139,6 +142,7 @@ app.put('/leads/:id', async (c) => {
         const values = [];
         const allowed = [
             'company_name', 'contact_name', 'email', 'phone', 'status', 'source', 'notes',
+            'deal_value', 'probability',
             'cnpj', 'razao_social', 'nome_fantasia', 'website',
             'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf'
         ];
@@ -152,10 +156,11 @@ app.put('/leads/:id', async (c) => {
 
         if (fields.length === 0) return c.json({ message: 'Nothing to update' });
 
-        // Auto-log Status Change
+        // Auto-log Status Change & Update status_updated_at
         if (body.status) {
             const currentLead = await db.prepare("SELECT status FROM leads WHERE id = ?").bind(leadId).first();
             if (currentLead && currentLead.status !== body.status) {
+                // Log Activity
                 await db.prepare(`
                     INSERT INTO crm_activities (lead_id, type, title, description, created_by) 
                     VALUES (?, 'status_change', 'Alteração de Status', ?, ?)
@@ -164,6 +169,9 @@ app.put('/leads/:id', async (c) => {
                     `Status alterado de ${currentLead.status.toUpperCase()} para ${body.status.toUpperCase()}`,
                     (c.get('user') as any).id
                 ).run();
+
+                // Update status timestamp
+                fields.push("status_updated_at = NOW()");
             }
         }
 

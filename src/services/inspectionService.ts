@@ -1,13 +1,49 @@
 
 import { fetchWithAuth } from '@/react-app/utils/auth';
+import { inspectionCache } from '@/lib/cache/inspection-cache';
 
 import { syncService } from '@/lib/sync-service';
 
 export const inspectionService = {
     fetchDetails: async (id: string) => {
-        const response = await fetchWithAuth(`/api/inspections/${id}`);
-        if (!response.ok) throw new Error('Failed to fetch inspection details');
-        return response.json();
+        // Strategy: Network First, Fallback to Cache
+        try {
+            const response = await fetchWithAuth(`/api/inspections/${id}`);
+            if (!response.ok) {
+                // If 404, throw immediately (don't fallback to cache if it doesn't exist on server anymore)
+                if (response.status === 404) throw new Error('Inspeção não encontrada');
+                throw new Error('Falha ao carregar detalhes da inspeção');
+            }
+            const data = await response.json();
+
+            // Success: Cache the fresh data
+            try {
+                const numericId = parseInt(id);
+                await inspectionCache.save(numericId, data);
+            } catch (cacheError) {
+                console.warn('[InspectionService] Failed to cache details:', cacheError);
+            }
+
+            return data;
+        } catch (error) {
+            console.warn(`[InspectionService] Network failed for ${id}, trying cache...`, error);
+
+            // Fallback: Try Cache
+            try {
+                const numericId = parseInt(id);
+                const cachedPayload = await inspectionCache.get(numericId);
+
+                if (cachedPayload) {
+                    console.log(`[InspectionService] Serving cached details for ${id}`);
+                    return cachedPayload;
+                }
+            } catch (dbError) {
+                console.error('[InspectionService] Cache lookup failed:', dbError);
+            }
+
+            // If we got here, both Network and Cache failed
+            throw error;
+        }
     },
 
     fetchActionItems: async (id: string) => {

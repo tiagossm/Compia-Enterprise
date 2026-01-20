@@ -24,6 +24,7 @@ export interface OfflineInspection {
     score?: number;
     answers_json?: any; // Full JSON of answers
     synced_at: number; // Last time we fetched this from server
+    full_details_payload?: any; // Cached full response from fetchDetails for offline read
 }
 
 export interface SyncMutation {
