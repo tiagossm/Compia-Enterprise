@@ -1,10 +1,9 @@
-import { Link } from 'react-router-dom';
-import { Target, Sparkles, Plus, AlertTriangle, Check, X, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
-import LoadingSpinner from '@/react-app/components/LoadingSpinner';
-import ChecklistForm from '@/react-app/components/ChecklistForm';
 import { InspectionType, InspectionItemType } from '@/shared/types';
+import ChecklistForm from '@/react-app/components/ChecklistForm';
 import NewItemForm from './NewItemForm';
 import NewActionForm from './NewActionForm';
+import ManualItemsList from './ManualItemsList';
+import InspectionListControls from './InspectionListControls';
 
 interface InspectionItemsListProps {
     inspection: InspectionType;
@@ -52,66 +51,14 @@ export default function InspectionItemsList({
 }: InspectionItemsListProps) {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="font-heading text-xl font-semibold text-slate-900">
-                    Checklist de Inspeção
-                </h2>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                    {/* Grupo: Plano de Ação */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Link
-                            to={`/inspections/${inspection.id}/action-plan`}
-                            className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 bg-white text-purple-700 border border-purple-200 text-sm font-medium rounded-lg hover:bg-purple-50 transition-colors shadow-sm"
-                            title="Visualizar todas as ações geradas ou criadas manualmente"
-                        >
-                            <Target className="w-4 h-4 mr-2" />
-                            <span className="hidden sm:inline">Ver Plano de Ação</span>
-                            <span className="sm:hidden">Ação</span>
-                        </Link>
-                        <button
-                            onClick={generateAIAnalysis}
-                            disabled={aiAnalyzing || isSubmitting}
-                            className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                            title="Gera análise automática (5W2H) para todos os itens não conformes"
-                        >
-                            {aiAnalyzing ? (
-                                <LoadingSpinner size="sm" />
-                            ) : (
-                                <Sparkles className="w-4 h-4 mr-2" />
-                            )}
-                            {aiAnalyzing ? 'Analisando...' : (
-                                <>
-                                    <span className="hidden sm:inline">Gerar Análises (IA)</span>
-                                    <span className="sm:hidden">IA</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-
-                    <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-
-                    {/* Grupo: Adicionar */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <button
-                            onClick={() => setShowNewAction(true)}
-                            className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors shadow-sm"
-                            title="Criar uma ação manual"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            <span className="hidden sm:inline">Nova Ação</span>
-                            <span className="sm:hidden">Ação</span>
-                        </button>
-                        <button
-                            onClick={() => setShowAddItem(true)}
-                            className="flex-1 sm:flex-none flex items-center justify-center px-3 py-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 text-sm font-medium rounded-lg transition-colors"
-                            title="Adicionar Item ao Checklist"
-                        >
-                            <Plus className="w-4 h-4 mr-2 sm:mr-0" />
-                            <span className="sm:hidden">Add Item</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <InspectionListControls
+                inspectionId={inspection.id!}
+                aiAnalyzing={aiAnalyzing}
+                isSubmitting={isSubmitting}
+                generateAIAnalysis={generateAIAnalysis}
+                onShowNewAction={() => setShowNewAction(true)}
+                onShowAddItem={() => setShowAddItem(true)}
+            />
 
             {/* New Action Form */}
             {showNewAction && (
@@ -206,83 +153,12 @@ export default function InspectionItemsList({
             )}
 
             {/* Manual Items */}
-            <div className="space-y-4">
-                <h3 className="font-heading text-lg font-semibold text-slate-900">
-                    Itens Manuais
-                </h3>
-
-                {items.length === 0 && templateItems.length === 0 ? (
-                    <div className="text-center py-8">
-                        <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                        <p className="text-slate-500 font-medium">Nenhum item de checklist adicionado</p>
-                        <p className="text-slate-400 text-sm mt-1">
-                            Adicione itens para começar a inspeção
-                        </p>
-                    </div>
-                ) : items.length === 0 ? (
-                    <div className="text-center py-4">
-                        <p className="text-slate-500 text-sm">Nenhum item manual adicionado</p>
-                    </div>
-                ) : (
-                    items.map((item) => (
-                        <div key={item.id} className="flex items-start gap-4 p-4 border border-slate-200 rounded-lg">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
-                                        {item.category}
-                                    </span>
-                                </div>
-                                <p className="font-medium text-slate-900 mb-1">{item.item_description}</p>
-                                {item.observations && (
-                                    <p className="text-sm text-slate-600">{item.observations}</p>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {item.is_compliant === null ? (
-                                    <>
-                                        <button
-                                            onClick={() => updateItemCompliance(item.id!, item, true)}
-                                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                            title="Marcar como conforme"
-                                        >
-                                            <Check className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => updateItemCompliance(item.id!, item, false)}
-                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Marcar como não conforme"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => item.id && handleDeleteItem(item.id)}
-                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Excluir item"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${item.is_compliant
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-red-100 text-red-800'
-                                        }`}>
-                                        {item.is_compliant ? (
-                                            <CheckCircle2 className="w-4 h-4" />
-                                        ) : (
-                                            <AlertCircle className="w-4 h-4" />
-                                        )}
-                                        <span className="text-sm font-medium">
-                                            {item.is_compliant ? 'Conforme' : 'Não Conforme'}
-                                        </span>
-                                    </div>
-                                )
-                                }
-                            </div >
-                        </div >
-                    ))
-                )}
-            </div >
+            <ManualItemsList
+                items={items}
+                hasTemplateItems={templateItems.length > 0}
+                updateItemCompliance={updateItemCompliance}
+                handleDeleteItem={handleDeleteItem}
+            />
         </div>
     );
 }
