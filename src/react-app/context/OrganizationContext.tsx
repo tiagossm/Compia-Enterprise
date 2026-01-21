@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { fetchWithAuth } from '../utils/auth';
 
 export interface AccessibleOrganization {
     id: number;
@@ -39,9 +40,7 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
         // Fetch organizations from the new API endpoint
         const fetchOrganizations = async () => {
             try {
-                const response = await fetch('/api/users/me/organizations', {
-                    credentials: 'include'
-                });
+                const response = await fetchWithAuth('/api/users/me/organizations');
 
                 if (response.ok) {
                     const data = await response.json();
