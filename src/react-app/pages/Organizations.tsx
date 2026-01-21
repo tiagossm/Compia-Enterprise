@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '@/react-app/context/AuthContext';
+import { useOrganization } from '@/react-app/context/OrganizationContext';
 import { fetchWithAuth } from '@/react-app/utils/auth';
 import { Organization } from '../../shared/types';
 import NewOrganizationModal from '../components/NewOrganizationModal';
@@ -35,6 +36,7 @@ type ViewMode = 'tree' | 'cards' | 'list';
 
 export default function Organizations() {
   const { user } = useAuth();
+  const { selectedOrganization: globalSelectedOrg } = useOrganization();
   const isAuthenticated = !!user;
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [userCounts, setUserCounts] = useState<Record<number, number>>({});
@@ -84,7 +86,7 @@ export default function Organizations() {
       fetchOrganizations();
       fetchStats();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, globalSelectedOrg?.id]); // Re-fetch when global org changes
 
   const fetchOrganizations = async () => {
     try {
@@ -105,7 +107,13 @@ export default function Organizations() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetchWithAuth('/api/organizations/stats');
+      // Pass organization_id to filter stats by selected organization
+      let url = '/api/organizations/stats';
+      if (globalSelectedOrg && globalSelectedOrg.id !== 0) {
+        url += `?organization_id=${globalSelectedOrg.id}`;
+      }
+
+      const response = await fetchWithAuth(url);
 
       if (response.ok) {
         const data = await response.json();
