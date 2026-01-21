@@ -15,6 +15,7 @@ import {
     Clock,
     ArrowRight
 } from 'lucide-react';
+import { useOrganization } from '@/react-app/context/OrganizationContext';
 import SystemAdminCRM from './SystemAdminCRM';
 import {
     ResponsiveContainer,
@@ -60,15 +61,17 @@ interface BIAnalytics {
 }
 
 export default function SystemAdminDashboard() {
+    const { selectedOrganization } = useOrganization();
     const [metrics, setMetrics] = useState<SaaSMetrics | null>(null);
     const [biAnalytics, setBiAnalytics] = useState<BIAnalytics | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'crm'>('overview');
 
     useEffect(() => {
+        setLoading(true);
         fetchMetrics();
         fetchBiAnalytics();
-    }, []);
+    }, [selectedOrganization?.id]); // Re-fetch when organization changes
 
     const fetchMetrics = async () => {
         try {

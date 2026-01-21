@@ -19,6 +19,8 @@ import {
     CheckCircle2
 } from 'lucide-react';
 
+import { useOrganization } from '@/react-app/context/OrganizationContext';
+
 interface OrgAnalytics {
     productivity: { inspector_name: string; total_inspections: number }[];
     bottlenecks: { priority: string; count: number }[];
@@ -26,12 +28,14 @@ interface OrgAnalytics {
 }
 
 export default function OrgAdminDashboard() {
+    const { selectedOrganization } = useOrganization();
     const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        setLoading(true);
         fetchAnalytics();
-    }, []);
+    }, [selectedOrganization?.id]); // Re-fetch when organization changes
 
     const fetchAnalytics = async () => {
         try {
