@@ -11,7 +11,10 @@ import {
     ChevronLeft,
     ChevronRight,
     LayoutList,
-    KanbanSquare
+    KanbanSquare,
+    MessageSquare,
+    Mail,
+    Phone
 } from 'lucide-react';
 import LeadConversionModal from '../LeadConversionModal';
 import CRMPipelineBoard from '../CRMPipelineBoard';
@@ -544,22 +547,60 @@ export default function SystemAdminCRM() {
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                                                <input
-                                                    type="email"
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                                    value={formData.email || ''}
-                                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                />
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="email"
+                                                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                        value={formData.email || ''}
+                                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                    />
+                                                    {formData.email && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => window.open(`mailto:${formData.email}`, '_blank')}
+                                                            className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors border border-indigo-200"
+                                                            title="Enviar Email"
+                                                        >
+                                                            <Mail className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-                                                <input
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                                    value={formData.phone || ''}
-                                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                                />
+                                                <div className="flex gap-1">
+                                                    <input
+                                                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                        value={formData.phone || ''}
+                                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                                    />
+                                                    {formData.phone && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const phone = (formData.phone || '').replace(/\D/g, '');
+                                                                    const text = encodeURIComponent(`Olá ${formData.contact_name || ''}, tudo bem?`);
+                                                                    window.open(`https://wa.me/55${phone}?text=${text}`, '_blank');
+                                                                }}
+                                                                className="p-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors border border-green-200"
+                                                                title="WhatsApp"
+                                                            >
+                                                                <MessageSquare className="w-5 h-5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => window.open(`tel:${formData.phone}`, '_blank')}
+                                                                className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors border border-emerald-200"
+                                                                title="Ligar"
+                                                            >
+                                                                <Phone className="w-5 h-5" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>

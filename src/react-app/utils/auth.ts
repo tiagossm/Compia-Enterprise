@@ -35,6 +35,12 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
     // DO NOT set Authorization here. fetch-setup.ts will inject the correct Bearer token.
   }
 
+  // Multi-tenant: Inject X-Organization-Id from localStorage
+  const selectedOrgId = localStorage.getItem('compia_selected_org_id');
+  if (selectedOrgId) {
+    headers['X-Organization-Id'] = selectedOrgId;
+  }
+
   // --- Offline & Sync Logic ---
   const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method?.toUpperCase() || '');
 

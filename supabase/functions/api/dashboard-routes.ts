@@ -24,12 +24,18 @@ dashboardRoutes.get("/stats", tenantAuthMiddleware, async (c) => {
     let whereClause = "";
     let params: any[] = [];
 
+    const isAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'sys_admin';
+
     if (organizationId) {
       // Se um organization_id for fornecido na query, filtre por ele.
       // O middleware de autenticação (AuthGuard) já garante que o usuário
       // tenha acesso ao scope desta organização.
       whereClause = "WHERE organization_id = ?";
       params.push(organizationId);
+    } else if (isAdmin) {
+      // SYSTEM_ADMIN vê tudo (sem filtro)
+      whereClause = "";
+      params = [];
     } else if (userProfile?.role === USER_ROLES.ORG_ADMIN && userProfile.managed_organization_id) {
       // Para Org Admins, se nenhum organization_id específico for fornecido,
       // filtre pela organização gerenciada e suas subsidiárias
@@ -44,9 +50,9 @@ dashboardRoutes.get("/stats", tenantAuthMiddleware, async (c) => {
       // Para usuários comuns (não-admin), filtre pela sua organização OU atribuições
       const userEmail = userProfile.email || user.email;
       whereClause = "WHERE (organization_id = ? OR inspector_email = ?)";
-      params.push(userProfile.organization_id, userEmail);
+      // Ensure no undefined values are pushed
+      params.push(userProfile.organization_id || 0, userEmail || '');
     }
-    // SYSTEM_ADMIN não tem filtro, vê tudo
 
     const total = await env.DB.prepare(`SELECT COUNT(*) as count FROM inspections ${whereClause}`).bind(...params).first() as any;
     const pending = await env.DB.prepare(`SELECT COUNT(*) as count FROM inspections ${whereClause}${whereClause ? ' AND' : ' WHERE'} status = 'pendente'`).bind(...params).first() as any;
@@ -88,9 +94,15 @@ dashboardRoutes.get("/action-plan-summary", tenantAuthMiddleware, async (c) => {
     let whereClause = "";
     let params: any[] = [];
 
+    const isAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'sys_admin';
+
     if (organizationId) {
       whereClause = "WHERE i.organization_id = ?";
       params.push(organizationId);
+    } else if (isAdmin) {
+      // SYSTEM_ADMIN vê tudo (sem filtro)
+      whereClause = "";
+      params = [];
     } else if (userProfile?.role === USER_ROLES.ORG_ADMIN && userProfile.managed_organization_id) {
       whereClause = `
         WHERE i.organization_id IN (
@@ -102,9 +114,8 @@ dashboardRoutes.get("/action-plan-summary", tenantAuthMiddleware, async (c) => {
     } else {
       const userEmail = userProfile.email || user.email;
       whereClause = "WHERE (i.organization_id = ? OR i.inspector_email = ?)";
-      params.push(userProfile.organization_id, userEmail);
+      params.push(userProfile.organization_id || 0, userEmail || '');
     }
-    // SYSTEM_ADMIN não tem filtro
 
     const allActions = await env.DB.prepare(`
       SELECT 

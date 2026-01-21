@@ -8,7 +8,7 @@ export function createD1Wrapper(connectionString: string) {
     // Edge Functions are short-lived, so we minimize connection overhead
     if (!sqlInstance) {
         sqlInstance = postgres(connectionString, {
-            max: 1,                    // Single connection per worker
+            max: 3,                    // Up to 3 connections per worker
             idle_timeout: 5,           // Close idle connections quickly
             connect_timeout: 10,       // Fast connection timeout
             max_lifetime: 30,          // Max connection lifetime 30 seconds

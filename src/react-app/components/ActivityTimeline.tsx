@@ -222,8 +222,8 @@ export default function ActivityTimeline({ leadId, lead }: ActivityTimelineProps
                 </form>
             </div>
 
-            {/* Timeline List */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white">
+            {/* Timeline List - Simple Vertical Layout */}
+            <div className="flex-1 overflow-y-auto p-4 bg-white">
                 {activities.length === 0 && !loading && (
                     <div className="text-center text-slate-400 text-sm italic mt-10">
                         Nenhuma atividade registrada ainda.
@@ -235,30 +235,29 @@ export default function ActivityTimeline({ leadId, lead }: ActivityTimelineProps
                     </div>
                 )}
 
-                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                <div className="space-y-3">
                     {activities.map((activity) => (
-                        <div key={activity.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-
+                        <div key={activity.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
                             {/* Icon */}
-                            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${getColor(activity.type)}`}>
+                            <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${getColor(activity.type)}`}>
                                 {getIcon(activity.type)}
                             </div>
 
-                            {/* Card content */}
-                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded border border-slate-200 shadow hover:shadow-md transition-shadow">
-                                <div className="flex items-center justify-between space-x-2 mb-1">
-                                    <div className="font-bold text-slate-900 text-sm">{activity.title}</div>
-                                    <time className="font-caveat font-medium text-xs text-indigo-500">
-                                        {format(new Date(activity.created_at), "d MMM, HH:mm", { locale: ptBR })}
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                    <span className="font-semibold text-slate-800 text-sm truncate">{activity.title}</span>
+                                    <time className="text-xs text-slate-400 whitespace-nowrap">
+                                        {format(new Date(activity.created_at), "dd/MM HH:mm", { locale: ptBR })}
                                     </time>
                                 </div>
-                                <div className="text-slate-500 text-sm">
-                                    {activity.description}
-                                </div>
+                                {activity.description && (
+                                    <p className="text-slate-600 text-sm">{activity.description}</p>
+                                )}
                                 {activity.user_email && (
-                                    <div className="mt-2 text-xs text-slate-400 text-right italic">
+                                    <span className="text-xs text-slate-400 mt-1 block">
                                         por {activity.user_email.split('@')[0]}
-                                    </div>
+                                    </span>
                                 )}
                             </div>
                         </div>

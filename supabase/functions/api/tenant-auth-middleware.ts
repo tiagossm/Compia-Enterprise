@@ -204,8 +204,23 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
         allowedOrganizationIds = Array.from(orgsSet);
     }
 
+    // Read X-Organization-Id header for context switching (Multi-Tenant)
+    let activeOrganizationId = user.organization_id;
+    const requestedOrgId = c.req.header('X-Organization-Id');
+
+    if (requestedOrgId) {
+        const requestedOrgIdNum = Number(requestedOrgId);
+        // System admin can access any org, others must have explicit access
+        if (isSystemAdmin || allowedOrganizationIds.includes(requestedOrgIdNum)) {
+            activeOrganizationId = requestedOrgIdNum;
+            console.log(`[TENANT-AUTH] Context switched to org: ${requestedOrgIdNum}`);
+        } else {
+            console.warn(`[TENANT-AUTH] Denied context switch to org ${requestedOrgIdNum} - not in allowed list`);
+        }
+    }
+
     const tenantContext: TenantContext = {
-        organizationId: user.organization_id,
+        organizationId: activeOrganizationId,
         allowedOrganizationIds,
         isSystemAdmin,
         userId: user.id,

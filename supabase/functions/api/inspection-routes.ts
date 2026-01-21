@@ -36,11 +36,12 @@ inspectionRoutes.get("/", tenantAuthMiddleware, async (c) => {
     const offset = (page - 1) * limit;
 
     let baseQuery = `
-      SELECT i.*, u.name as created_by_name, u.avatar_url as inspector_avatar_url, o.name as organization_name
+      SELECT i.*, u.name as created_by_name, o.name as organization_name
       FROM inspections i
       LEFT JOIN users u ON i.created_by = u.id
       LEFT JOIN organizations o ON i.organization_id = o.id
     `;
+
 
     let countQuery = `SELECT COUNT(*) as total FROM inspections i`;
 
@@ -234,12 +235,13 @@ inspectionRoutes.get("/:id", tenantAuthMiddleware, async (c) => {
   try {
     // Get inspection with related data
     const inspection = await env.DB.prepare(`
-      SELECT i.*, u.name as created_by_name, u.avatar_url as inspector_avatar_url, o.name as organization_name
+      SELECT i.*, u.name as created_by_name, o.name as organization_name
       FROM inspections i
       LEFT JOIN users u ON i.created_by = u.id
       LEFT JOIN organizations o ON i.organization_id = o.id
       WHERE i.id = ?
   `).bind(inspectionId).first() as any;
+
 
     if (!inspection) {
       return c.json({ error: "Inspection not found" }, 404);

@@ -260,7 +260,7 @@ export default function UserAssignmentModal({
                                         <option value="org_admin">Administrador da Organização</option>
                                         <option value="manager">Gerente</option>
                                         <option value="inspector">Inspetor / Técnico</option>
-                                        <option value="client_viewer">Visualizador (Cliente)</option>
+                                        <option value="client">Cliente (Visualizador)</option>
                                     </select>
                                     <p className="mt-1 text-xs text-gray-500">
                                         Define as permissões do usuário {isBulk ? 'nestas organizações' : 'nesta organização'}.

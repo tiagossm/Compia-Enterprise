@@ -49,7 +49,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'Ferramentas': false,
     'Análise': false,
-    'Administração': false
+    'Administração': true
   });
 
   useEffect(() => {

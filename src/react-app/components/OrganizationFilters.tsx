@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { 
-  Search, 
-  X, 
-  Building2, 
+import {
+  Search,
+  X,
+  Building2,
   Calendar,
   Users,
   Activity,
@@ -17,6 +17,7 @@ interface OrganizationFiltersProps {
     type: string[];
     status: string[];
     plan: string[];
+    level: string[];
     userCountRange: [number, number];
     dateRange: [string, string];
   };
@@ -33,10 +34,11 @@ export default function OrganizationFilters({
 }: OrganizationFiltersProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  const hasActiveFilters = 
+  const hasActiveFilters =
     filters.type.length > 0 ||
     filters.status.length > 0 ||
     filters.plan.length > 0 ||
+    (filters.level && filters.level.length > 0) ||
     filters.userCountRange[0] > 0 ||
     filters.userCountRange[1] < 1000 ||
     filters.dateRange[0] !== '' ||
@@ -93,11 +95,10 @@ export default function OrganizationFilters({
             <button
               key={type}
               onClick={() => handleTypeChange(type)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filters.type.includes(type)
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filters.type.includes(type)
                   ? 'bg-blue-100 text-blue-700 border border-blue-200'
                   : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-              }`}
+                }`}
             >
               <Building2 className="inline h-3 w-3 mr-1" />
               {type === 'company' ? 'Empresa' : type === 'consultancy' ? 'Consultoria' : 'Cliente'}
@@ -114,11 +115,10 @@ export default function OrganizationFilters({
             <button
               key={key}
               onClick={() => handleStatusChange(key)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filters.status.includes(key)
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filters.status.includes(key)
                   ? `bg-${color}-100 text-${color}-700 border border-${color}-200`
                   : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-              }`}
+                }`}
             >
               <Activity className="inline h-3 w-3 mr-1" />
               {label}
@@ -129,11 +129,10 @@ export default function OrganizationFilters({
         {/* Botão de filtros avançados */}
         <button
           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-            showAdvancedFilters || hasActiveFilters
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${showAdvancedFilters || hasActiveFilters
               ? 'bg-blue-50 text-blue-700 border border-blue-200'
               : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
-          }`}
+            }`}
         >
           <SlidersHorizontal className="h-3 w-3" />
           Filtros Avançados

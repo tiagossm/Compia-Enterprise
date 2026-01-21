@@ -376,7 +376,6 @@ export default function Users() {
       case 'system_admin':
       case 'sys_admin': return 'Admin Sistema';
       case 'org_admin': return 'Admin Organização';
-      case 'admin': return 'Administrador';
       case 'manager': return 'Gerente';
       case 'inspector': return 'Técnico';
       case 'client': return 'Cliente';
@@ -389,7 +388,6 @@ export default function Users() {
       case 'system_admin':
       case 'sys_admin': return 'bg-purple-100 text-purple-800';
       case 'org_admin': return 'bg-red-100 text-red-800';
-      case 'admin': return 'bg-red-100 text-red-800';
       case 'manager': return 'bg-blue-100 text-blue-800';
       case 'inspector': return 'bg-green-100 text-green-800';
       case 'client': return 'bg-gray-100 text-gray-800';
@@ -463,7 +461,7 @@ export default function Users() {
               </div>
               <div className="ml-4">
                 <h3 className="text-2xl font-bold text-slate-900">
-                  {users.filter(u => u.role === 'admin').length}
+                  {users.filter(u => u.role === 'org_admin' || u.role === 'system_admin' || u.role === 'sys_admin').length}
                 </h3>
                 <p className="text-slate-600 text-sm">Administradores</p>
               </div>

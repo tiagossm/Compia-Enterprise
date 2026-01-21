@@ -12,7 +12,7 @@ type Env = {
 
 const getDatabase = (env: any) => env.DB;
 
-const app = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: any } }>();
 
 // DEBUG: Log all requests hitting this router
 app.get('*', async (c, next) => {
@@ -27,7 +27,12 @@ app.get('/ping', (c) => c.json({ message: 'pong', path: c.req.path }));
 app.get('/stats', tenantAuthMiddleware, async (c) => {
   try {
     const user = c.get('user') as ExtendedMochaUser;
+    const tenantContext = c.get('tenantContext') as any;
     const db = getDatabase(c.env);
+
+    // Check if a specific context is active (from X-Organization-Id header)
+    const activeOrgId = tenantContext?.organizationId;
+    const isGlobalView = !activeOrgId || activeOrgId === 0;
 
     let stats = {
       totalMasterOrgs: 0,
@@ -37,46 +42,19 @@ app.get('/stats', tenantAuthMiddleware, async (c) => {
       userManagedStats: undefined as any
     };
 
-    if (user.profile?.role === USER_ROLES.SYSTEM_ADMIN || user.profile?.role === 'sys_admin') {
-      // System admin gets global stats
-      const masterOrgs = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE organization_level = ?').bind(ORGANIZATION_LEVELS.MASTER).first();
-      const companies = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE organization_level = ?').bind(ORGANIZATION_LEVELS.COMPANY).first();
-      const subsidiaries = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE organization_level = ?').bind(ORGANIZATION_LEVELS.SUBSIDIARY).first();
-      const users = await db.prepare('SELECT COUNT(*) as count FROM users WHERE is_active = true').first();
+    // CASE 1: Specific Organization Selected (Any Role)
+    if (!isGlobalView) {
+      // Return stats specific to this organization
+      const orgUsers = await db.prepare('SELECT COUNT(*) as count FROM users WHERE (organization_id = ? OR managed_organization_id = ?) AND is_active = true').bind(activeOrgId, activeOrgId).first();
+      const subsidiaries = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id = ? AND is_active = true').bind(activeOrgId).first();
+      const departmentCount = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id = ? AND organization_level = ?').bind(activeOrgId, 'department').first(); // Adjust if department exists
 
-      stats.totalMasterOrgs = masterOrgs?.count || 0;
-      stats.totalCompanies = companies?.count || 0;
-      stats.totalSubsidiaries = subsidiaries?.count || 0;
-      stats.totalUsers = users?.count || 0;
-    } else if (user.profile?.role === USER_ROLES.ORG_ADMIN && user.profile?.managed_organization_id) {
-      // Org admin gets stats for their managed organization and subsidiaries
-      const orgId = user.profile.managed_organization_id;
+      // Reuse the structure but populate with scoped data
+      // For the dashboard UI compatibility, we might need to adjust what we return
+      // or simply return "userManagedStats" structure which seems to be what the UI uses for detailed view
 
-      const orgUsers = await db.prepare(`
-        SELECT COUNT(*) as count 
-        FROM users u 
-        WHERE u.organization_id = ? OR u.organization_id IN(
-  SELECT id FROM organizations WHERE parent_organization_id = ?
-        ) AND u.is_active = true
-  `).bind(orgId, orgId).first();
-
-      const subsidiaries = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id = ?').bind(orgId).first();
-
-      const pendingInspections = await db.prepare(`
-        SELECT COUNT(*) as count 
-        FROM inspections 
-        WHERE organization_id = ? OR organization_id IN(
-    SELECT id FROM organizations WHERE parent_organization_id = ?
-        ) AND status = 'pendente'
-  `).bind(orgId, orgId).first();
-
-      const activeInspections = await db.prepare(`
-        SELECT COUNT(*) as count 
-        FROM inspections 
-        WHERE organization_id = ? OR organization_id IN(
-    SELECT id FROM organizations WHERE parent_organization_id = ?
-        ) AND status IN('em_andamento', 'revisao')
-  `).bind(orgId, orgId).first();
+      const pendingInspections = await db.prepare('SELECT COUNT(*) as count FROM inspections WHERE organization_id = ? AND status = ?').bind(activeOrgId, 'pendente').first();
+      const activeInspections = await db.prepare('SELECT COUNT(*) as count FROM inspections WHERE organization_id = ? AND status IN (?, ?)').bind(activeOrgId, 'em_andamento', 'revisao').first();
 
       stats.userManagedStats = {
         totalUsers: orgUsers?.count || 0,
@@ -84,6 +62,64 @@ app.get('/stats', tenantAuthMiddleware, async (c) => {
         pendingInspections: pendingInspections?.count || 0,
         activeInspections: activeInspections?.count || 0
       };
+
+      // Also populate top counters if this is an organization view
+      stats.totalUsers = orgUsers?.count || 0;
+      stats.totalSubsidiaries = subsidiaries?.count || 0;
+      // Master/Companies count makes less sense here, keeping 0 or maybe showing 1
+    }
+    // CASE 2: Global View (System Admin)
+    else if (user.role === USER_ROLES.SYSTEM_ADMIN || user.role === 'sys_admin' || user.role === 'system_admin') {
+      const masterOrgs = await db.prepare("SELECT COUNT(*) as count FROM organizations WHERE type = 'master'").first();
+      // Companies: Top level (no parent) and NOT master
+      const companies = await db.prepare("SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id IS NULL AND type != 'master'").first();
+      // Subsidiaries: Any org with a parent
+      const subsidiaries = await db.prepare("SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id IS NOT NULL").first();
+      const users = await db.prepare('SELECT COUNT(*) as count FROM users WHERE is_active = true').first();
+
+      stats.totalMasterOrgs = masterOrgs?.count || 0;
+      stats.totalCompanies = companies?.count || 0;
+      stats.totalSubsidiaries = subsidiaries?.count || 0;
+      stats.totalUsers = users?.count || 0;
+    }
+    // CASE 3: Managed View (Org Admin - legacy fallback)
+    else if ((user.role === USER_ROLES.ORG_ADMIN || user.role === 'org_admin') && user.managed_organization_id) {
+      const orgId = user.managed_organization_id;
+
+      const orgUsers = await db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM users u 
+        WHERE u.organization_id = ? OR u.organization_id IN(
+          SELECT id FROM organizations WHERE parent_organization_id = ?
+        ) AND u.is_active = true
+      `).bind(orgId, orgId).first();
+
+      const subsidiaries = await db.prepare('SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id = ?').bind(orgId).first();
+
+      const pendingInspections = await db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM inspections 
+        WHERE organization_id = ? OR organization_id IN(
+          SELECT id FROM organizations WHERE parent_organization_id = ?
+        ) AND status = 'pendente'
+      `).bind(orgId, orgId).first();
+
+      const activeInspections = await db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM inspections 
+        WHERE organization_id = ? OR organization_id IN(
+          SELECT id FROM organizations WHERE parent_organization_id = ?
+        ) AND status IN('em_andamento', 'revisao')
+      `).bind(orgId, orgId).first();
+
+      stats.userManagedStats = {
+        totalUsers: orgUsers?.count || 0,
+        totalSubsidiaries: subsidiaries?.count || 0,
+        pendingInspections: pendingInspections?.count || 0,
+        activeInspections: activeInspections?.count || 0
+      };
+      // Populate defaults for UI
+      stats.totalUsers = orgUsers?.count || 0;
     }
 
     return c.json(stats);
@@ -112,7 +148,7 @@ app.get('/', tenantAuthMiddleware, async (c) => {
 
     let query = `
       SELECT o.*,
-  (SELECT COUNT(*) FROM user_organizations WHERE organization_id = o.id AND is_active = true) as user_count,
+  (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_active = true) as user_count,
     (SELECT COUNT(*) FROM organizations WHERE parent_organization_id = o.id AND is_active = true) as subsidiary_count,
       po.name as parent_organization_name
       FROM organizations o
@@ -256,15 +292,34 @@ app.get('/:id', tenantAuthMiddleware, async (c) => {
     }
 
     // Get organization with additional data
+    // Get organization basic data
     const organization = await db.prepare(`
-      SELECT o.*,
-        (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_active = true) as user_count,
-  (SELECT COUNT(*) FROM organizations WHERE parent_organization_id = o.id AND is_active = true) as subsidiary_count,
-    po.name as parent_organization_name
+      SELECT o.*, po.name as parent_organization_name
       FROM organizations o
       LEFT JOIN organizations po ON o.parent_organization_id = po.id
       WHERE o.id = ?
-  `).bind(organizationId).first() as any;
+    `).bind(organizationId).first() as any;
+
+    if (!organization) {
+      return c.json({ error: 'Organização não encontrada' }, 404);
+    }
+
+    // Fetch counts separately to avoid subquery issues
+    try {
+      const userCountResult = await db.prepare(`SELECT COUNT(*) as count FROM users WHERE organization_id = ? AND is_active = true`).bind(organizationId).first();
+      organization.user_count = userCountResult?.count || 0;
+    } catch (e) {
+      console.error('Error fetching user count:', e);
+      organization.user_count = 0;
+    }
+
+    try {
+      const subCountResult = await db.prepare(`SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id = ? AND is_active = true`).bind(organizationId).first();
+      organization.subsidiary_count = subCountResult?.count || 0;
+    } catch (e) {
+      console.error('Error fetching subsidiary count:', e);
+      organization.subsidiary_count = 0;
+    }
 
     if (!organization) {
       return c.json({ error: 'Organização não encontrada' }, 404);

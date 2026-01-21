@@ -58,6 +58,7 @@ export default function Organizations() {
     type: [] as string[],
     status: [] as string[],
     plan: [] as string[],
+    level: [] as string[], // master, company, subsidiary
     userCountRange: [0, 1000] as [number, number],
     dateRange: ['', ''] as [string, string]
   });
@@ -108,7 +109,20 @@ export default function Organizations() {
 
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        // Mapear resposta do backend para o estado do frontend
+        setStats({
+          totalOrganizations: (data.totalMasterOrgs || 0) + (data.totalCompanies || 0) + (data.totalSubsidiaries || 0),
+          masterOrganizations: data.totalMasterOrgs || 0,
+          clientCompanies: data.totalCompanies || 0,
+          subsidiaries: data.totalSubsidiaries || 0,
+          totalUsers: data.totalUsers || 0,
+
+          // Stats para visão de Org Admin ou Org Específica
+          myOrgUsers: data.userManagedStats?.totalUsers || 0,
+          mySubsidiaries: data.userManagedStats?.totalSubsidiaries || 0,
+          pendingInspections: data.userManagedStats?.pendingInspections || 0,
+          activeInspections: data.userManagedStats?.activeInspections || 0
+        });
       }
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
@@ -256,6 +270,12 @@ export default function Organizations() {
       return false;
     }
 
+    // Filtros por Nível (Virtual)
+    if (filters.level.length > 0) {
+      const virtualLevel = (org.type as string) === 'master' ? 'master' : (org.parent_organization_id ? 'subsidiary' : 'company');
+      if (!filters.level.includes(virtualLevel)) return false;
+    }
+
     // Filtros por status
     if (filters.status.length > 0) {
       const statusKey = org.is_active ? 'active' : 'inactive';
@@ -306,6 +326,7 @@ export default function Organizations() {
       type: [],
       status: [],
       plan: [],
+      level: [],
       userCountRange: [0, 1000],
       dateRange: ['', '']
     });
@@ -395,7 +416,7 @@ export default function Organizations() {
                 icon={Building2}
                 color="blue"
                 change="Empresas consultoras"
-                onClick={() => setFilters({ ...filters, type: ['consultancy'] })}
+                onClick={() => setFilters({ ...filters, type: [], level: ['master'] })}
                 clickable
               />
               <StatsCard
@@ -404,7 +425,7 @@ export default function Organizations() {
                 icon={Users}
                 color="green"
                 change="Clientes ativos"
-                onClick={() => setFilters({ ...filters, type: ['client'] })}
+                onClick={() => setFilters({ ...filters, type: [], level: ['company'] })}
                 clickable
               />
               <StatsCard
@@ -413,7 +434,7 @@ export default function Organizations() {
                 icon={Building2}
                 color="purple"
                 change="Total no sistema"
-                onClick={() => setFilters({ ...filters, type: ['company'] })}
+                onClick={() => setFilters({ ...filters, type: [], level: ['subsidiary'] })}
                 clickable
               />
               <StatsCard

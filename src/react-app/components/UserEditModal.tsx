@@ -30,6 +30,7 @@ interface Organization {
   id: number;
   name: string;
   type: string;
+  parent_organization_id?: number;
 }
 
 interface UserEditModalProps {
@@ -141,10 +142,11 @@ export default function UserEditModal({
       return organizations;
     }
 
-    // Org admin vê apenas sua organização gerenciada e subsidiárias
+    // Org admin vê sua organização gerenciada E subsidiárias
     if (extendedUser?.profile?.role === USER_ROLES.ORG_ADMIN) {
+      const managedOrgId = extendedUser.profile?.managed_organization_id;
       return organizations.filter(org =>
-        org.id === extendedUser.profile?.managed_organization_id
+        org.id === managedOrgId || org.parent_organization_id === managedOrgId
       );
     }
 

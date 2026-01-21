@@ -14,6 +14,87 @@ usersRoutes.get("/me", authMiddleware, async (c) => {
   return c.redirect("/api/users/profile");
 });
 
+// Get user's accessible organizations for multi-tenant switcher
+usersRoutes.get("/me/organizations", authMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user") as any;
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    // Check user role first
+    const userProfile = await env.DB.prepare("SELECT role, organization_id FROM users WHERE id = ?").bind(user.id).first() as any;
+    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'sys_admin';
+
+    let organizations = [];
+
+    if (isSysAdmin) {
+      // System Admin sees ALL active organizations
+      const allOrgs = await env.DB.prepare(`
+        SELECT 
+          id,
+          name,
+          type,
+          organization_level,
+          logo_url
+        FROM organizations
+        WHERE is_active = true
+        ORDER BY name ASC
+      `).all();
+
+      organizations = (allOrgs.results || []).map((org: any) => ({
+        ...org,
+        role: 'sys_admin',
+        is_primary: org.id === userProfile.organization_id
+      }));
+
+    } else {
+      // Regular users: Fetch from user_organizations join
+      const orgsResult = await env.DB.prepare(`
+        SELECT 
+          o.id,
+          o.name,
+          o.type,
+          o.organization_level,
+          uo.role,
+          uo.is_primary,
+          o.logo_url
+        FROM user_organizations uo
+        INNER JOIN organizations o ON uo.organization_id = o.id
+        WHERE uo.user_id = ? AND o.is_active = true
+        ORDER BY uo.is_primary DESC, o.name ASC
+      `).bind(user.id).all();
+
+      organizations = orgsResult.results || [];
+
+      // Fallback for legacy data (if no user_organizations entry)
+      if (organizations.length === 0 && userProfile?.organization_id) {
+        const legacyOrg = await env.DB.prepare(`
+            SELECT id, name, type, organization_level, logo_url 
+            FROM organizations 
+            WHERE id = ? AND is_active = true
+          `).bind(userProfile.organization_id).first() as any;
+
+        if (legacyOrg) {
+          organizations.push({
+            ...legacyOrg,
+            role: userProfile.role,
+            is_primary: true
+          });
+        }
+      }
+    }
+
+    return c.json({ organizations });
+
+  } catch (error) {
+    console.error('Error fetching user organizations:', error);
+    return c.json({ error: "Failed to fetch organizations" }, 500);
+  }
+});
+
 // Get user profile
 usersRoutes.get("/profile", authMiddleware, async (c) => {
   const env = c.env;

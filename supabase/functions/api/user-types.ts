@@ -109,8 +109,11 @@ export interface ExtendedMochaUser extends MochaUser {
 
 // Role definitions for the multi-tenant system
 export const USER_ROLES = {
-    SYSTEM_ADMIN: 'system_admin', // You - the creator/master admin
-    SYS_ADMIN: 'sys_admin',       // Alternative system admin role
+    SYSTEM_ADMIN: 'system_admin', // Primary system admin role
+    /**
+     * @deprecated Use SYSTEM_ADMIN instead. Kept for backward compatibility with legacy data.
+     */
+    SYS_ADMIN: 'sys_admin',
     ORG_ADMIN: 'org_admin',       // Company admin who bought the system
     MANAGER: 'manager',           // Organization manager
     INSPECTOR: 'inspector',       // Technical inspector/safety professional  

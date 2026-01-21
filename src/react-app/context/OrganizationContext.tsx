@@ -36,39 +36,59 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
             return;
         }
 
-        const extendedUser = user as any; // Cast to access 'organizations' injected by backend
-        const orgs: AccessibleOrganization[] = extendedUser.organizations || [];
+        // Fetch organizations from the new API endpoint
+        const fetchOrganizations = async () => {
+            try {
+                const response = await fetch('/api/users/me/organizations', {
+                    credentials: 'include'
+                });
 
-        // If empty list but user has organization_id (Legacy support fallback)
-        if (orgs.length === 0 && extendedUser.profile?.organization_id) {
-            // We might fetching getting name... but let's assume backend covers this now.
-            // Or we Mock it if missing.
-            // For now, assume backend works correctly.
-        }
+                if (response.ok) {
+                    const data = await response.json();
+                    const orgs: AccessibleOrganization[] = data.organizations || [];
+                    setAvailableOrganizations(orgs);
 
-        setAvailableOrganizations(orgs);
+                    // Persist/Restore logic
+                    const storedOrgId = localStorage.getItem('compia_selected_org_id');
+                    let targetOrg = null;
 
-        // Persist/Restore logic
-        const storedOrgId = localStorage.getItem('compia_selected_org_id');
+                    // Handle "All Organizations" (ID 0) for SysAdmin
+                    const isSysAdmin = user?.profile?.role === 'system_admin' || user?.profile?.role === 'sys_admin';
 
-        let targetOrg = null;
+                    if (storedOrgId === '0' && isSysAdmin) {
+                        targetOrg = {
+                            id: 0,
+                            name: "Todas as Empresas",
+                            type: "all",
+                            organization_level: "all",
+                            role: "sys_admin",
+                            is_primary: false
+                        };
+                    } else if (storedOrgId) {
+                        targetOrg = orgs.find(o => o.id === Number(storedOrgId)) || null;
+                    }
 
-        if (storedOrgId) {
-            targetOrg = orgs.find(o => o.id === Number(storedOrgId)) || null;
-        }
+                    // Default to primary or first
+                    if (!targetOrg && orgs.length > 0) {
+                        targetOrg = orgs.find(o => o.is_primary) || orgs[0];
+                    }
 
-        // Default to primary or first
-        if (!targetOrg && orgs.length > 0) {
-            targetOrg = orgs.find(o => o.is_primary) || orgs[0];
-        }
+                    setSelectedOrgState(targetOrg);
 
-        setSelectedOrgState(targetOrg);
+                    if (targetOrg) {
+                        localStorage.setItem('compia_selected_org_id', String(targetOrg.id));
+                    }
+                } else {
+                    console.error('Failed to fetch user organizations');
+                }
+            } catch (error) {
+                console.error('Error fetching organizations:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-        if (targetOrg) {
-            localStorage.setItem('compia_selected_org_id', String(targetOrg.id));
-        }
-
-        setIsLoading(false);
+        fetchOrganizations();
 
     }, [user, authLoading]);
 

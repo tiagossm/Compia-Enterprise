@@ -134,26 +134,8 @@ kanbanRoutes.put("/:orgId/items/:itemId/move", tenantAuthMiddleware, async (c) =
         if (item && item.notification_emails && Array.isArray(JSON.parse(item.notification_emails))) {
             const emails = JSON.parse(item.notification_emails);
             // Dynamic import to avoid circular dependency issues if any (though unlikely here)
-            /*
-            const { sendSystemEmail } = await import("./shared/email-service.ts");
-
-            const subject = `Atualização de Status: ${item.title}`;
-            const statusLabel = status === 'pending' ? 'A Fazer' : status === 'in_progress' ? 'Em Andamento' : 'Concluído'; // Simplified label logic
-            const body = `
-                <div style="font-family: Arial, sans-serif;">
-                    <h3>Atualização de Atividade</h3>
-                    <p>A atividade <strong>${item.title}</strong> teve seu status alterado para:</p>
-                    <p style="font-size: 16px; font-weight: bold; color: #2563eb;">${statusLabel}</p>
-                    <br/>
-                    <p>Acesse a plataforma para ver mais detalhes.</p>
-                </div>
-            `;
-
-            // Send in parallel
-            Promise.all(emails.map((email: string) => sendSystemEmail(email, subject, body, env)))
-                .then(results => console.log('Notifications sent:', results))
-                .catch(err => console.error('Failed to send notifications:', err));
-            */
+            // Email service code removed to preventing broken build warnings
+            console.warn("Email service missing. Skipping notification for item:", item.title);
             console.warn("Email service missing. Skipping notification for item:", item.title);
         }
 
