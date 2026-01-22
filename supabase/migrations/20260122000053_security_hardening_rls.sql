@@ -29,6 +29,7 @@ ALTER TABLE checklist_templates ENABLE ROW LEVEL SECURITY;
 -- ============================================
 
 -- Policy: Users can only see inspections from their organization
+DROP POLICY IF EXISTS inspection_tenant_isolation ON inspections;
 CREATE POLICY inspection_tenant_isolation ON inspections
     FOR ALL
     USING (
@@ -46,6 +47,7 @@ CREATE POLICY inspection_tenant_isolation ON inspections
     );
 
 -- Policy: Users can only see inspection items from their inspections
+DROP POLICY IF EXISTS inspection_items_tenant_isolation ON inspection_items;
 CREATE POLICY inspection_items_tenant_isolation ON inspection_items
     FOR ALL
     USING (
@@ -60,6 +62,7 @@ CREATE POLICY inspection_items_tenant_isolation ON inspection_items
     );
 
 -- Policy: Users can only see media from their inspections
+DROP POLICY IF EXISTS inspection_media_tenant_isolation ON inspection_media;
 CREATE POLICY inspection_media_tenant_isolation ON inspection_media
     FOR ALL
     USING (
@@ -74,6 +77,7 @@ CREATE POLICY inspection_media_tenant_isolation ON inspection_media
     );
 
 -- Policy: Users can only see action items from their inspections
+DROP POLICY IF EXISTS action_items_tenant_isolation ON action_items;
 CREATE POLICY action_items_tenant_isolation ON action_items
     FOR ALL
     USING (
@@ -88,6 +92,7 @@ CREATE POLICY action_items_tenant_isolation ON action_items
     );
 
 -- Policy: Users can see public templates or templates from their org
+DROP POLICY IF EXISTS checklist_templates_tenant_isolation ON checklist_templates;
 CREATE POLICY checklist_templates_tenant_isolation ON checklist_templates
     FOR ALL
     USING (
