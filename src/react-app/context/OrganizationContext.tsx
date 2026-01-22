@@ -52,7 +52,16 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                     let targetOrg = null;
 
                     // Handle "All Organizations" (ID 0) for SysAdmin
-                    const isSysAdmin = user?.profile?.role === 'system_admin' || user?.profile?.role === 'sys_admin';
+                    // Check role in multiple places as user structure can vary
+                    const userRole = (user as any)?.role || (user as any)?.profile?.role;
+                    const isSysAdmin = userRole === 'system_admin' || userRole === 'sys_admin';
+
+                    console.log('[OrganizationContext] Restore check:', {
+                        storedOrgId,
+                        userRole,
+                        isSysAdmin,
+                        orgsCount: orgs.length
+                    });
 
                     if (storedOrgId === '0' && isSysAdmin) {
                         targetOrg = {
@@ -64,12 +73,20 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                             is_primary: false
                         };
                     } else if (storedOrgId) {
-                        targetOrg = orgs.find(o => o.id === Number(storedOrgId)) || null;
+                        const storedId = Number(storedOrgId);
+                        targetOrg = orgs.find(o => o.id === storedId) || null;
+
+                        console.log('[OrganizationContext] Looking for storedId:', {
+                            storedId,
+                            found: !!targetOrg,
+                            availableIds: orgs.slice(0, 5).map(o => o.id)
+                        });
                     }
 
                     // Default to primary or first
                     if (!targetOrg && orgs.length > 0) {
                         targetOrg = orgs.find(o => o.is_primary) || orgs[0];
+                        console.log('[OrganizationContext] Using fallback org:', targetOrg?.name);
                     }
 
                     setSelectedOrgState(targetOrg);
