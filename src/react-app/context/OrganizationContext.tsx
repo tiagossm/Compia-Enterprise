@@ -73,13 +73,13 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                             is_primary: false
                         };
                     } else if (storedOrgId) {
-                        const storedId = Number(storedOrgId);
-                        targetOrg = orgs.find(o => o.id === storedId) || null;
+                        // Use String comparison to avoid type mismatch (API might return number or string)
+                        targetOrg = orgs.find(o => String(o.id) === storedOrgId) || null;
 
                         console.log('[OrganizationContext] Looking for storedId:', {
-                            storedId,
+                            storedOrgId,
                             found: !!targetOrg,
-                            availableIds: orgs.slice(0, 5).map(o => o.id)
+                            availableIds: orgs.slice(0, 5).map(o => ({ id: o.id, type: typeof o.id }))
                         });
                     }
 
