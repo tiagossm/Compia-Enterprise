@@ -33,6 +33,7 @@ import securityEndpoints from "./security-endpoints.ts";
 import actionPlansRoutes from "./action-plans-routes.ts";
 import resetProjectRoutes from "./reset-project.ts";
 import notificationsRoutes from "./notifications-routes.ts";
+import financialRoutes from "./financial-routes.ts";
 import inspectionItemRoutes from "./inspection-item-routes.ts";
 import gamificationRoutes from "./gamification-routes.ts";
 import aiAssistantRoutes from "./ai-assistant-routes.ts";
@@ -288,6 +289,8 @@ apiRoutes.route('/calendar-settings', calendarSettingsRoutes);
 apiRoutes.route('/calendar-upload', calendarUploadRoutes);
 apiRoutes.route('/integrations', integrationsRoutes);
 apiRoutes.route('/crm', crmRoutes);
+apiRoutes.route('/financial', financialRoutes);
+apiRoutes.route('/billing', financialRoutes); // Alias for easier frontend access
 
 
 // TEMPORARY DEBUG ROUTE
