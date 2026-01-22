@@ -32,3 +32,8 @@
 | Data | Processo | Decisão | Motivo |
 | :--- | :--- | :--- | :--- |
 | 13/01/2026 | **Estratégia de BI "Data-First"** | Nunca iniciar a construção de dashboards sem antes validar a viabilidade dos dados no Schema (Data Discovery). | Evitar prometer métricas impossíveis de calcular ou que exijam "gambiarras" no frontend. Sempre rodar Data Discovery Scan antes de implementar relatórios. |
+| 22/01/2026 | **Criação do Agente "O Controller"** | Agente especializado em Engenharia Financeira, Gateways de Pagamento e Lógica de Assinaturas SaaS. | Módulo financeiro requer expertise específica; generalistas podem cometer erros custosos. |
+| 22/01/2026 | **Lei dos Centavos (Padrão Financeiro)** | PROIBIDO usar `float` ou `double` para valores monetários. SEMPRE usar `INTEGER` em centavos. | JavaScript: `0.1 + 0.2 = 0.30000000000000004`. Erros de arredondamento em produção custam dinheiro real. |
+| 22/01/2026 | **Lei da Idempotência (Webhooks)** | Todo webhook de pagamento DEVE verificar se já foi processado antes de executar. Usar tabela `webhook_events` com UNIQUE constraint. | Gateways podem reenviar webhooks; processar duas vezes = duplicar créditos/cobranças. |
+| 22/01/2026 | **Lei da Segregação (PCI-DSS)** | NUNCA salvar dados de cartão no Supabase. Apenas tokens/referências do gateway (`customer_id`, `subscription_id`). | Compliance PCI-DSS. Violações = multas milionárias e risco legal. |
+| 22/01/2026 | **Gateway Preferencial: Asaas** | Recomendado Asaas para integração de pagamentos B2B no Brasil, com Stripe como fallback para internacionalização. | Asaas: foco B2B Brasil, NF-e integrada, boleto corporativo avançado, suporte PT-BR. |
