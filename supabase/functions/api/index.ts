@@ -34,6 +34,7 @@ import actionPlansRoutes from "./action-plans-routes.ts";
 import resetProjectRoutes from "./reset-project.ts";
 import notificationsRoutes from "./notifications-routes.ts";
 import financialRoutes from "./financial-routes.ts";
+import asaasWebhookRoutes from "./asaas-webhook.ts";
 import inspectionItemRoutes from "./inspection-item-routes.ts";
 import gamificationRoutes from "./gamification-routes.ts";
 import aiAssistantRoutes from "./ai-assistant-routes.ts";
@@ -291,6 +292,7 @@ apiRoutes.route('/integrations', integrationsRoutes);
 apiRoutes.route('/crm', crmRoutes);
 apiRoutes.route('/financial', financialRoutes);
 apiRoutes.route('/billing', financialRoutes); // Alias for easier frontend access
+apiRoutes.route('/webhooks/asaas', asaasWebhookRoutes); // Asaas payment gateway webhooks
 
 
 // TEMPORARY DEBUG ROUTE
