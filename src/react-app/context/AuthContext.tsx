@@ -130,6 +130,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signOut = async () => {
+        // Clear organization selection so user starts with primary org on next login
+        localStorage.removeItem('compia_selected_org_id');
+        localStorage.removeItem('cached_user_profile');
+
         await supabase.auth.signOut();
         setUser(null);
         setSession(null);
