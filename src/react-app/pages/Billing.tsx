@@ -92,14 +92,14 @@ export default function Billing() {
 
             // Load billing info
             const orgParam = selectedOrganization?.id ? `?organization_id=${selectedOrganization.id}` : '';
-            const billingRes = await fetchWithAuth(`/api/current${orgParam}`);
+            const billingRes = await fetchWithAuth(`/api/billing/current${orgParam}`);
             if (billingRes.ok) {
                 const data = await billingRes.json();
                 setBillingInfo(data);
             }
 
             // Load usage
-            const usageRes = await fetchWithAuth(`/api/usage${orgParam}`);
+            const usageRes = await fetchWithAuth(`/api/billing/usage${orgParam}`);
             if (usageRes.ok) {
                 const data = await usageRes.json();
                 setUsageData(data);
@@ -157,6 +157,40 @@ export default function Billing() {
                 )}
             </div>
         );
+    };
+
+    const handleSelectPlan = async (plan: Plan) => {
+        // Enterprise contact
+        if (plan.price_cents === 0 || plan.name === 'enterprise') {
+            window.location.href = 'mailto:contato@compia.tech?subject=Interesse no Plano Enterprise';
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const response = await fetchWithAuth('/api/billing/checkout', {
+                method: 'POST',
+                body: JSON.stringify({
+                    plan_id: plan.id,
+                    organization_id: selectedOrganization?.id
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                }
+            } else {
+                const errorData = await response.json();
+                setError(errorData.error || 'Erro ao iniciar checkout');
+            }
+        } catch (err: any) {
+            console.error('Checkout error:', err);
+            setError(err.message || 'Erro ao processar solicitação');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (loading) {
@@ -351,8 +385,12 @@ export default function Billing() {
                                     </ul>
 
                                     {!isCurrentPlan && (
-                                        <button className="w-full mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                                            {plan.price_cents === 0 ? 'Fale Conosco' : 'Selecionar Plano'}
+                                        <button
+                                            onClick={() => handleSelectPlan(plan)}
+                                            disabled={loading}
+                                            className="w-full mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {loading ? 'Processando...' : (plan.price_cents === 0 ? 'Fale Conosco' : 'Selecionar Plano')}
                                         </button>
                                     )}
                                 </div>

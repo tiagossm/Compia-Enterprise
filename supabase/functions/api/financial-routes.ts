@@ -224,4 +224,75 @@ financialRoutes.get("/usage", tenantAuthMiddleware, async (c) => {
     }
 });
 
+// ============================================================================
+// POST /checkout - Inicia o processo de checkout (cria link de pagamento)
+// ============================================================================
+financialRoutes.post("/checkout", tenantAuthMiddleware, async (c) => {
+    const env = c.env;
+    const user = c.get("user");
+
+    if (!user) {
+        return c.json({ error: "Usuário não autenticado" }, 401);
+    }
+
+    try {
+        const body = await c.req.json();
+        const { plan_id, organization_id } = body;
+
+        if (!plan_id) {
+            return c.json({ error: "Plano é obrigatório" }, 400);
+        }
+
+        // Get user profile to confirm role
+        const userProfile = await env.DB.prepare(
+            "SELECT role, managed_organization_id FROM users WHERE id = ?"
+        ).bind(user.id).first() as any;
+
+        const targetOrgId = organization_id || userProfile?.managed_organization_id;
+
+        if (!targetOrgId) {
+            return c.json({ error: "Organização não especificada" }, 400);
+        }
+
+        // Get Plan details
+        const plan = await env.DB.prepare("SELECT * FROM plans WHERE id = ?").bind(plan_id).first() as any;
+        if (!plan) {
+            return c.json({ error: "Plano não encontrado" }, 404);
+        }
+
+        // TODO: Call Asaas/Stripe API here
+        // For now, we simulate a successful payment link creation
+        // and create a pending subscription
+
+        const pendingSubId = crypto.randomUUID();
+
+        await env.DB.prepare(`
+            INSERT INTO subscriptions (
+                id, organization_id, plan_id, status, 
+                current_period_start, current_period_end, 
+                gateway, gateway_subscription_id,
+                created_at, updated_at
+            ) VALUES (
+                ?, ?, ?, 'pending',
+                NOW(), NOW() + INTERVAL '30 days',
+                'asaas', ?,
+                NOW(), NOW()
+            )
+        `).bind(
+            pendingSubId, targetOrgId, plan_id,
+            `mock_sub_${pendingSubId}`
+        ).run();
+
+        // Return mock URL
+        return c.json({
+            url: `https://www.compia.tech/billing?status=success&subscription_id=${pendingSubId}`,
+            mock: true
+        });
+
+    } catch (error: any) {
+        console.error("[FINANCIAL] Error in checkout:", error);
+        return c.json({ error: "Erro ao processar checkout", details: error.message }, 500);
+    }
+});
+
 export default financialRoutes;
