@@ -264,28 +264,29 @@ financialRoutes.post("/checkout", tenantAuthMiddleware, async (c) => {
         // For now, we simulate a successful payment link creation
         // and create a pending subscription
 
-        const pendingSubId = crypto.randomUUID();
-
-        await env.DB.prepare(`
+        const result = await env.DB.prepare(`
             INSERT INTO subscriptions (
-                id, organization_id, plan_id, status, 
+                organization_id, plan_id, status, 
                 current_period_start, current_period_end, 
-                gateway, gateway_subscription_id,
+                gateway_name, gateway_subscription_id,
                 created_at, updated_at
             ) VALUES (
-                ?, ?, ?, 'pending',
+                ?, ?, 'trial',
                 NOW(), NOW() + INTERVAL '30 days',
                 'asaas', ?,
                 NOW(), NOW()
             )
+            RETURNING id
         `).bind(
-            pendingSubId, targetOrgId, plan_id,
-            `mock_sub_${pendingSubId}`
-        ).run();
+            targetOrgId, plan_id,
+            `mock_sub_${Date.now()}`
+        ).first() as any;
+
+        const subscriptionId = result?.id;
 
         // Return mock URL
         return c.json({
-            url: `https://www.compia.tech/billing?status=success&subscription_id=${pendingSubId}`,
+            url: `https://www.compia.tech/billing?status=success&subscription_id=${subscriptionId || 'new'}`,
             mock: true
         });
 
