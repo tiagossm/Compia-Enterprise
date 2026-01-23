@@ -9,11 +9,11 @@ import {
     Calendar,
     CheckCircle,
     AlertTriangle,
-    ExternalLink,
-    Loader2
+    ExternalLink
 } from 'lucide-react';
 import { useOrganization } from '@/react-app/context/OrganizationContext';
 import { fetchWithAuth } from '@/react-app/utils/auth';
+import { Skeleton } from '@/react-app/components/Skeleton';
 
 interface Plan {
     id: string;
@@ -81,54 +81,34 @@ export default function Billing() {
     const loadBillingData = async () => {
         setLoading(true);
         setError(null);
-        console.log('[Billing] Loading data, org:', selectedOrganization?.id);
 
         try {
             // Load plans
-            console.log('[Billing] Fetching plans...');
             const plansRes = await fetchWithAuth('/api/financial/plans');
-            console.log('[Billing] Plans response:', plansRes.status);
             if (plansRes.ok) {
                 const data = await plansRes.json();
-                console.log('[Billing] Plans loaded:', data.plans?.length || 0);
                 setPlans(data.plans || []);
-            } else {
-                const errorText = await plansRes.text();
-                console.error('[Billing] Plans error:', plansRes.status, errorText);
             }
 
             // Load billing info
             const orgParam = selectedOrganization?.id ? `?organization_id=${selectedOrganization.id}` : '';
-            console.log('[Billing] Fetching billing current...');
-            const billingRes = await fetchWithAuth(`/api/billing/current${orgParam}`);
-            console.log('[Billing] Billing response:', billingRes.status);
+            const billingRes = await fetchWithAuth(`/api/current${orgParam}`);
             if (billingRes.ok) {
                 const data = await billingRes.json();
-                console.log('[Billing] Billing info loaded:', data);
                 setBillingInfo(data);
-            } else {
-                const errorText = await billingRes.text();
-                console.error('[Billing] Billing error:', billingRes.status, errorText);
             }
 
             // Load usage
-            console.log('[Billing] Fetching usage...');
-            const usageRes = await fetchWithAuth(`/api/billing/usage${orgParam}`);
-            console.log('[Billing] Usage response:', usageRes.status);
+            const usageRes = await fetchWithAuth(`/api/usage${orgParam}`);
             if (usageRes.ok) {
                 const data = await usageRes.json();
-                console.log('[Billing] Usage loaded:', data);
                 setUsageData(data);
-            } else {
-                const errorText = await usageRes.text();
-                console.error('[Billing] Usage error:', usageRes.status, errorText);
             }
         } catch (err: any) {
-            console.error('[Billing] Exception:', err);
+            console.error('Error loading billing data:', err);
             setError(err.message || 'Erro ao carregar dados de billing');
         } finally {
             setLoading(false);
-            console.log('[Billing] Loading complete');
         }
     };
 
@@ -182,8 +162,42 @@ export default function Billing() {
     if (loading) {
         return (
             <Layout>
-                <div className="flex items-center justify-center h-96">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <div className="space-y-8 animate-pulse">
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-48" />
+                        <Skeleton className="h-4 w-96" />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <div className="space-y-4">
+                                <div className="flex justify-between">
+                                    <Skeleton className="h-6 w-32" />
+                                    <Skeleton className="h-6 w-20 rounded-full" />
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <Skeleton className="h-12 w-12 rounded" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-8 w-48" />
+                                        <Skeleton className="h-4 w-24" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <Skeleton className="h-6 w-32 mb-6" />
+                            <div className="space-y-6">
+                                <Skeleton className="h-12 w-full" count={3} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <Skeleton className="h-6 w-48 mb-6" />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Skeleton className="h-64 w-full rounded-xl" count={3} />
+                        </div>
+                    </div>
                 </div>
             </Layout>
         );
