@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { fetchWithAuth } from '@/react-app/utils/auth';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, CheckCircle2, Briefcase, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, CheckCircle2, Briefcase, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
     const navigate = useNavigate();
@@ -146,32 +146,27 @@ export default function Register() {
             {/* CARD DE REGISTER HORIZONTAL */}
             <div className="w-full md:w-auto md:max-w-[95vw] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row shadow-slate-200/50">
 
-                {/* LADO ESQUERDO: Branding Premium */}
-                <div className="w-full md:w-[540px] bg-white flex flex-col items-center justify-center p-12 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden shrink-0 text-center">
+                {/* LADO ESQUERDO: Vitrine Estratégica matches Login */}
+                <div className="w-full md:w-[600px] bg-white flex flex-col items-center justify-center p-12 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden shrink-0 text-center">
                     {/* Background Circle Decoration matched from brand */}
-                    <div className="absolute w-96 h-96 bg-[#2050E0]/5 rounded-full blur-3xl -top-20 -left-20"></div>
-                    <div className="absolute w-96 h-96 bg-[#605E88]/5 rounded-full blur-3xl -bottom-20 -right-20"></div>
+                    <div className="absolute w-[500px] h-[500px] bg-[#2050E0]/5 rounded-full blur-3xl -top-32 -left-32"></div>
+                    <div className="absolute w-[500px] h-[500px] bg-[#605E88]/5 rounded-full blur-3xl -bottom-32 -right-32"></div>
 
                     <div className="relative z-10 flex flex-col items-center justify-center h-full w-full">
                         <img
                             src="/compia_logo.png"
                             alt="Compia Logo"
-                            className="w-48 h-auto object-contain mb-8 transition-transform hover:scale-105 duration-500 drop-shadow-sm"
+                            className="w-64 h-auto object-contain mb-10 transition-transform hover:scale-105 duration-500 drop-shadow-sm"
                         />
 
-                        <div className="max-w-sm mx-auto space-y-4">
-                            <h2 className="text-2xl md:text-3xl font-bold text-[#303C60] leading-tight">
-                                Revolucione sua <br />
-                                <span className="text-[#2050E0]">Gestão de Segurança</span>
+                        <div className="max-w-md mx-auto space-y-8">
+                            <h2 className="text-3xl md:text-4xl font-bold text-[#303C60] leading-tight tracking-tight">
+                                Gestão Inteligente <br />
+                                <span className="text-[#2050E0]">de Alta Performance</span>
                             </h2>
-                            <p className="text-slate-500 text-base leading-relaxed">
-                                Junte-se a empresas líderes que transformaram seus processos de auditoria e conformidade com IA.
+                            <p className="text-slate-500 text-lg leading-relaxed">
+                                Leve a tecnologia do escritório para o campo. Auditorias, diários e inspeções com inteligência artificial.
                             </p>
-
-                            <div className="pt-8 flex items-center justify-center gap-2 text-slate-400 text-sm font-medium">
-                                <ShieldCheck className="w-5 h-5 text-green-500" />
-                                <span>Segurança e Compliance Garantidos</span>
-                            </div>
                         </div>
                     </div>
                 </div>

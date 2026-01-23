@@ -100,30 +100,43 @@ export default function Login() {
       {/* CARD DE LOGIN HORIZONTAL */}
       <div className="w-full md:w-auto md:max-w-[95vw] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row shadow-slate-200/50">
 
-        {/* LADO ESQUERDO: Branding / Logo */}
-        <div className="w-full md:w-[540px] bg-white flex flex-col items-center justify-center p-0 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden shrink-0">
-          {/* Background Circle Decoration matched from brand */}
-          <div className="absolute w-64 h-64 bg-[#2050E0]/5 rounded-full blur-3xl -top-10 -left-10"></div>
-          <div className="absolute w-64 h-64 bg-[#605E88]/5 rounded-full blur-3xl -bottom-10 -right-10"></div>
+        {/* LADO ESQUERDO: Vitrine Estratégica (Visual Rico) */}
+        <div className="w-full md:w-[600px] bg-white flex flex-col items-center justify-center p-12 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden shrink-0 text-center">
+          {/* Background Decorations */}
+          <div className="absolute w-[500px] h-[500px] bg-[#2050E0]/5 rounded-full blur-3xl -top-32 -left-32"></div>
+          <div className="absolute w-[500px] h-[500px] bg-[#605E88]/5 rounded-full blur-3xl -bottom-32 -right-32"></div>
 
           <div className="relative z-10 flex flex-col items-center justify-center h-full w-full">
+            {/* LOGO GRANDE */}
             <img
               src="/compia_logo.png"
               alt="Compia Logo"
-              className="w-[85%] h-auto object-contain transition-transform hover:scale-105 duration-500"
+              className="w-64 h-auto object-contain mb-10 transition-transform hover:scale-105 duration-500 drop-shadow-sm"
             />
+
+
+            <div className="max-w-md mx-auto space-y-8">
+              <h2 className="text-3xl md:text-4xl font-bold text-[#303C60] leading-tight tracking-tight">
+                O Futuro da Auditoria <br />
+                <span className="text-[#2050E0]">é Agora.</span>
+              </h2>
+
+              <p className="text-slate-500 text-lg leading-relaxed">
+                IA Generativa, GPS Atômico e Dados em Tempo Real para operações de alto desempenho.
+              </p>
+            </div>
           </div>
         </div>
 
         {/* LADO DIREITO: Formulário */}
-        <div className="w-full md:w-[420px] p-8 md:p-12 flex flex-col justify-center bg-white shrink-0">
+        <div className="w-full md:w-[450px] p-8 md:p-14 flex flex-col justify-center bg-white shrink-0 min-h-[600px]">
 
-          <div className="mb-8">
+          <div className="mb-10">
             <h2 className="text-3xl font-bold text-[#303C60] mb-2 tracking-tight">Login</h2>
-            <p className="text-slate-400 text-sm">Entre com suas credenciais ou social.</p>
+            <p className="text-slate-400 text-sm">Acesse sua conta corporativa.</p>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-5">
+          <form onSubmit={handleEmailLogin} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start text-left animate-in fade-in slide-in-from-top-2">
                 <AlertTriangle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
@@ -146,7 +159,7 @@ export default function Login() {
 
             <div className="flex items-center justify-between gap-4 py-2">
               <div className="h-px bg-slate-100 flex-1"></div>
-              <span className="text-slate-300 text-xs font-semibold uppercase tracking-widest">ou continue com email</span>
+              <span className="text-slate-300 text-xs font-semibold uppercase tracking-widest">ou use e-mail</span>
               <div className="h-px bg-slate-100 flex-1"></div>
             </div>
 
@@ -164,8 +177,8 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Usuário" // Matching "User" from mockup
-                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all duration-200"
+                  placeholder="Usuário"
+                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all duration-200"
                 />
               </div>
             </div>
@@ -184,8 +197,8 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Senha" // Matching "Password" from mockup
-                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all duration-200"
+                  placeholder="Senha"
+                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all duration-200"
                 />
               </div>
             </div>
@@ -205,7 +218,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-4"
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -216,13 +229,13 @@ export default function Login() {
           </form>
 
           {/* Rodapé de Cadastro */}
-          <div className="pt-8 text-center text-sm">
-            <span className="text-slate-400">Novo na Compia? </span>
+          <div className="pt-10 text-center text-sm">
+            <span className="text-slate-400">Sua empresa ainda não usa Compia? </span>
             <Link
               to="/register"
-              className="text-[#2050E0] hover:text-[#1a40b0] font-bold transition-colors"
+              className="text-[#2050E0] hover:text-[#1a40b0] font-bold transition-colors block mt-1 hover:underline text-base"
             >
-              Solicite seu acesso
+              Crie uma conta corporativa
             </Link>
           </div>
         </div>
