@@ -190,7 +190,7 @@ financialRoutes.get("/usage", tenantAuthMiddleware, async (c) => {
         const inspectionsThisMonth = await env.DB.prepare(`
             SELECT COUNT(*) as count FROM inspections 
             WHERE organization_id = ? 
-            AND created_at >= date('now', 'start of month')
+            AND created_at >= date_trunc('month', CURRENT_DATE)
         `).bind(targetOrgId).first() as any;
 
         // Calcular porcentagens
