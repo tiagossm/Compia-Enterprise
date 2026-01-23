@@ -43,9 +43,9 @@ financialRoutes.get("/plans", async (c) => {
 });
 
 // ============================================================================
-// GET /billing/current - Retorna a assinatura atual da organização
+// GET /current - Retorna a assinatura atual da organização
 // ============================================================================
-financialRoutes.get("/billing/current", tenantAuthMiddleware, async (c) => {
+financialRoutes.get("/current", tenantAuthMiddleware, async (c) => {
     const env = c.env;
     const user = c.get("user");
     const organizationId = c.req.query("organization_id");
@@ -147,9 +147,9 @@ financialRoutes.get("/billing/current", tenantAuthMiddleware, async (c) => {
 });
 
 // ============================================================================
-// GET /billing/usage - Retorna o uso atual vs limites do plano
+// GET /usage - Retorna o uso atual vs limites do plano
 // ============================================================================
-financialRoutes.get("/billing/usage", tenantAuthMiddleware, async (c) => {
+financialRoutes.get("/usage", tenantAuthMiddleware, async (c) => {
     const env = c.env;
     const user = c.get("user");
     const organizationId = c.req.query("organization_id");
