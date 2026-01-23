@@ -71,8 +71,10 @@ app.use('/*', cors({
         if (origin && (allowed.includes(origin) || origin.endsWith('.vercel.app'))) {
             return origin;
         }
-        return origin; // Fallback to echo origin during dev/debug, or strict? For now echoing to unblock.
+        // SEGURANÇA: Não permitir origens desconhecidas (retorna null = bloqueio CORS)
+        return null;
     },
+
     allowHeaders: ['authorization', 'x-client-info', 'apikey', 'content-type'],
     allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE'],
     exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],

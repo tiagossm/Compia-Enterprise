@@ -6,13 +6,67 @@ import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 const authRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
 console.log('[AUTH-ROUTES] Auth routes module loaded, typeof:', typeof authRoutes);
 
-// Helper para hash de senha (simples para demo, idealmente usar bcrypt/argon2 em prod real)
-// Como estamos no worker, vamos usar Web Crypto API
-async function hashPassword(password: string): Promise<string> {
-    const msgBuffer = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+// Helper para hash de senha SEGURO usando PBKDF2 (recomendado para senhas)
+// PBKDF2 é lento por design, dificultando ataques de força bruta
+const PBKDF2_ITERATIONS = 100000;
+const SALT_LENGTH = 16;
+
+async function hashPassword(password: string, existingSalt?: string): Promise<string> {
+    const encoder = new TextEncoder();
+
+    // Gerar salt ou usar existente (para verificação)
+    let salt: Uint8Array;
+    if (existingSalt) {
+        salt = new Uint8Array(existingSalt.match(/.{2}/g)!.map(byte => parseInt(byte, 16)));
+    } else {
+        salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+    }
+
+    // Importar senha como chave
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits']
+    );
+
+    // Derivar hash com PBKDF2
+    const hashBuffer = await crypto.subtle.deriveBits(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: PBKDF2_ITERATIONS,
+            hash: 'SHA-256'
+        },
+        keyMaterial,
+        256
+    );
+
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Formato: salt$hash (permite extrair salt para verificação)
+    return `${saltHex}$${hashHex}`;
+}
+
+// Função para verificar senha contra hash armazenado
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+    // Hash antigo (SHA-256 puro) não tem '$'
+    if (!storedHash.includes('$')) {
+        // Compatibilidade: verificar com SHA-256 legado
+        const msgBuffer = new TextEncoder().encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const legacyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return legacyHash === storedHash;
+    }
+
+    // Hash novo (PBKDF2): extrair salt e verificar
+    const [salt] = storedHash.split('$');
+    const newHash = await hashPassword(password, salt);
+    return newHash === storedHash;
 }
 
 // Debug endpoint to check permissions
@@ -357,25 +411,39 @@ authRoutes.post("/login", async (c) => {
             return c.json({ error: "Este usuário deve fazer login via Google" }, 401);
         }
 
-        const inputHash = await hashPassword(password);
+        // Verificar senha (suporta hash novo PBKDF2 e legado SHA-256)
+        const isValidPassword = await verifyPassword(password, credentials.password_hash as string);
 
-        if (inputHash !== credentials.password_hash) {
+        if (!isValidPassword) {
             return c.json({ error: "Credenciais inválidas" }, 401);
         }
+
 
         // Login sucesso
         // Atualizar last_login
         await env.DB.prepare("UPDATE user_credentials SET last_login_at = NOW() WHERE user_id = ?").bind(user.id).run();
 
-        // Gerar token de sessão (simples para demo)
-        const sessionToken = `dev-session-${user.id}`;
+        // SEGURANÇA: Gerar token de sessão com UUID criptográfico (não previsível)
+        const sessionToken = crypto.randomUUID();
 
-        // Setar cookie
+        // SEGURANÇA: Armazenar sessão no banco para validação futura
+        try {
+            await env.DB.prepare(`
+                INSERT INTO user_sessions (id, user_id, token, created_at, expires_at)
+                VALUES (?, ?, ?, NOW(), NOW() + INTERVAL '7 days')
+            `).bind(crypto.randomUUID(), user.id, sessionToken).run();
+        } catch (sessionErr) {
+            console.warn('[AUTH] Não foi possível salvar sessão no banco (tabela pode não existir):', sessionErr);
+        }
+
+        // SEGURANÇA: Cookie secure dinâmico baseado no ambiente
+        const isProduction = Deno.env.get('ENVIRONMENT') !== 'development';
+
         setCookie(c, "mocha-session-token", sessionToken, {
             httpOnly: true,
             path: "/",
             sameSite: "Lax",
-            secure: false, // true em prod
+            secure: isProduction, // true em produção, false em dev
             maxAge: 60 * 60 * 24 * 7 // 7 dias
         });
 

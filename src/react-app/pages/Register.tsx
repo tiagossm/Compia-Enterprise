@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { fetchWithAuth } from '@/react-app/utils/auth';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, CheckCircle2, Briefcase } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, CheckCircle2, Briefcase, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 export default function Register() {
     const navigate = useNavigate();
 
-    // Simplified state - no accountType
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -14,6 +13,10 @@ export default function Register() {
         confirmPassword: '',
         organizationName: ''
     });
+
+    const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
@@ -22,6 +25,33 @@ export default function Register() {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
         setError('');
+    };
+
+    // Lógica simples de força de senha
+    const calculateStrength = (pass: string) => {
+        let strength = 0;
+        if (pass.length >= 6) strength += 1;
+        if (pass.length >= 10) strength += 1;
+        if (/[A-Z]/.test(pass)) strength += 1;
+        if (/[0-9]/.test(pass)) strength += 1;
+        if (/[^A-Za-z0-9]/.test(pass)) strength += 1;
+        return strength;
+    };
+
+    const passwordStrength = calculateStrength(formData.password);
+
+    const getStrengthColor = (score: number) => {
+        if (score === 0) return 'bg-slate-200';
+        if (score < 3) return 'bg-red-500';
+        if (score < 4) return 'bg-yellow-500';
+        return 'bg-green-500';
+    };
+
+    const getStrengthLabel = (score: number) => {
+        if (score === 0) return '';
+        if (score < 3) return 'Fraca';
+        if (score < 4) return 'Média';
+        return 'Forte';
     };
 
     const validateForm = () => {
@@ -37,6 +67,10 @@ export default function Register() {
             setError('As senhas não coincidem.');
             return false;
         }
+        if (!acceptedTerms) {
+            setError('Você precisa aceitar os Termos e Política de Privacidade.');
+            return false;
+        }
         return true;
     };
 
@@ -46,8 +80,6 @@ export default function Register() {
 
         setLoading(true);
         try {
-            // Defaulting to org_admin request since they are providing a company name
-            // The SysAdmin will review and finalize the assignment.
             const role = 'org_admin';
 
             const response = await fetchWithAuth('/api/auth/register', {
@@ -66,7 +98,6 @@ export default function Register() {
 
             if (response.ok) {
                 setSuccess(true);
-                // Redirecionar após 5 segundos (dando mais tempo para ler a msg)
                 setTimeout(() => {
                     navigate('/login');
                 }, 5000);
@@ -115,26 +146,41 @@ export default function Register() {
             {/* CARD DE REGISTER HORIZONTAL */}
             <div className="w-full md:w-auto md:max-w-[95vw] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row shadow-slate-200/50">
 
-                {/* LADO ESQUERDO: Branding / Logo (Igual ao Login) */}
-                <div className="w-full md:w-[540px] bg-white flex flex-col items-center justify-center p-0 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden shrink-0">
+                {/* LADO ESQUERDO: Branding Premium */}
+                <div className="w-full md:w-[540px] bg-white flex flex-col items-center justify-center p-12 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden shrink-0 text-center">
                     {/* Background Circle Decoration matched from brand */}
-                    <div className="absolute w-64 h-64 bg-[#2050E0]/5 rounded-full blur-3xl -top-10 -left-10"></div>
-                    <div className="absolute w-64 h-64 bg-[#605E88]/5 rounded-full blur-3xl -bottom-10 -right-10"></div>
+                    <div className="absolute w-96 h-96 bg-[#2050E0]/5 rounded-full blur-3xl -top-20 -left-20"></div>
+                    <div className="absolute w-96 h-96 bg-[#605E88]/5 rounded-full blur-3xl -bottom-20 -right-20"></div>
 
                     <div className="relative z-10 flex flex-col items-center justify-center h-full w-full">
                         <img
                             src="/compia_logo.png"
                             alt="Compia Logo"
-                            className="w-[85%] h-auto object-contain transition-transform hover:scale-105 duration-500"
+                            className="w-48 h-auto object-contain mb-8 transition-transform hover:scale-105 duration-500 drop-shadow-sm"
                         />
+
+                        <div className="max-w-sm mx-auto space-y-4">
+                            <h2 className="text-2xl md:text-3xl font-bold text-[#303C60] leading-tight">
+                                Revolucione sua <br />
+                                <span className="text-[#2050E0]">Gestão de Segurança</span>
+                            </h2>
+                            <p className="text-slate-500 text-base leading-relaxed">
+                                Junte-se a empresas líderes que transformaram seus processos de auditoria e conformidade com IA.
+                            </p>
+
+                            <div className="pt-8 flex items-center justify-center gap-2 text-slate-400 text-sm font-medium">
+                                <ShieldCheck className="w-5 h-5 text-green-500" />
+                                <span>Segurança e Compliance Garantidos</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* LADO DIREITO: Formulário */}
-                <div className="w-full md:w-[420px] p-8 md:p-10 flex flex-col justify-center bg-white shrink-0 h-full overflow-y-auto max-h-screen">
+                <div className="w-full md:w-[480px] p-8 md:p-12 flex flex-col justify-center bg-white shrink-0 h-full overflow-y-auto max-h-screen">
 
-                    <div className="mb-6">
-                        <h2 className="text-2xl font-bold text-[#303C60] mb-1 tracking-tight">Crie sua conta</h2>
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold text-[#303C60] mb-2 tracking-tight">Crie sua Conta Corporativa</h2>
                         <p className="text-slate-400 text-sm">
                             Já tem cadastro?{' '}
                             <Link to="/login" className="font-bold text-[#2050E0] hover:underline">
@@ -143,92 +189,158 @@ export default function Register() {
                         </p>
                     </div>
 
-                    <form className="space-y-4" onSubmit={handleSubmit}>
+                    <form className="space-y-5" onSubmit={handleSubmit}>
 
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start">
-                                <span className="text-xs text-red-600 font-medium">{error}</span>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start animate-in fade-in slide-in-from-top-2">
+                                <span className="text-sm text-red-600 font-medium">{error}</span>
                             </div>
                         )}
 
-                        <div className="space-y-3">
-                            <div className="relative group">
-                                <User className="absolute top-3.5 left-4 h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
-                                <input
-                                    name="name"
-                                    required
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    className="block w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/20 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
-                                    placeholder="Nome completo"
-                                />
+                        {/* Nome */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+                                <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
+                                    <User className="h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                                </div>
                             </div>
+                            <input
+                                name="name"
+                                required
+                                value={formData.name}
+                                onChange={handleChange}
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
+                                placeholder="Nome completo"
+                            />
+                        </div>
 
-                            <div className="relative group">
-                                <Mail className="absolute top-3.5 left-4 h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
-                                <input
-                                    name="email"
-                                    type="email"
-                                    required
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    className="block w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/20 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
-                                    placeholder="Email profissional"
-                                />
+                        {/* Email */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+                                <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
+                                    <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                                </div>
                             </div>
+                            <input
+                                name="email"
+                                type="email"
+                                required
+                                value={formData.email}
+                                onChange={handleChange}
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
+                                placeholder="Email profissional"
+                            />
+                        </div>
 
-                            <div className="relative group animate-in fade-in slide-in-from-top-2">
-                                <Briefcase className="absolute top-3.5 left-4 h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
-                                <input
-                                    name="organizationName"
-                                    required
-                                    value={formData.organizationName}
-                                    onChange={handleChange}
-                                    className="block w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/20 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
-                                    placeholder="Nome da empresa"
-                                />
+                        {/* Empresa */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+                                <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
+                                    <Briefcase className="h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                                </div>
                             </div>
+                            <input
+                                name="organizationName"
+                                required
+                                value={formData.organizationName}
+                                onChange={handleChange}
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
+                                placeholder="Nome da empresa"
+                            />
+                        </div>
 
+                        {/* Senha */}
+                        <div className="space-y-2">
                             <div className="relative group">
-                                <Lock className="absolute top-3.5 left-4 h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                                <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+                                    <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
+                                        <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                                    </div>
+                                </div>
                                 <input
                                     name="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     required
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="block w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/20 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
-                                    placeholder="Senha (min 6 chars)"
+                                    className="block w-full pl-14 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
+                                    placeholder="Crie uma senha"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
 
-                            <div className="relative group">
-                                <Lock className="absolute top-3.5 left-4 h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                            {/* Barra de Força da Senha */}
+                            {formData.password && (
+                                <div className="flex items-center gap-2 px-1">
+                                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full transition-all duration-300 ${getStrengthColor(passwordStrength)}`}
+                                            style={{ width: `${(passwordStrength / 5) * 100}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-xs font-medium text-slate-500">
+                                        {getStrengthLabel(passwordStrength)}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Confirmar Senha */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+                                <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
+                                    <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-[#2050E0] transition-colors" />
+                                </div>
+                            </div>
+                            <input
+                                name="confirmPassword"
+                                type={showPassword ? "text" : "password"}
+                                required
+                                value={formData.confirmPassword}
+                                onChange={handleChange}
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/10 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
+                                placeholder="Confirme a senha"
+                            />
+                        </div>
+
+                        {/* Checkbox de Termos */}
+                        <div className="flex items-start gap-3 px-1 py-1">
+                            <div className="flex items-center h-5">
                                 <input
-                                    name="confirmPassword"
-                                    type="password"
-                                    required
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    className="block w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2050E0]/20 focus:border-[#2050E0] placeholder:text-slate-400 font-medium transition-all"
-                                    placeholder="Confirmar senha"
+                                    id="terms"
+                                    name="terms"
+                                    type="checkbox"
+                                    checked={acceptedTerms}
+                                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                    className="w-4 h-4 rounded border-slate-300 text-[#2050E0] focus:ring-[#2050E0] cursor-pointer"
                                 />
                             </div>
+                            <label htmlFor="terms" className="text-sm text-slate-500 cursor-pointer">
+                                Li e concordo com os <a href="#" className="font-bold text-[#2050E0] hover:underline">Termos de Uso</a> e <a href="#" className="font-bold text-[#2050E0] hover:underline">Política de Privacidade</a>.
+                            </label>
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-[#2050E0] hover:bg-[#1a40b0] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6"
+                            className="w-full bg-[#2050E0] hover:bg-[#1a40b0] text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6"
                         >
-                            {loading ? 'Enviando...' : 'Solicitar Cadastro'}
-                            {!loading && <ArrowRight className="w-4 h-4" />}
+                            {loading ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <>
+                                    Criar Conta Corporativa
+                                    <ArrowRight className="w-4 h-4" />
+                                </>
+                            )}
                         </button>
                     </form>
-
-                    <div className="mt-6 text-center text-[10px] text-slate-400 px-4">
-                        Ao cadastrar, você concorda com nossos Termos e Política.
-                    </div>
                 </div>
             </div>
         </div>
