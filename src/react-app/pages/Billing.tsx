@@ -81,33 +81,54 @@ export default function Billing() {
     const loadBillingData = async () => {
         setLoading(true);
         setError(null);
+        console.log('[Billing] Loading data, org:', selectedOrganization?.id);
 
         try {
             // Load plans
+            console.log('[Billing] Fetching plans...');
             const plansRes = await fetchWithAuth('/api/financial/plans');
+            console.log('[Billing] Plans response:', plansRes.status);
             if (plansRes.ok) {
                 const data = await plansRes.json();
+                console.log('[Billing] Plans loaded:', data.plans?.length || 0);
                 setPlans(data.plans || []);
+            } else {
+                const errorText = await plansRes.text();
+                console.error('[Billing] Plans error:', plansRes.status, errorText);
             }
 
             // Load billing info
             const orgParam = selectedOrganization?.id ? `?organization_id=${selectedOrganization.id}` : '';
+            console.log('[Billing] Fetching billing current...');
             const billingRes = await fetchWithAuth(`/api/billing/current${orgParam}`);
+            console.log('[Billing] Billing response:', billingRes.status);
             if (billingRes.ok) {
                 const data = await billingRes.json();
+                console.log('[Billing] Billing info loaded:', data);
                 setBillingInfo(data);
+            } else {
+                const errorText = await billingRes.text();
+                console.error('[Billing] Billing error:', billingRes.status, errorText);
             }
 
             // Load usage
+            console.log('[Billing] Fetching usage...');
             const usageRes = await fetchWithAuth(`/api/billing/usage${orgParam}`);
+            console.log('[Billing] Usage response:', usageRes.status);
             if (usageRes.ok) {
                 const data = await usageRes.json();
+                console.log('[Billing] Usage loaded:', data);
                 setUsageData(data);
+            } else {
+                const errorText = await usageRes.text();
+                console.error('[Billing] Usage error:', usageRes.status, errorText);
             }
         } catch (err: any) {
+            console.error('[Billing] Exception:', err);
             setError(err.message || 'Erro ao carregar dados de billing');
         } finally {
             setLoading(false);
+            console.log('[Billing] Loading complete');
         }
     };
 
