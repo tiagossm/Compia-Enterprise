@@ -65,6 +65,103 @@ interface UsageData {
     alerts: Array<{ type: string; level: string }>;
 }
 
+const SuccessModal = ({ onClose }: { onClose: () => void }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-center animate-in fade-in zoom-in duration-300">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Pagamento Confirmado!</h3>
+            <p className="text-slate-600 mb-6">
+                Sua assinatura foi atualizada com sucesso. Todos os novos limites e recursos já estão disponíveis.
+            </p>
+            <button
+                onClick={onClose}
+                className="w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+            >
+                Continuar usando o sistema
+            </button>
+        </div>
+    </div>
+);
+
+const ConfirmationModal = ({
+    plan,
+    currentPlan,
+    onConfirm,
+    onCancel
+}: {
+    plan: Plan;
+    currentPlan: any;
+    onConfirm: () => void;
+    onCancel: () => void;
+}) => {
+    const isUpgrade = plan.price_cents > (currentPlan?.price_cents || 0);
+    const isDowngrade = plan.price_cents < (currentPlan?.price_cents || 0);
+    const difference = Math.abs(plan.price_cents - (currentPlan?.price_cents || 0));
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-left animate-in fade-in zoom-in duration-300">
+                <h3 className="text-xl font-bold text-slate-900 mb-4">Confirmar Mudança de Plano</h3>
+
+                <div className="bg-slate-50 p-4 rounded-lg mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-slate-500 text-sm">Plano Atual:</span>
+                        <span className="font-medium">{currentPlan?.plan_display_name || 'Nenhum'}</span>
+                    </div>
+                    <div className="flex justify-center my-2 text-slate-300">
+                        ↓
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-slate-500 text-sm">Novo Plano:</span>
+                        <span className="font-bold text-blue-600">{plan.display_name}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                    {isUpgrade && (
+                        <div className="flex items-start bg-blue-50 p-3 rounded-lg text-blue-800 text-sm">
+                            <TrendingUp className="w-5 h-5 mr-2 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold mb-1">Acesso Imediato</p>
+                                <p>Você terá acesso instantâneo aos novos recursos e limites.</p>
+                                <p className="mt-2 text-xs opacity-75">O valor proporcional de R$ {(difference / 100).toFixed(2).replace('.', ',')} será cobrado hoje.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {isDowngrade && (
+                        <div className="flex items-start bg-amber-50 p-3 rounded-lg text-amber-800 text-sm">
+                            <AlertTriangle className="w-5 h-5 mr-2 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold mb-1">Atenção: Redução de Limites</p>
+                                <p>A mudança ocorrerá no final do ciclo atual.</p>
+                                <p className="mt-2 font-medium">Verifique se seu uso atual (Usuários/Inspeções) cabe no novo plano para evitar bloqueios.</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={onCancel}
+                        className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                    >
+                        Confirmar e Pagar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function Billing() {
     const { selectedOrganization } = useOrganization();
 
@@ -74,8 +171,21 @@ export default function Billing() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
+
     useEffect(() => {
-        loadBillingData();
+        // Check for success param
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('status') === 'success') {
+            setShowSuccessModal(true);
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname);
+            // Force reload data
+            loadBillingData();
+        } else {
+            loadBillingData();
+        }
     }, [selectedOrganization?.id]);
 
     const loadBillingData = async () => {
@@ -159,13 +269,7 @@ export default function Billing() {
         );
     };
 
-    const handleSelectPlan = async (plan: Plan) => {
-        // Enterprise contact
-        if (plan.price_cents === 0 || plan.name === 'enterprise') {
-            window.location.href = 'mailto:contato@compia.tech?subject=Interesse no Plano Enterprise';
-            return;
-        }
-
+    const initiateCheckout = async (plan: Plan) => {
         try {
             setLoading(true);
             const response = await fetchWithAuth('/api/billing/checkout', {
@@ -190,7 +294,19 @@ export default function Billing() {
             setError(err.message || 'Erro ao processar solicitação');
         } finally {
             setLoading(false);
+            setPendingPlan(null);
         }
+    };
+
+    const handleSelectPlan = (plan: Plan) => {
+        // Enterprise contact
+        if (plan.price_cents === 0 || plan.name === 'enterprise') {
+            window.location.href = 'mailto:contato@compia.tech?subject=Interesse no Plano Enterprise';
+            return;
+        }
+
+        // Show Confirmation Modal
+        setPendingPlan(plan);
     };
 
     if (loading) {
@@ -454,6 +570,18 @@ export default function Billing() {
                     </div>
                 )}
             </div>
-        </Layout>
+
+
+            {showSuccessModal && <SuccessModal onClose={() => setShowSuccessModal(false)} />}
+
+            {pendingPlan && (
+                <ConfirmationModal
+                    plan={pendingPlan}
+                    currentPlan={billingInfo?.subscription}
+                    onConfirm={() => initiateCheckout(pendingPlan)}
+                    onCancel={() => setPendingPlan(null)}
+                />
+            )}
+        </Layout >
     );
 }

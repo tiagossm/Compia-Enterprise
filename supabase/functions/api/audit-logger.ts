@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 
 export async function logActivity(env: any, params: {
     userId: string | number,
@@ -18,24 +19,37 @@ export async function logActivity(env: any, params: {
             (typeof params.metadata === 'string' ? params.metadata : JSON.stringify(params.metadata))
             : null;
 
-        await env.DB.prepare(`
-        INSERT INTO activity_log (
-            user_id, organization_id, action_type, action_description, 
-            target_type, target_id, metadata, ip_address, user_agent, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `).bind(
-            params.userId,
-            params.orgId,
-            params.actionType,
-            params.actionDescription,
-            params.targetType,
-            params.targetId,
-            metadataStr,
-            ip,
-            ua
-        ).run();
+        // Initialize Supabase Client
+        // Ensure env contains necessary keys
+        const supabaseUrl = env.SUPABASE_URL;
+        const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
 
-        console.log(`[AUDIT-LOG] Logged ${params.actionType} for ${params.targetType}:${params.targetId}`);
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('[AUDIT-LOG] Missing Supabase credentials in env');
+            return;
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const { error } = await supabase.from('activity_log').insert({
+            user_id: params.userId,
+            organization_id: params.orgId,
+            action_type: params.actionType,
+            action_description: params.actionDescription,
+            target_type: params.targetType,
+            target_id: String(params.targetId),
+            metadata: metadataStr,
+            ip_address: ip,
+            user_agent: ua
+            // created_at is handled by DB default
+        });
+
+        if (error) {
+            console.error('[AUDIT-LOG] Insert error:', error);
+        } else {
+            console.log(`[AUDIT-LOG] Logged ${params.actionType} for ${params.targetType}:${params.targetId}`);
+        }
+
     } catch (e) {
         console.error('[AUDIT-LOG] Failed to log activity:', e);
     }

@@ -43,6 +43,8 @@ const AuditLogs = lazy(() => import("@/react-app/pages/AuditLogs"));
 const LandingPage = lazy(() => import("@/react-app/pages/LandingPage"));
 const AgendaPage = lazy(() => import("@/react-app/pages/AgendaPage"));
 const SystemAdmin = lazy(() => import("@/react-app/pages/SystemAdmin"));
+const SystemAdminFinance = lazy(() => import("@/react-app/components/dashboard/SystemAdminFinance"));
+const SystemAdminCRMPage = lazy(() => import("@/react-app/components/dashboard/SystemAdminCRMPage"));
 const Billing = lazy(() => import("@/react-app/pages/Billing"));
 
 
@@ -99,6 +101,8 @@ export default function App() {
                   <Route path="/profile" element={<AuthGuard><UserProfile /></AuthGuard>} />
                   <Route path="/billing" element={<AuthGuard requiredRoles={["system_admin", "admin", "org_admin"]}><Billing /></AuthGuard>} />
                   <Route path="/admin/saas-dashboard" element={<AuthGuard requiredRole="system_admin"><SystemAdmin /></AuthGuard>} />
+                  <Route path="/admin/finance" element={<AuthGuard requiredRole="system_admin"><SystemAdminFinance /></AuthGuard>} />
+                  <Route path="/admin/crm" element={<AuthGuard requiredRole="system_admin"><SystemAdminCRMPage /></AuthGuard>} />
                 </Routes>
               </Suspense>
             </Router>

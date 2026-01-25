@@ -825,5 +825,84 @@ usersRoutes.delete("/:id", authMiddleware, requireScopes(SCOPES.USERS_DELETE), p
   }
 });
 
+// LGPD: Direito ao Esquecimento (Anonimização)
+usersRoutes.post("/:id/anonymize", authMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const targetUserId = c.req.param("id");
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  // Apenas o próprio usuário ou System Admin podem solicitar anonimização
+  const userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+
+  const isSelf = user.id === targetUserId;
+  const isAdmin = isSystemAdmin(userProfile?.role);
+
+  if (!isSelf && !isAdmin) {
+    return c.json(createAuthErrorResponse('forbidden', 'Apenas o próprio usuário ou administradores podem solicitar anonimização', []), 403);
+  }
+
+  try {
+    const targetUser = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(targetUserId).first() as any;
+
+    if (!targetUser) {
+      return c.json({ error: "User not found." }, 404);
+    }
+
+    // PROTEÇÃO ABSOLUTA: Impedir anonimização de contas de sistema críticas
+    if (targetUser.email === 'eng.tiagosm@gmail.com' || targetUser.role === USER_ROLES.SYSTEM_ADMIN) {
+      return c.json({ error: "Contas administrativas críticas não podem ser anonimizadas. Contate o suporte técnico." }, 403);
+    }
+
+    // Gerar dados anonimizados
+    const anonId = crypto.randomUUID().split('-')[0];
+    const anonEmail = `deleted_${targetUserId.substring(0, 8)}_${anonId}@anon.compia.local`;
+    const anonName = `Usuário Excluído ${anonId}`;
+
+    // Executar Anonimização (Mantendo ID para integridade referencial)
+    await env.DB.prepare(`
+        UPDATE users 
+        SET 
+          name = ?, 
+          email = ?, 
+          phone = NULL, 
+          avatar_url = NULL, 
+          google_user_data = NULL,
+          is_active = FALSE,
+          role = 'anonymized',
+          updated_at = NOW()
+        WHERE id = ?
+      `).bind(anonName, anonEmail, targetUserId).run();
+
+    // Revogar todas as permissões/sessões (Opcional, dependendo da tabela)
+    await env.DB.prepare("DELETE FROM user_credentials WHERE user_id = ?").bind(targetUserId).run();
+
+    // Log da Ação (Audit Trail deve ser preservado para provar que a ação ocorreu)
+    await env.DB.prepare(`
+        INSERT INTO activity_log (user_id, organization_id, action_type, action_description, target_type, target_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+      `).bind(
+      user.id, // Quem executou (pode ser o próprio usuário antes de perder o token)
+      targetUser.organization_id,
+      'user_anonymized',
+      `LGPD Anonymization for user ID: ${targetUserId}`,
+      'user',
+      targetUserId
+    ).run();
+
+    return c.json({
+      message: "Usuário anonimizado com sucesso.",
+      detail: "Os dados pessoais foram removidos, mas o histórico de atividades foi preservado de forma anônima para integridade do sistema."
+    });
+
+  } catch (error) {
+    console.error('Error anonymizing user:', error);
+    return c.json({ error: "Failed to anonymize user." }, 500);
+  }
+});
+
 export default usersRoutes;
 

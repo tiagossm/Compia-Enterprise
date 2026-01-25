@@ -20,40 +20,33 @@ systemAdminRoutes.post("/ensure-protected-sysadmin", authMiddleware, requireProt
   }
 
   try {
-    // Garantir que o usuário protegido sempre tenha o role correto
-    await env.DB.prepare(`
-      UPDATE users 
-      SET role = ?, can_manage_users = ?, can_create_organizations = ?, updated_at = NOW()
-      WHERE email = ? OR id = ?
-    `).bind(
-      USER_ROLES.SYSTEM_ADMIN,
-      true,
-      true,
-      'eng.tiagosm@gmail.com',
-      '84edf8d1-77d9-4c73-935e-d76745bc3707'
-    ).run();
+    const result = await autoFixSystemAdmin(env);
 
-    // Log da operação de segurança
-    await env.DB.prepare(`
-      INSERT INTO activity_log (user_id, action_type, action_description, target_type, target_id, created_at)
-      VALUES (?, ?, ?, ?, ?, NOW())
-    `).bind(
-      user.id,
-      'system_security_check',
-      'Verificação e garantia de privilégios de administrador principal do sistema',
-      'user',
-      '84edf8d1-77d9-4c73-935e-d76745bc3707'
-    ).run();
+    // Log adicional se necessário
+    if (result.success) {
+      await env.DB.prepare(`
+          INSERT INTO activity_log (user_id, action_type, action_description, target_type, target_id, created_at)
+          VALUES (?, ?, ?, ?, ?, NOW())
+        `).bind(
+        user.id,
+        'system_security_check',
+        'Verificação e garantia de privilégios de administrador principal do sistema',
+        'user',
+        '84edf8d1-77d9-4c73-935e-d76745bc3707'
+      ).run();
+    }
 
     return c.json({
-      success: true,
-      message: "Privilégios de administrador principal verificados e garantidos",
-      protected_user: true
+      success: result.success,
+      message: result.message,
+      user_id: 'eng.tiagosm',
+      user_email: 'eng.tiagosm@gmail.com',
+      timestamp: new Date().toISOString()
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error ensuring protected sysadmin:', error);
-    return c.json({ error: "Erro ao verificar privilégios do sistema" }, 500);
+    return c.json({ error: "Erro ao verificar privilégios do sistema", details: error.message }, 500);
   }
 });
 
@@ -245,48 +238,6 @@ systemAdminRoutes.post("/force-fix-protected-user", authMiddleware, requireProte
   }
 });
 
-// Endpoint específico para garantir proteção do sysadmin principal
-systemAdminRoutes.post('/ensure-protected-sysadmin', authMiddleware, async (c) => {
-  const env = c.env;
-  const user = c.get('user');
-
-  if (!user) {
-    return c.json({ error: 'User not found' }, 401);
-  }
-
-  // Verificar se é o usuário correto ou um admin
-  const userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
-
-  const isAuthorized = user.email === 'eng.tiagosm@gmail.com' ||
-    userProfile?.role === 'sys_admin' ||
-    userProfile?.role === 'system_admin';
-
-  if (!isAuthorized) {
-    return c.json({ error: 'Acesso negado. Endpoint restrito ao administrador principal.' }, 403);
-  }
-
-  try {
-    console.log('[ENSURE-PROTECTED-SYSADMIN] Garantindo proteção do system_admin...');
-
-    const result = await autoFixSystemAdmin(env);
-
-    return c.json({
-      success: result.success,
-      message: result.message,
-      user_id: 'eng.tiagosm',
-      user_email: 'eng.tiagosm@gmail.com',
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('[ENSURE-PROTECTED-SYSADMIN] Erro:', error);
-    return c.json({
-      error: 'Erro ao garantir proteção do system_admin',
-      details: error instanceof Error ? error.message : 'Erro desconhecido'
-    }, 500);
-  }
-});
-
 // Endpoint para métricas SAAS (Dashboard do System Admin)
 systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(), async (c) => {
   const env = c.env;
@@ -298,8 +249,6 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
 
   try {
     // 1. Métricas de Organizações
-    // Master = Consultorias (Sem pai)
-    // Subsidiary = Unidades/Clientes (Com pai)
     const orgsMetrics = await env.DB.prepare(`
       SELECT 
         COUNT(*) as total,
@@ -331,13 +280,11 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
     let aiMetrics = { total_tokens: 0, total_cost_est: 0, total_requests: 0 };
 
     try {
-      // 4a. Buscar tokens da logs (Granular)
       const aiUsage = await env.DB.prepare(`
           SELECT SUM(total_tokens) as total_tokens 
           FROM ai_usage_logs
       `).first();
 
-      // 4b. Buscar requests da tabela organizations (Contador simples, fallback)
       const orgsRequests = await env.DB.prepare(`
           SELECT SUM(ai_usage_count) as total_requests 
           FROM organizations
@@ -347,7 +294,6 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
 
       if (aiUsage && aiUsage.total_tokens) {
         aiMetrics.total_tokens = aiUsage.total_tokens;
-        // Estimativa simples: $0.03 por 1k tokens (média GPT-4)
         aiMetrics.total_cost_est = (aiMetrics.total_tokens / 1000) * 0.03;
       }
     } catch (e) {
@@ -358,7 +304,7 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
       organizations: {
         total: Number(orgsMetrics?.total) || 0,
         active: Number(orgsMetrics?.active) || 0,
-        master: Number(orgsMetrics?.master_orgs) || 0, // Consultorias
+        master: Number(orgsMetrics?.master_orgs) || 0,
         subsidiary_ratio: Number(orgsMetrics?.master_orgs) > 0 ? (Number(orgsMetrics?.subsidiaries) / Number(orgsMetrics?.master_orgs)).toFixed(1) : "0"
       },
       users: {
@@ -373,7 +319,7 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
       },
       ai_usage: {
         total_tokens: aiMetrics.total_tokens,
-        total_requests: aiMetrics.total_requests, // Enviando também requests
+        total_requests: aiMetrics.total_requests,
         estimated_cost_usd: aiMetrics.total_cost_est
       },
       generated_at: new Date().toISOString()
@@ -385,5 +331,92 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
   }
 });
 
-export default systemAdminRoutes;
+// Endpoint para métricas de Business Intelligence (Revenue Intelligence)
+systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(), async (c) => {
+  const env = c.env;
+  const user = c.get("user");
 
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    // 1. Buscando dados da View Inteligente (Customer Health Score)
+    // NOTE: Se a view customer_health_score nao existir ainda, usar fallback
+    let customers = [];
+    try {
+      const healthScores = await env.DB.prepare(`
+        SELECT * FROM customer_health_score ORDER BY mrr_value_cents DESC
+        `).all();
+      customers = healthScores.results || [];
+    } catch (e) {
+      console.warn('View customer_health_score not found, using empty list');
+      customers = [];
+    }
+
+    // 2. Churn Risk: Customers with Health Score < 30
+    const churnRisk = customers
+      .filter((c: any) => c.is_at_risk === true || c.is_at_risk === 1)
+      .map((c: any) => ({
+        id: c.organization_id,
+        name: c.org_name,
+        last_activity: new Date().toISOString(),
+        health_score: c.health_score,
+        mrr: c.mrr_value_cents
+      }));
+
+    // 3. Upsell Opportunity: High Usage
+    const upsellOpportunity = customers
+      .filter((c: any) => c.health_score > 80)
+      .map((c: any) => ({
+        id: c.organization_id,
+        name: c.org_name,
+        current_users: 0,
+        max_users: 0,
+        health_score: c.health_score
+      }));
+
+    // 4. MRR Real via Função SQL
+    let currentMrr = 0;
+    try {
+      const mrrResult = await env.DB.prepare("SELECT get_current_mrr() as mrr").first();
+      currentMrr = Number(mrrResult?.mrr || 0);
+    } catch (e) {
+      // Fallback calculation if function doesn't exist
+      const mrrCalc = await env.DB.prepare(`
+            SELECT SUM(mrr_value_cents) as total 
+            FROM subscriptions 
+            WHERE status IN ('active', 'trial')
+        `).first();
+      currentMrr = Number(mrrCalc?.total || 0);
+    }
+
+    // 5. AI Adoption Rate
+    const totalActiveOrgs = customers.length;
+    const aiActiveOrgs = customers.filter((c: any) => c.ai_usage_count > 0).length;
+    const aiAdoptionRate = totalActiveOrgs > 0 ? (aiActiveOrgs / totalActiveOrgs) : 0;
+
+    const leadVelocity = { avg_days: 14 };
+
+    return c.json({
+      churn_risk: churnRisk,
+      upsell_opportunity: upsellOpportunity,
+      ai_adoption: {
+        total: totalActiveOrgs,
+        active: aiActiveOrgs,
+        rate: aiAdoptionRate
+      },
+      lead_velocity: leadVelocity,
+      financials: {
+        mrr: currentMrr,
+        arpu: totalActiveOrgs > 0 ? (currentMrr / totalActiveOrgs) : 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching BI analytics:', error);
+    return c.json({ error: "Erro ao buscar dados de BI" }, 500);
+  }
+});
+
+export default systemAdminRoutes;

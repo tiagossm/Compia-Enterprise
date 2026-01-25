@@ -58,8 +58,51 @@ export function useAIAnalysis(
         }
     };
 
+    const processAudioNote = async (audioBlob: Blob) => {
+        setAiAnalyzing(true);
+        try {
+            // 1. Upload to Supabase Storage
+            const { supabase } = await import('@/react-app/lib/supabase');
+            const filename = `${id}_${Date.now()}.webm`;
+            const { error: uploadError } = await supabase.storage
+                .from('inspection-audio')
+                .upload(filename, audioBlob);
+
+            if (uploadError) throw uploadError;
+
+            // 2. Create Signed URL for the Edge Function
+            const { data: signedUrlData } = await supabase.storage
+                .from('inspection-audio')
+                .createSignedUrl(filename, 60);
+
+            if (!signedUrlData?.signedUrl) throw new Error('Failed to sign URL');
+
+            // 3. Process with Edge Function
+            const response = await inspectionService.processAudio({
+                inspection_id: parseInt(id!),
+                audio_url: signedUrlData.signedUrl
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                success('Sucesso', 'Áudio processado. Sugestões geradas.');
+                return result;
+            } else {
+                throw new Error('Falha no processamento de áudio');
+            }
+
+        } catch (err) {
+            console.error(err);
+            error('Erro', 'Falha ao processar áudio.');
+            return null;
+        } finally {
+            setAiAnalyzing(false);
+        }
+    };
+
     return {
         aiAnalyzing,
-        generateAIAnalysis
+        generateAIAnalysis,
+        processAudioNote
     };
 }

@@ -112,6 +112,19 @@ export const inspectionService = {
         });
     },
 
+    processAudio: async (payload: { inspection_id: number, audio_url: string }) => {
+        // Direct call to Supabase Edge Function
+        // Note: fetchWithAuth automatically adds Authorization header
+        // We assume the project has a proxy or absolute URL setup for functions, or we use relative path
+        // If this fails locally, we might need the full URL from env
+        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || '/functions/v1';
+        return fetchWithAuth(`${functionsUrl}/process-audio`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
     reopen: async (id: number, justification: string) => {
         return fetchWithAuth(`/api/inspections/${id}/reopen`, {
             method: 'POST',

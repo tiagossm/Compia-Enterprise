@@ -16,24 +16,6 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
   const extendedUser = user as ExtendedMochaUser;
   const location = useLocation();
 
-  // Check for demo user
-  const [demoUser, setDemoUser] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    const isDemoAuth = localStorage.getItem('demo-auth');
-    const storedDemoUser = localStorage.getItem('demo-user');
-    if (isDemoAuth === 'true' && storedDemoUser) {
-      try {
-        const parsedDemoUser = JSON.parse(storedDemoUser);
-        setDemoUser(parsedDemoUser);
-      } catch (error) {
-        console.error('Error parsing demo user:', error);
-        localStorage.removeItem('demo-auth');
-        localStorage.removeItem('demo-user');
-      }
-    }
-  }, []);
-
   // Add timeout for auth check to prevent infinite loading
   const [authTimeout, setAuthTimeout] = React.useState(false);
   const [retryCount, setRetryCount] = React.useState(0);
@@ -138,21 +120,21 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
     );
   }
 
-  if (!user && !isPending && !isRetrying && !demoUser) {
+  if (!user && !isPending && !isRetrying) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!user && !demoUser) {
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Use demo user if available, otherwise use regular user
-  const currentUser = demoUser || extendedUser;
+  // Use only authenticated user
+  const currentUser = extendedUser;
 
   // CRITICAL: Check approval status - block pending/rejected users
-  const approvalStatus = currentUser?.approval_status || currentUser?.profile?.approval_status;
+  const approvalStatus = (currentUser as any)?.approval_status || (currentUser as any)?.profile?.approval_status;
 
-  if (!demoUser && (approvalStatus === 'pending' || approvalStatus === 'rejected')) {
+  if (approvalStatus === 'pending' || approvalStatus === 'rejected') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 text-center max-w-md w-full">
@@ -184,8 +166,6 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
           </p>
           <button
             onClick={() => {
-              localStorage.removeItem('demo-auth');
-              localStorage.removeItem('demo-user');
               window.location.href = '/login';
             }}
             className="w-full bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium"
@@ -199,11 +179,6 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
 
   // Check role-based access
   const hasRequiredRole = () => {
-    // For demo users, always grant access
-    if (demoUser) {
-      return true; // Demo users have full access
-    }
-
     const userRole = currentUser.profile?.role || currentUser.role;
     // Admin has access to everything
     if (userRole === 'admin' || userRole === 'system_admin' || userRole === 'sys_admin') {
@@ -241,18 +216,6 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
             <br />
             Seu perfil: <span className="font-medium">{userRole}</span>
           </p>
-          {demoUser && (
-            <button
-              onClick={() => {
-                localStorage.removeItem('demo-auth');
-                localStorage.removeItem('demo-user');
-                window.location.href = '/login';
-              }}
-              className="mt-4 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium"
-            >
-              Sair do Demo
-            </button>
-          )}
         </div>
       </div>
     );

@@ -607,7 +607,7 @@ export default function Users() {
                             )}
                             <div>
                               <div className="flex items-center gap-2">
-                                <p className="font-medium text-slate-900">{user.name}</p>
+                                <p className="font-medium text-slate-900 capitalize">{user.name}</p>
                                 {!user.organization_id && (
                                   <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-800" title="Sem organização">
                                     Sem Org
@@ -671,7 +671,7 @@ export default function Users() {
                         <td className="px-6 py-4">
                           <span className="text-sm text-slate-600">
                             {(user.last_active_at || user.last_login_at)
-                              ? new Date(user.last_active_at || user.last_login_at || '').toLocaleString('pt-BR')
+                              ? new Date(user.last_active_at || user.last_login_at || '').toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
                               : 'Nunca'
                             }
                           </span>

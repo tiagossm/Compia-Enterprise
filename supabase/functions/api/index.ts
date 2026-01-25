@@ -322,5 +322,12 @@ app.route('/organizations', organizationsRoutes);
 app.route('/orgs', organizationsRoutes); // ALIAS for testing
 app.route('/api/organizations', organizationsRoutes);
 
+// CRITICAL FIX: Explicitly mount financial routes
+console.log('Explicitly mounting /financial on root app');
+app.route('/financial', financialRoutes);
+app.route('/api/financial', financialRoutes);
+app.route('/billing', financialRoutes);
+app.route('/api/billing', financialRoutes);
+
 Deno.serve(app.fetch)
 

@@ -2,7 +2,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '@/react-app/components/Layout';
 import {
-  AlertCircle, CheckCircle2, RotateCcw, X, FileCheck, FileText, Calendar
+  AlertCircle, CheckCircle2, RotateCcw, X, FileCheck, FileText, Calendar, Brain
 } from 'lucide-react';
 import InspectionSignature from '@/react-app/components/InspectionSignature';
 import InspectionSummary from '@/react-app/components/InspectionSummary';
@@ -13,6 +13,7 @@ import LoadingSpinner from '@/react-app/components/LoadingSpinner';
 import FloatingActionBar from '@/react-app/components/FloatingActionBar';
 import HeatmapViewer from '@/react-app/components/HeatmapViewer';
 import { useInspectionLogic } from '@/react-app/hooks/useInspectionLogic';
+import { AudioRecorder as InspectionAudioRecorder } from '@/react-app/components/AudioRecorder'; // Alias for clarity/avoid conflicts
 
 // Sub-components
 import InspectionHeader from '@/react-app/components/inspection-detail/InspectionHeader';
@@ -37,7 +38,7 @@ export default function InspectionDetail() {
     updateItemCompliance, updateItemAnalysis, handleFormSubmit,
     handleSignatureSaved, handleFinalizeInspection, handleReopenInspection,
     handleMediaUploaded, handleMediaDeleted, handleCreateManualAction,
-    generateAIAnalysis, fetchAuditLogs, handleAutoSave
+    generateAIAnalysis, fetchAuditLogs, handleAutoSave, processAudioNote
   } = useInspectionLogic(id);
 
   // UI-only state remains here
@@ -213,11 +214,49 @@ export default function InspectionDetail() {
     );
   }
 
+  /* Floating Audio Recorder (Bottom Left or custom position) */
+  /* We place it in a portal or fixed position if needed, or inline. */
+  /* For Premium UX, let's put it as a distinct floating element or integrated in the action bar? */
+  /* Let's render it just above the FloatingActionBar or as a separate fixed element. */
+  /* Or better: In the layout, maybe as a button that expands? */
+  /* For now, let's start simple: specific section at the top or bottom of the list. */
+
   return (
     <Layout>
-      <div className="space-y-6 pb-32">
+      <div className="space-y-6 pb-32 relative">
         {/* Header */}
         <InspectionHeader inspection={inspection} />
+
+        {/* AI Audio Recorder Section - Premium & Visible */}
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-xl border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white rounded-full shadow-sm text-indigo-600">
+              <Brain className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-indigo-900">Assistente IA de Voz</h3>
+              <p className="text-sm text-indigo-600">Grave notas de áudio e deixe a IA preencher a checklist para você.</p>
+            </div>
+          </div>
+          <div className="flex-shrink-0">
+            {/* Dynamic Import to avoid SSR issues if any, though standard import works */}
+            <InspectionAudioRecorder
+              onRecordingComplete={async (blob) => {
+                const result = await processAudioNote(blob);
+                if (result?.suggestions) {
+                  // Show suggestions modal
+                  // For MVP: Apply directly or alert? 
+                  // Plan says: Show Review Modal.
+                  // We need state for showing suggestions.
+                  // dispatch openSuggestions(result.suggestions)
+                  console.log('Sugestões da IA:', result.suggestions);
+                  // TODO: Open modal with suggestions
+                }
+              }}
+              isProcessing={aiAnalyzing}
+            />
+          </div>
+        </div>
 
         {/* Inspection Info Cards */}
         <InspectionInfoCards inspection={inspection} />

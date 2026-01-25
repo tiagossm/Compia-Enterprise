@@ -49,7 +49,8 @@ export function useInspectionLogic(id: string | undefined) {
     // 4. AI Layer
     const {
         aiAnalyzing,
-        generateAIAnalysis
+        generateAIAnalysis,
+        processAudioNote
     } = useAIAnalysis(id, {
         inspection, items, media
     }, {
@@ -90,6 +91,7 @@ export function useInspectionLogic(id: string | undefined) {
 
         // AI Methods
         generateAIAnalysis,
+        processAudioNote,
 
         // Misc
         fetchAuditLogs

@@ -210,6 +210,8 @@ export default function Layout({ children, actionButton }: LayoutProps) {
                 {(profile?.role === 'system_admin' || profile?.role === 'sys_admin') && (
                   <>
                     <NavItem item={{ name: 'Painel SaaS', href: '/admin/saas-dashboard', icon: Activity }} />
+                    <NavItem item={{ name: 'Financeiro', href: '/admin/finance', iconSrc: '/assets/icons/icon-chart.png', icon: BarChart3 }} />
+                    <NavItem item={{ name: 'CRM / Leads', href: '/admin/crm', iconSrc: '/assets/icons/icon-users.png', icon: Users }} />
                     <NavItem item={{ name: 'Permissões', href: '/settings/permissions', iconSrc: '/assets/icons/icon-lock.png', icon: Lock }} />
                     <NavItem item={{ name: 'Sinc. Dados', href: '/admin/data-sync', iconSrc: '/assets/icons/icon-cloud.png', icon: Cloud }} />
                     <NavItem item={{ name: 'Logs Auditoria', href: '/admin/audit', icon: Activity }} />
@@ -284,7 +286,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
                   {profile?.name ? profile.name.split(' ')[0] : (user?.email?.split('@')[0] || 'Minha Conta')}
                 </span>
                 <span className="text-xs font-medium text-slate-500 block leading-tight mt-0.5 capitalize">
-                  {profile?.role?.replace(/_/g, ' ').replace('sys', 'System') || 'Visitante'}
+                  {profile?.role?.replace(/_/g, ' ').replace('sys', 'System') || ''}
                 </span>
               </div>
               <ChevronDown size={14} className="text-gray-400 group-hover:text-primary transition-colors" />
@@ -321,11 +323,11 @@ export default function Layout({ children, actionButton }: LayoutProps) {
           </div>
         </main>
 
-      </div>
+      </div >
 
       {/* Floating AI Assistant */}
-      <FloatingAiAssistant />
+      < FloatingAiAssistant />
       <OfflinePinModal />
-    </div>
+    </div >
   );
 }
