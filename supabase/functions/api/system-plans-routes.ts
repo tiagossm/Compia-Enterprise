@@ -1,0 +1,124 @@
+
+import { Hono } from "hono";
+import { USER_ROLES } from "./user-types.ts";
+
+type Env = {
+    DB: any;
+};
+
+const systemPlansRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+
+// Middleware: Check System Admin
+systemPlansRoutes.use('*', async (c, next) => {
+    const user = c.get('user');
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const env = c.env;
+    // Verify SysAdmin
+    const profile = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(user.id).first();
+    if (profile?.role !== 'system_admin' && profile?.role !== 'sys_admin') {
+        return c.json({ error: 'Forbiden: System Admin only' }, 403);
+    }
+    await next();
+});
+
+// ============================================================================
+// PLANS
+// ============================================================================
+
+// GET /plans
+systemPlansRoutes.get('/plans', async (c) => {
+    try {
+        const plans = await c.env.DB.prepare("SELECT * FROM plans ORDER BY price_cents ASC").all();
+        return c.json({ plans: plans.results || [] });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// POST /plans (Create)
+systemPlansRoutes.post('/plans', async (c) => {
+    try {
+        const body = await c.req.json();
+        const { name, display_name, price_cents, description } = body;
+
+        const slug = body.slug || name.toLowerCase().replace(/\s+/g, '-');
+
+        const res = await c.env.DB.prepare(`
+            INSERT INTO plans (name, display_name, slug, price_cents, billing_period, limits, features, is_active)
+            VALUES (?, ?, ?, ?, 'monthly', ?, ?, true)
+            RETURNING id
+        `).bind(
+            name, display_name, slug, price_cents,
+            body.limits ? JSON.stringify(body.limits) : '{}',
+            body.features ? JSON.stringify(body.features) : '{}'
+        ).run();
+
+        return c.json({ success: true, id: res.results?.[0]?.id });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// PUT /plans/:id (Update)
+systemPlansRoutes.put('/plans/:id', async (c) => {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+
+    try {
+        await c.env.DB.prepare(`
+            UPDATE plans 
+            SET display_name = ?, price_cents = ?, is_active = ?, name = ?
+            WHERE id = ?
+        `).bind(body.display_name, body.price_cents, body.is_active, body.name, id).run();
+
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+
+// ============================================================================
+// COUPONS
+// ============================================================================
+
+// GET /coupons
+systemPlansRoutes.get('/coupons', async (c) => {
+    try {
+        const coupons = await c.env.DB.prepare("SELECT * FROM coupons ORDER BY created_at DESC").all();
+        return c.json({ coupons: coupons.results || [] });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// POST /coupons (Create)
+systemPlansRoutes.post('/coupons', async (c) => {
+    try {
+        const body = await c.req.json();
+        const { code, discount_type, discount_value, max_uses } = body;
+
+        await c.env.DB.prepare(`
+            INSERT INTO coupons (code, discount_type, discount_value, max_uses, is_active)
+            VALUES (?, ?, ?, ?, true)
+        `).bind(code, discount_type, discount_value, max_uses || null).run();
+
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// DELETE /coupons/:id
+systemPlansRoutes.delete('/coupons/:id', async (c) => {
+    const id = c.req.param('id');
+    try {
+        await c.env.DB.prepare("DELETE FROM coupons WHERE id = ?").bind(id).run();
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+export default systemPlansRoutes;

@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { fetchWithAuth } from '@/react-app/utils/auth';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, CheckCircle2, Briefcase, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
     const navigate = useNavigate();
+
+    const [searchParams] = useSearchParams();
+    const planParam = searchParams.get('plan');
+
+    // Default to 'basic' if not provided or invalid
+    const selectedPlan = planParam === 'pro' || planParam === 'inteligente' ? 'pro' : 'basic';
 
     const [formData, setFormData] = useState({
         name: '',
@@ -90,7 +96,8 @@ export default function Register() {
                     email: formData.email,
                     password: formData.password,
                     organization_name: formData.organizationName,
-                    role: role
+                    role: role,
+                    subscription_plan: selectedPlan
                 })
             });
 
@@ -98,9 +105,21 @@ export default function Register() {
 
             if (response.ok) {
                 setSuccess(true);
-                setTimeout(() => {
-                    navigate('/login');
-                }, 5000);
+
+                // If Paid Plan -> Redirect to Billing / Checkout
+                // If Free Plan -> Redirect to Login
+
+                if (selectedPlan === 'pro') {
+                    // Auto login logic would be better here, but for security MVP let's ask to login -> redirect
+                    setTimeout(() => {
+                        // Redirect with returnUrl to go straight to billing after login
+                        navigate('/login?returnUrl=/billing&message=complete_payment');
+                    }, 3000);
+                } else {
+                    setTimeout(() => {
+                        navigate('/login');
+                    }, 5000);
+                }
             } else {
                 setError(data.error || 'Erro ao criar conta. Tente novamente.');
             }
@@ -121,20 +140,19 @@ export default function Register() {
                             <CheckCircle2 className="h-10 w-10 text-green-500" />
                         </div>
                         <h2 className="text-2xl font-bold text-[#303C60] mb-4 leading-snug">
-                            Solicitação Enviada!
+                            {selectedPlan === 'pro' ? 'Conta Criada! Vamos ao Pagamento.' : 'Solicitação Enviada!'}
                         </h2>
                         <div className="bg-slate-50 rounded-2xl p-6 mb-8 text-left border border-slate-100">
                             <p className="text-slate-600 text-sm leading-relaxed text-center">
-                                Um administrador do sistema revisará seus dados.<br />
-                                Você receberá uma notificação por e-mail assim que sua conta for aprovada.
+                                {selectedPlan === 'pro'
+                                    ? "Sua conta foi criada. Você será redirecionado para concluir a assinatura do plano Inteligente."
+                                    : "Um administrador do sistema revisará seus dados (Plano Essencial). Você receberá um e-mail quando aprovado."
+                                }
                             </p>
                         </div>
-                        <Link
-                            to="/login"
-                            className="inline-flex items-center justify-center w-full px-6 py-4 bg-[#0F172A] text-white rounded-xl hover:bg-slate-900 transition-colors font-bold shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20"
-                        >
-                            Voltar para o Login
-                        </Link>
+                        <div className="animate-pulse text-indigo-600 font-medium">
+                            Redirecionando em instantes...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -175,6 +193,14 @@ export default function Register() {
                                     Crie sua conta para gerenciar auditorias e inspeções.
                                 </p>
                             </div>
+
+                            {/* Plan Badge */}
+                            {selectedPlan === 'pro' && (
+                                <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 p-3 rounded-xl mx-auto md:mx-0">
+                                    <div className="w-3 h-3 rounded-full bg-indigo-400 animate-pulse" />
+                                    <span className="text-white font-medium text-sm">Plano Selecionado: <strong>Inteligente</strong></span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

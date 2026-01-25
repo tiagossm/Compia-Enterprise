@@ -262,11 +262,17 @@ financialRoutes.post("/checkout", tenantAuthMiddleware, async (c) => {
 
     try {
         const body = await c.req.json();
-        const { plan_id, organization_id } = body;
+        const { plan_id, organization_id, billing_type } = body;
 
         if (!plan_id) {
             return c.json({ error: "Plano é obrigatório" }, 400);
         }
+
+        // Validate billing type if provided
+        const validBillingTypes = ['CREDIT_CARD', 'PIX', 'UNDEFINED'];
+        const selectedBillingType = billing_type && validBillingTypes.includes(billing_type)
+            ? billing_type
+            : 'UNDEFINED';
 
         // 1. Get user profile and org details
         const userProfile = await env.DB.prepare(
@@ -322,7 +328,7 @@ financialRoutes.post("/checkout", tenantAuthMiddleware, async (c) => {
 
         const subscription = await asaasService.createSubscription({
             customer: customer.id,
-            billingType: 'UNDEFINED', // Let user choose in payment link, or default to BOLETO/PIX
+            billingType: selectedBillingType, // Use user selected type
             value: plan.price_cents / 100,
             nextDueDate: nextDueDate.toISOString().split('T')[0],
             cycle: cycle,

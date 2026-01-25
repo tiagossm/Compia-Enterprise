@@ -110,7 +110,10 @@ export default function OrganizationFilters({
         <div className="flex gap-2">
           {[
             { key: 'active', label: 'Ativo', color: 'green' },
-            { key: 'inactive', label: 'Inativo', color: 'red' }
+            { key: 'pending_payment', label: 'Pagamento Pendente', color: 'yellow' },
+            { key: 'trial', label: 'Trial', color: 'blue' },
+            { key: 'suspended', label: 'Suspenso', color: 'red' },
+            { key: 'inactive', label: 'Inativo', color: 'gray' }
           ].map(({ key, label, color }) => (
             <button
               key={key}

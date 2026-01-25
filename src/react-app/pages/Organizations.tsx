@@ -286,7 +286,13 @@ export default function Organizations() {
 
     // Filtros por status
     if (filters.status.length > 0) {
-      const statusKey = org.is_active ? 'active' : 'inactive';
+      // Prioritize subscription_status if available, otherwise fallback to is_active
+      let statusKey = org.subscription_status || (org.is_active ? 'active' : 'inactive');
+
+      // Fallback for missing subscription_status on basic plans
+      if (!org.subscription_status && org.is_active) statusKey = 'active';
+      if (!org.subscription_status && !org.is_active) statusKey = 'inactive';
+
       if (!filters.status.includes(statusKey)) return false;
     }
 

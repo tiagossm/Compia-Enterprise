@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/react-app/context/AuthContext';
 import { fetchWithAuth } from '@/react-app/utils/auth';
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
-import { Chrome, Loader2, AlertTriangle, User, Lock } from 'lucide-react';
+import { Chrome, AlertTriangle, User, Lock, Loader2 } from 'lucide-react';
+import SecurityTransition from '@/react-app/components/SecurityTransition';
 
 export default function Login() {
   const {
@@ -82,12 +83,7 @@ export default function Login() {
   };
 
   if (isPending) {
-    return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-      <div className="text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-        <p className="text-slate-600">Verificando autenticação...</p>
-      </div>
-    </div>;
+    return <SecurityTransition />;
   }
 
   if (user) {

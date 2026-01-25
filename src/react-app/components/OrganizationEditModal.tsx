@@ -71,6 +71,7 @@ export default function OrganizationEditModal({
     observacoes_compliance: '',
     faturamento_anual: '',
     subscription_plan: 'basic' as 'basic' | 'pro' | 'enterprise',
+    subscription_status: 'active' as 'active' | 'suspended' | 'trial' | 'pending_payment' | 'expired' | 'canceled',
     max_users: 50,
     max_subsidiaries: 0,
     is_active: true,
@@ -113,6 +114,7 @@ export default function OrganizationEditModal({
         observacoes_compliance: organization.observacoes_compliance || '',
         faturamento_anual: organization.faturamento_anual?.toString() || '',
         subscription_plan: (organization.subscription_plan as 'basic' | 'pro' | 'enterprise') || 'basic',
+        subscription_status: (organization.subscription_status as any) || 'active',
         max_users: organization.max_users || 50,
         max_subsidiaries: organization.max_subsidiaries || 0,
         is_active: organization.is_active ?? true,
@@ -812,10 +814,17 @@ export default function OrganizationEditModal({
               <div className="bg-blue-50 rounded-lg p-6 space-y-6">
                 <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                   <Settings className="w-4 h-4 text-blue-600" />
-                  Configurações de Assinatura
+                  Configurações de Assinatura (Admin Override)
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Alterar estes campos manualmente desconecta a organização do fluxo automático de cobrança temporariamente, até que o STATUS do pagamento seja conciliado. Use com cautela.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Plano de Assinatura
@@ -825,11 +834,35 @@ export default function OrganizationEditModal({
                       onChange={(e) => setFormData({ ...formData, subscription_plan: e.target.value as any })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="basic">Essencial</option>
-                      <option value="pro">Inteligente</option>
+                      <option value="basic">Essencial (Gratuito)</option>
+                      <option value="pro">Inteligente (Pago)</option>
+                      <option value="enterprise">Corporativo (Custom)</option>
                     </select>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Status da Assinatura
+                    </label>
+                    <select
+                      value={formData.subscription_status}
+                      onChange={(e) => setFormData({ ...formData, subscription_status: e.target.value as any })}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formData.subscription_status === 'active' ? 'border-green-300 bg-green-50 text-green-700' :
+                        formData.subscription_status === 'pending_payment' ? 'border-yellow-300 bg-yellow-50 text-yellow-700' :
+                          'border-gray-300'
+                        }`}
+                    >
+                      <option value="active">Ativo</option>
+                      <option value="pending_payment">Aguardando Pagamento</option>
+                      <option value="trial">Período de Teste</option>
+                      <option value="suspended">Suspenso</option>
+                      <option value="expired">Expirado</option>
+                      <option value="canceled">Cancelado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Máximo de Usuários
@@ -859,7 +892,7 @@ export default function OrganizationEditModal({
                   </div>
                 </div>
 
-                <div className="flex items-center">
+                <div className="flex items-center pt-2">
                   <input
                     type="checkbox"
                     id="is_active"
@@ -868,7 +901,7 @@ export default function OrganizationEditModal({
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
-                    Organização ativa
+                    Organização ativa (Acesso ao Sistema)
                   </label>
                 </div>
               </div>

@@ -93,54 +93,49 @@ const ConfirmationModal = ({
 }: {
     plan: Plan;
     currentPlan: any;
-    onConfirm: () => void;
+    onConfirm: (method: 'CREDIT_CARD' | 'PIX') => void;
     onCancel: () => void;
 }) => {
-    const isUpgrade = plan.price_cents > (currentPlan?.price_cents || 0);
-    const isDowngrade = plan.price_cents < (currentPlan?.price_cents || 0);
-    const difference = Math.abs(plan.price_cents - (currentPlan?.price_cents || 0));
+    const [selectedMethod, setSelectedMethod] = useState<'CREDIT_CARD' | 'PIX' | null>(null);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-left animate-in fade-in zoom-in duration-300">
-                <h3 className="text-xl font-bold text-slate-900 mb-4">Confirmar Mudança de Plano</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-4">Confirmar Assinatura</h3>
 
                 <div className="bg-slate-50 p-4 rounded-lg mb-6">
                     <div className="flex justify-between items-center mb-2">
-                        <span className="text-slate-500 text-sm">Plano Atual:</span>
-                        <span className="font-medium">{currentPlan?.plan_display_name || 'Nenhum'}</span>
-                    </div>
-                    <div className="flex justify-center my-2 text-slate-300">
-                        ↓
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-slate-500 text-sm">Novo Plano:</span>
+                        <span className="text-slate-500 text-sm">Plano Selecionado:</span>
                         <span className="font-bold text-blue-600">{plan.display_name}</span>
                     </div>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                    {isUpgrade && (
-                        <div className="flex items-start bg-blue-50 p-3 rounded-lg text-blue-800 text-sm">
-                            <TrendingUp className="w-5 h-5 mr-2 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-bold mb-1">Acesso Imediato</p>
-                                <p>Você terá acesso instantâneo aos novos recursos e limites.</p>
-                                <p className="mt-2 text-xs opacity-75">O valor proporcional de R$ {(difference / 100).toFixed(2).replace('.', ',')} será cobrado hoje.</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {isDowngrade && (
-                        <div className="flex items-start bg-amber-50 p-3 rounded-lg text-amber-800 text-sm">
-                            <AlertTriangle className="w-5 h-5 mr-2 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-bold mb-1">Atenção: Redução de Limites</p>
-                                <p>A mudança ocorrerá no final do ciclo atual.</p>
-                                <p className="mt-2 font-medium">Verifique se seu uso atual (Usuários/Inspeções) cabe no novo plano para evitar bloqueios.</p>
-                            </div>
-                        </div>
-                    )}
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                        Forma de Pagamento
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => setSelectedMethod('CREDIT_CARD')}
+                            className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all ${selectedMethod === 'CREDIT_CARD'
+                                ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
+                                : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                                }`}
+                        >
+                            <CreditCard className="w-6 h-6" />
+                            <span className="text-sm font-medium">Cartão</span>
+                        </button>
+                        <button
+                            onClick={() => setSelectedMethod('PIX')}
+                            className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all ${selectedMethod === 'PIX'
+                                ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
+                                : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                                }`}
+                        >
+                            <span className="font-bold text-lg">PIX</span>
+                            <span className="text-sm font-medium">Instantâneo</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex gap-3">
@@ -151,8 +146,9 @@ const ConfirmationModal = ({
                         Cancelar
                     </button>
                     <button
-                        onClick={onConfirm}
-                        className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                        onClick={() => selectedMethod && onConfirm(selectedMethod)}
+                        disabled={!selectedMethod}
+                        className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Confirmar e Pagar
                     </button>
@@ -285,14 +281,15 @@ export default function Billing() {
         );
     };
 
-    const initiateCheckout = async (plan: Plan) => {
+    const initiateCheckout = async (plan: Plan, method: 'CREDIT_CARD' | 'PIX') => {
         try {
             setLoading(true);
             const response = await fetchWithAuth('/api/billing/checkout', {
                 method: 'POST',
                 body: JSON.stringify({
                     plan_id: plan.id,
-                    organization_id: selectedOrganization?.id
+                    organization_id: selectedOrganization?.id,
+                    billing_type: method
                 })
             });
 
@@ -594,7 +591,7 @@ export default function Billing() {
                 <ConfirmationModal
                     plan={pendingPlan}
                     currentPlan={billingInfo?.subscription}
-                    onConfirm={() => initiateCheckout(pendingPlan)}
+                    onConfirm={(method) => initiateCheckout(pendingPlan, method)}
                     onCancel={() => setPendingPlan(null)}
                 />
             )}

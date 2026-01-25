@@ -238,7 +238,7 @@ authRoutes.post("/register", async (c) => {
     const env = c.env;
 
     try {
-        const { email, password, name, organization_name, role } = await c.req.json();
+        const { email, password, name, organization_name, role, subscription_plan } = await c.req.json();
 
         if (!email || !password || !name) {
             return c.json({ error: "Email, senha e nome são obrigatórios" }, 400);
@@ -294,10 +294,16 @@ authRoutes.post("/register", async (c) => {
 
         // 3. Se forneceu nome da organização, criar e vincular
         if (organization_name) {
+
+            // Determine Plan and Status
+            const plan = subscription_plan || 'basic';
+            const subStatus = (plan === 'pro' || plan === 'enterprise') ? 'pending_payment' : 'active';
+
+
             const orgResult = await env.DB.prepare(`
-                INSERT INTO organizations (name, type, created_at, updated_at)
-                VALUES (?, 'company', NOW(), NOW())
-            `).bind(organization_name).run();
+                INSERT INTO organizations (name, type, subscription_plan, subscription_status, created_at, updated_at)
+                VALUES (?, 'company', ?, ?, NOW(), NOW())
+            `).bind(organization_name, plan, subStatus).run();
 
             const orgId = orgResult.meta.last_row_id;
 

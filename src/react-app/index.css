@@ -239,3 +239,22 @@ html {
 .input-no-icon {
   padding-right: 1rem !important;
 }
+
+/* Custom Animations for SecurityTransition */
+@keyframes scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(250%);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+  to {
+    transform: translateX(100%) skewX(-12deg);
+  }
+}

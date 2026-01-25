@@ -163,7 +163,7 @@ export default function LandingPage() {
               <button onClick={() => scrollToSection('recursos')} className="text-gray-700 hover:text-blue-600 transition-colors">Recursos</button>
               <button onClick={() => scrollToSection('depoimentos')} className="text-gray-700 hover:text-blue-600 transition-colors">Depoimentos</button>
               <button onClick={() => scrollToSection('precos')} className="text-gray-700 hover:text-blue-600 transition-colors">Preços</button>
-              <a href="/login" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105">
+              <a href="/register?plan=basic" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105">
                 Teste grátis
               </a>
             </div>
@@ -213,7 +213,7 @@ export default function LandingPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-                <a href="/login" className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 flex items-center group">
+                <a href="/register?plan=basic" className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 flex items-center group">
                   Teste grátis por 14 dias
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </a>
@@ -595,8 +595,8 @@ export default function LandingPage() {
               <div
                 key={index}
                 className={`relative p-8 rounded-xl ${plan.featured
-                    ? 'bg-blue-600 text-white shadow-xl scale-105'
-                    : 'bg-white border border-gray-200'
+                  ? 'bg-blue-600 text-white shadow-xl scale-105'
+                  : 'bg-white border border-gray-200'
                   }`}
               >
                 {plan.featured && (
@@ -623,11 +623,19 @@ export default function LandingPage() {
                   ))}
                 </ul>
 
-                <button className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${plan.featured
+                <button
+                  onClick={() => {
+                    if (plan.name === 'Enterprise') {
+                      window.location.href = 'mailto:contato@compia.tech?subject=Interesse no Plano Enterprise';
+                    } else {
+                      window.location.href = `/register?plan=${plan.name.toLowerCase().replace('essencial', 'basic').replace('inteligente', 'pro')}`;
+                    }
+                  }}
+                  className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${plan.featured
                     ? 'bg-white text-blue-600 hover:bg-gray-100'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}>
-                  {index === 2 ? 'Falar com vendas' : 'Começar teste grátis'}
+                    }`}>
+                  {plan.name === 'Enterprise' ? 'Falar com vendas' : 'Começar agora'}
                 </button>
               </div>
             ))}
