@@ -107,7 +107,7 @@ export default function Login() {
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.15)_1px,_transparent_0)] bg-[length:24px_24px]"></div>
           <div className="absolute w-[500px] h-[500px] bg-[#0EA5E9]/10 rounded-full blur-3xl -top-32 -left-32 animate-pulse"></div>
 
-          <div className="relative z-10 w-full flex flex-col h-full justify-between">
+          <div className="relative z-10 w-full flex flex-col h-full justify-center gap-16">
             {/* Header: Logo */}
             <div>
               <img
@@ -216,9 +216,9 @@ export default function Login() {
             </button>
 
             <div className="relative flex py-3 items-center">
-              <div className="flex-grow border-t border-slate-100"></div>
+              <div className="flex-grow border-t border-slate-200"></div>
               <span className="flex-shrink-0 mx-4 text-slate-300 text-xs font-semibold uppercase tracking-widest">OU</span>
-              <div className="flex-grow border-t border-slate-100"></div>
+              <div className="flex-grow border-t border-slate-200"></div>
             </div>
 
             {/* Login Social - Google como SECUNDÁRIO (Outline) */}
