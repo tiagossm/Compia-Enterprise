@@ -147,39 +147,40 @@ export default function Register() {
             <div className="w-full md:w-auto md:max-w-[95vw] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row shadow-slate-200/50">
 
                 {/* LADO ESQUERDO: Vitrine Estratégica matches Login */}
-                <div className="w-full md:w-[600px] bg-[#0F172A] flex flex-col items-center justify-between p-12 text-center md:text-left relative overflow-hidden shrink-0">
+                <div className="w-full md:w-[600px] bg-[#0F172A] flex flex-col items-center justify-between p-8 md:p-12 text-center md:text-left relative overflow-hidden shrink-0">
 
                     {/* Background Decorations (Subtle Technical Mesh) */}
                     <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.15)_1px,_transparent_0)] bg-[length:24px_24px]"></div>
                     <div className="absolute w-[500px] h-[500px] bg-[#0EA5E9]/10 rounded-full blur-3xl -top-32 -left-32 animate-pulse"></div>
 
-                    <div className="relative z-10 w-full flex flex-col h-full justify-center gap-16">
-                        {/* Header: Logo */}
-                        <div>
-                            <img
-                                src="/compia_logo.png"
-                                alt="Compia Logo"
-                                className="w-64 h-auto object-contain mb-8 filter brightness-0 invert opacity-90"
-                            />
-                        </div>
+                    <div className="relative z-10 w-full flex flex-col h-full justify-center max-w-[400px]">
+                        {/* Conteúdo Centralizado como Bloco Único */}
+                        <div className="flex flex-col gap-8 md:gap-10">
+                            {/* Header: Logo */}
+                            <div>
+                                <img
+                                    src="/compia_logo.png"
+                                    alt="Compia Logo"
+                                    className="w-48 md:w-64 h-auto object-contain mb-2 filter brightness-0 invert opacity-90 text-left md:ml-0 mx-auto"
+                                />
+                            </div>
 
-                        {/* Main Content */}
-                        <div className="space-y-6">
-                            <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight tracking-tight">
-                                Painel <br />
-                                <span className="text-[#38BDF8]">Corporativo</span>
-                            </h2>
-                            <p className="text-slate-400 text-lg leading-relaxed max-w-sm">
-                                Crie sua conta para gerenciar auditorias e inspeções.
-                            </p>
+                            {/* Main Content */}
+                            <div className="space-y-3 md:space-y-4">
+                                <h2 className="text-2xl md:text-5xl font-bold text-white leading-tight tracking-tight">
+                                    Painel <br />
+                                    <span className="text-[#38BDF8]">Corporativo</span>
+                                </h2>
+                                <p className="text-slate-400 text-lg leading-relaxed">
+                                    Crie sua conta para gerenciar auditorias e inspeções.
+                                </p>
+                            </div>
                         </div>
-
-                        {/* Footer Removed */}
                     </div>
                 </div>
 
                 {/* LADO DIREITO: Formulário */}
-                <div className="w-full md:w-[480px] p-8 md:p-12 flex flex-col justify-center bg-white shrink-0 h-full overflow-y-auto max-h-screen">
+                <div className="w-full md:w-[480px] p-6 md:p-12 flex flex-col justify-center bg-white shrink-0 h-full overflow-y-auto max-h-screen">
 
                     <div className="mb-6">
                         <h2 className="text-2xl font-bold text-[#0F172A] mb-2 tracking-tight">Criar Conta</h2>
@@ -323,7 +324,7 @@ export default function Register() {
                                     className="w-4 h-4 rounded border-slate-300 text-[#0369A1] focus:ring-[#0369A1] cursor-pointer"
                                 />
                             </div>
-                            <label htmlFor="terms" className="text-sm text-slate-500 cursor-pointer">
+                            <label htmlFor="terms" className="text-sm text-slate-600 font-medium cursor-pointer">
                                 Li e concordo com os <a href="#" className="font-bold text-[#0369A1] hover:underline">Termos de Uso</a> e <a href="#" className="font-bold text-[#0369A1] hover:underline">Política de Privacidade</a>.
                             </label>
                         </div>
@@ -331,7 +332,7 @@ export default function Register() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-4"
+                            className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-bold h-14 rounded-xl shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6 text-lg"
                         >
                             {loading ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

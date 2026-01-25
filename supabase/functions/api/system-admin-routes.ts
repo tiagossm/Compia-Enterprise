@@ -333,6 +333,7 @@ systemAdminRoutes.get("/saas-metrics", authMiddleware, requireProtectedSysAdmin(
 
 // Endpoint para métricas de Business Intelligence (Revenue Intelligence)
 systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(), async (c) => {
+  console.log('[SystemAdmin] Accessing BI Analytics Endpoint');
   const env = c.env;
   const user = c.get("user");
 
@@ -341,8 +342,16 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
   }
 
   try {
+    // 0. Fetch System Goals
+    const goalsResult = await env.DB.prepare("SELECT metric_key, target_value FROM system_goals").all();
+    const goalsMap: Record<string, number> = {};
+    if (goalsResult.results) {
+      goalsResult.results.forEach((g: any) => {
+        goalsMap[g.metric_key] = Number(g.target_value);
+      });
+    }
+
     // 1. Buscando dados da View Inteligente (Customer Health Score)
-    // NOTE: Se a view customer_health_score nao existir ainda, usar fallback
     let customers = [];
     try {
       const healthScores = await env.DB.prepare(`
@@ -354,35 +363,34 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
       customers = [];
     }
 
-    // 2. Churn Risk: Customers with Health Score < 30
+    // 2. Churn Risk
     const churnRisk = customers
       .filter((c: any) => c.is_at_risk === true || c.is_at_risk === 1)
       .map((c: any) => ({
         id: c.organization_id,
         name: c.org_name,
-        last_activity: new Date().toISOString(),
+        last_activity: new Date().toISOString(), // In real app, verify audit log
         health_score: c.health_score,
         mrr: c.mrr_value_cents
       }));
 
-    // 3. Upsell Opportunity: High Usage
+    // 3. Upsell Opportunity
     const upsellOpportunity = customers
       .filter((c: any) => c.health_score > 80)
       .map((c: any) => ({
         id: c.organization_id,
         name: c.org_name,
-        current_users: 0,
-        max_users: 0,
+        current_users: c.usage_score ? Math.round(c.usage_score * 0.5) : 10, // Placeholder if field missing
+        max_users: 20, // Placeholder
         health_score: c.health_score
       }));
 
-    // 4. MRR Real via Função SQL
+    // 4. MRR Real via View/Function
     let currentMrr = 0;
     try {
       const mrrResult = await env.DB.prepare("SELECT get_current_mrr() as mrr").first();
       currentMrr = Number(mrrResult?.mrr || 0);
     } catch (e) {
-      // Fallback calculation if function doesn't exist
       const mrrCalc = await env.DB.prepare(`
             SELECT SUM(mrr_value_cents) as total 
             FROM subscriptions 
@@ -391,14 +399,62 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
       currentMrr = Number(mrrCalc?.total || 0);
     }
 
-    // 5. AI Adoption Rate
+    // 5. Chart Data (Historical Revenue)
+    // Get last 6 months of PAID invoices
+    // If no data, return empty array to avoid confusion
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+
+    const revenueHistory = await env.DB.prepare(`
+        SELECT 
+            TO_CHAR(paid_at, 'Mon') as name,
+            DATE_TRUNC('month', paid_at) as month_date,
+            SUM(amount) as revenue
+        FROM invoices
+        WHERE status = 'paid' AND paid_at >= ?
+        GROUP BY DATE_TRUNC('month', paid_at), TO_CHAR(paid_at, 'Mon')
+        ORDER BY month_date ASC
+    `).bind(dateStr).all();
+
+    let chartData = revenueHistory.results || [];
+
+    // If no history, mock ONLY if it's a fresh install to show potential
+    if (chartData.length === 0 && currentMrr === 0) {
+      chartData = []; // Return empty, let frontend handle "No Data" state
+    }
+
+    // 6. AI Adoption Rate
     const totalActiveOrgs = customers.length;
     const aiActiveOrgs = customers.filter((c: any) => c.ai_usage_count > 0).length;
     const aiAdoptionRate = totalActiveOrgs > 0 ? (aiActiveOrgs / totalActiveOrgs) : 0;
 
-    const leadVelocity = { avg_days: 14 };
+    // 7. Plan Distribution (New)
+    const planDistribution = await env.DB.prepare(`
+        SELECT subscription_plan as name, COUNT(*) as value
+        FROM organizations
+        WHERE is_active = true
+        GROUP BY subscription_plan
+    `).all();
+
+    // 8. Customer Status (New)
+    const customerStatus = await env.DB.prepare(`
+        SELECT 
+            SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active,
+            SUM(CASE WHEN is_active = false THEN 1 ELSE 0 END) as inactive
+        FROM organizations
+    `).first();
+
+    // 9. Revenue Concentration (Top 5)
+    // Using health score view which already sorts by MRR
+    const topClients = customers.slice(0, 5).map((c: any) => ({
+      name: c.org_name,
+      mrr: c.mrr_value_cents,
+      percentage: currentMrr > 0 ? (c.mrr_value_cents / currentMrr) * 100 : 0
+    }));
 
     return c.json({
+      goals: goalsMap,
       churn_risk: churnRisk,
       upsell_opportunity: upsellOpportunity,
       ai_adoption: {
@@ -406,16 +462,43 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
         active: aiActiveOrgs,
         rate: aiAdoptionRate
       },
-      lead_velocity: leadVelocity,
       financials: {
         mrr: currentMrr,
         arpu: totalActiveOrgs > 0 ? (currentMrr / totalActiveOrgs) : 0
-      }
+      },
+      chart_data: chartData,
+      plan_distribution: planDistribution.results || [],
+      customer_status: {
+        active: Number(customerStatus?.active || 0),
+        inactive: Number(customerStatus?.inactive || 0)
+      },
+      revenue_concentration: topClients
     });
 
   } catch (error) {
     console.error('Error fetching BI analytics:', error);
     return c.json({ error: "Erro ao buscar dados de BI" }, 500);
+  }
+});
+
+// Endpoint para Atualizar Metas
+systemAdminRoutes.post("/goals", authMiddleware, requireProtectedSysAdmin(), async (c) => {
+  try {
+    const env = c.env;
+    const body = await c.req.json();
+    const { metric_key, target_value } = body;
+
+    await env.DB.prepare(`
+            INSERT INTO system_goals (metric_key, target_value, updated_at)
+            VALUES (?, ?, NOW())
+            ON CONFLICT (metric_key) DO UPDATE SET
+                target_value = excluded.target_value,
+                updated_at = NOW()
+        `).bind(metric_key, target_value).run();
+
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
 

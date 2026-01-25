@@ -176,18 +176,19 @@ async function handlePaymentConfirmed(db: any, payload: AsaasWebhookPayload) {
 async function handlePaymentOverdue(db: any, payload: AsaasWebhookPayload) {
     if (!payload.payment) return;
 
-    const { id: paymentId, subscription: subscriptionId } = payload.payment;
+    const { id: paymentId, subscription: subscriptionId, value } = payload.payment;
 
     console.log(`[ASAAS-WEBHOOK] Processing PAYMENT_OVERDUE: ${paymentId}`);
 
-    // Atualizar fatura para 'overdue'
-    await db.prepare(`
+    // Update invoice and get organization_id
+    const invoice = await db.prepare(`
         UPDATE invoices 
         SET status = 'overdue', updated_at = NOW()
         WHERE gateway_invoice_id = ?
-    `).bind(paymentId).run();
+        RETURNING organization_id
+    `).bind(paymentId).first();
 
-    // Se tiver subscription, atualizar status para 'past_due'
+    // If subscription, update status
     if (subscriptionId) {
         await db.prepare(`
             UPDATE subscriptions 
@@ -195,6 +196,51 @@ async function handlePaymentOverdue(db: any, payload: AsaasWebhookPayload) {
                 updated_at = NOW()
             WHERE gateway_subscription_id = ? AND status = 'active'
         `).bind(subscriptionId).run();
+    }
+
+    // ✨ SMART REVENUE: Create Churn Recovery Lead in CRM
+    if (invoice && invoice.organization_id) {
+        try {
+            // Get Org Details
+            const org = await db.prepare(`
+                SELECT name, contact_email, contact_phone FROM organizations WHERE id = ?
+            `).bind(invoice.organization_id).first();
+
+            if (org) {
+                // Check if open churn lead already exists
+                const existingLead = await db.prepare(`
+                    SELECT id FROM leads 
+                    WHERE company_name = ? AND deal_type = 'churn_recovery' AND status NOT IN ('won', 'lost')
+                `).bind(org.name).first();
+
+                if (!existingLead) {
+                    console.log(`[ASAAS-WEBHOOK] Creating Churn Recovery Lead for ${org.name}`);
+
+                    await db.prepare(`
+                        INSERT INTO leads (
+                            company_name, contact_name, email, phone, 
+                            status, source, notes, 
+                            deal_value, probability, 
+                            deal_type
+                        ) VALUES (
+                            ?, ?, ?, ?,
+                            'new', 'billing_failure', ?,
+                            ?, 90, 
+                            'churn_recovery'
+                        )
+                    `).bind(
+                        org.name,
+                        'Contato Financeiro',
+                        org.contact_email,
+                        org.contact_phone,
+                        `ALERTA FINANCEIRO: Fatura em atraso (ID: ${paymentId}). Valor: R$ ${value.toFixed(2)}.`,
+                        value, // Valor da dívida como valor do deal
+                    ).run();
+                }
+            }
+        } catch (e) {
+            console.error('[ASAAS-WEBHOOK] Failed to create CRM lead:', e);
+        }
     }
 }
 

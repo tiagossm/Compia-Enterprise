@@ -383,4 +383,94 @@ app.post('/leads/:id/convert', async (c) => {
 });
 
 
+// ✨ AI INTELLIGENCE SYNC (The "Motor") ✨
+app.post('/run-intelligence-sync', async (c) => {
+    try {
+        const db = getDatabase(c.env);
+        const user = c.get('user') as ExtendedMochaUser;
+        const results = {
+            upsell_opportunities: 0,
+            churn_alerts: 0,
+            processed_orgs: 0
+        };
+
+        // 1. Fetch all active organizations with their limits and usage
+        // Note: For simplicity in this "Proof of Concept", we are fetching basics.
+        // In production, this would be a more complex join or view.
+        const orgs = await db.prepare(`
+            SELECT 
+                o.id, o.name, o.contact_email, o.contact_phone,
+                o.max_users, 
+                (SELECT COUNT(*) FROM user_organizations uo WHERE uo.organization_id = o.id) as current_users,
+                o.subscription_plan
+            FROM organizations o
+            WHERE o.is_active = true
+        `).all();
+
+        const organizations = orgs.results || [];
+        results.processed_orgs = organizations.length;
+
+        for (const org of organizations) {
+            // Rule 1: Upsell Opportunity (Users > 80%)
+            const userUsagePct = (org.current_users / (org.max_users || 1)) * 100;
+
+            if (userUsagePct >= 80) {
+                // Check if we already have an open lead for this org (to avoid duplicate spam)
+                const existingLead = await db.prepare(`
+                    SELECT id FROM leads 
+                    WHERE company_name = ? AND status NOT IN ('won', 'lost')
+                `).bind(org.name).first();
+
+                if (!existingLead) {
+                    // CREATE UPSELL LEAD
+                    await db.prepare(`
+                        INSERT INTO leads (
+                            company_name, contact_name, email, phone, 
+                            status, source, notes, 
+                            deal_value, probability, owner_id,
+                            deal_type
+                        ) VALUES (
+                            ?, ?, ?, ?,
+                            'new', 'ai_trigger', ?,
+                            ?, ?, ?,
+                            'upsell'
+                        )
+                    `).bind(
+                        org.name,
+                        'Contato Principal',
+                        org.contact_email,
+                        org.contact_phone,
+                        `ALERTA DE IA: Uso de usuários em ${userUsagePct.toFixed(1)}%. Oportunidade de expansão de plano.`,
+                        500.00, // Default Upsell Value
+                        60,     // High probability
+                        user.id
+                    ).run();
+
+                    // Log Activity
+                    await db.prepare(`
+                        INSERT INTO activity_log(user_id, organization_id, action_type, action_description, created_at)
+                        VALUES(?, ?, 'ai_trigger_fired', 'Criou oportunidade de upsell automaticamente', NOW())
+                    `).bind(user.id, org.id).run();
+
+                    results.upsell_opportunities++;
+                }
+            }
+
+            // Rule 2: Churn Risk (Zero activity - Placeholder logic)
+            // Ideally check 'last_login_at' but for now let's assume random strictly for demo if no real data
+            // Or better: Check if organization was created > 30 days ago and has 0 inspections (if we had inspections count here)
+        }
+
+        return c.json({
+            success: true,
+            summary: results,
+            message: `Sincronização concluída. ${results.upsell_opportunities} oportunidades identificadas.`
+        });
+
+    } catch (error: any) {
+        console.error('Error running intelligence sync:', error);
+        return c.json({ error: 'Erro ao rodar sincronização de inteligência: ' + error.message }, 500);
+    }
+});
+
 export default app;

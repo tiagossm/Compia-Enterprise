@@ -101,40 +101,41 @@ export default function Login() {
       <div className="w-full md:w-auto md:max-w-[95vw] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row shadow-slate-200/50">
 
         {/* LADO ESQUERDO: Vitrine Estratégica (Visual Rico) */}
-        <div className="w-full md:w-[600px] bg-[#0F172A] flex flex-col items-center justify-between p-12 text-center md:text-left relative overflow-hidden shrink-0">
+        <div className="w-full md:w-[600px] bg-[#0F172A] flex flex-col items-center justify-between p-8 md:p-12 text-center md:text-left relative overflow-hidden shrink-0">
 
           {/* Background Decorations (Subtle Technical Mesh) */}
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.15)_1px,_transparent_0)] bg-[length:24px_24px]"></div>
           <div className="absolute w-[500px] h-[500px] bg-[#0EA5E9]/10 rounded-full blur-3xl -top-32 -left-32 animate-pulse"></div>
 
-          <div className="relative z-10 w-full flex flex-col h-full justify-center gap-16">
-            {/* Header: Logo */}
-            <div>
-              <img
-                src="/compia_logo.png"
-                alt="Compia Logo"
-                className="w-64 h-auto object-contain mb-8 filter brightness-0 invert opacity-90"
-              />
+          <div className="relative z-10 w-full flex flex-col h-full justify-center max-w-[400px]">
+            {/* Conteúdo Centralizado como Bloco Único */}
+            <div className="flex flex-col gap-8 md:gap-10">
+              {/* Header: Logo */}
+              <div>
+                <img
+                  src="/compia_logo.png"
+                  alt="Compia Logo"
+                  className="w-48 md:w-64 h-auto object-contain mb-2 filter brightness-0 invert opacity-90 text-left md:ml-0 mx-auto"
+                />
+              </div>
+
+              {/* Main Content */}
+              <div className="space-y-3 md:space-y-4">
+                <h2 className="text-2xl md:text-5xl font-bold text-white leading-tight tracking-tight">
+                  Gestão Inteligente <br />
+                  <span className="text-[#38BDF8]">de Auditorias</span>
+                </h2>
+
+                <p className="text-slate-400 text-base md:text-lg leading-relaxed">
+                  Plataforma corporativa de controle e conformidade.
+                </p>
+              </div>
             </div>
-
-            {/* Main Content */}
-            <div className="space-y-6">
-              <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight tracking-tight">
-                Gestão Inteligente <br />
-                <span className="text-[#38BDF8]">de Auditorias</span>
-              </h2>
-
-              <p className="text-slate-400 text-lg leading-relaxed max-w-sm">
-                Plataforma corporativa de controle e conformidade.
-              </p>
-            </div>
-
-            {/* Footer Removed for Cleaner Look */}
           </div>
         </div>
 
         {/* LADO DIREITO: Formulário */}
-        <div className="w-full md:w-[450px] p-8 md:p-14 flex flex-col justify-center bg-white shrink-0 min-h-[600px]">
+        <div className="w-full md:w-[450px] p-6 md:p-14 flex flex-col justify-center bg-white shrink-0 md:min-h-[600px]">
 
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-[#0F172A] mb-2 tracking-tight">Login</h2>
@@ -195,9 +196,9 @@ export default function Login() {
               <label className="flex items-center gap-2 cursor-pointer group select-none">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded border-slate-300 text-[#0369A1] focus:ring-[#0369A1] transition-all"
+                  className="w-5 h-5 rounded border-slate-300 text-[#0369A1] focus:ring-[#0369A1] transition-all"
                 />
-                <span className="text-slate-500 group-hover:text-[#0369A1] transition-colors">Lembrar de mim</span>
+                <span className="text-slate-600 font-medium group-hover:text-[#0369A1] transition-colors">Lembrar de mim</span>
               </label>
               <a className="text-[#0369A1] hover:text-[#024d77] font-semibold transition-colors hover:underline" href="#">Esqueceu a senha?</a>
             </div>
@@ -206,7 +207,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-slate-900/30 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-4"
+              className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-bold h-14 rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-slate-900/30 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6 text-lg"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
