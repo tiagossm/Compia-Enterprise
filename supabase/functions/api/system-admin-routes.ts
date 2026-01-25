@@ -342,24 +342,32 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
   }
 
   try {
+    const debugErrors: any = {};
+
     // 0. Fetch System Goals
-    const goalsResult = await env.DB.prepare("SELECT metric_key, target_value FROM system_goals").all();
     const goalsMap: Record<string, number> = {};
-    if (goalsResult.results) {
-      goalsResult.results.forEach((g: any) => {
-        goalsMap[g.metric_key] = Number(g.target_value);
-      });
+    try {
+      const goalsResult = await env.DB.prepare("SELECT metric_key, target_value FROM system_goals").all();
+      if (goalsResult.results) {
+        goalsResult.results.forEach((g: any) => {
+          goalsMap[g.metric_key] = Number(g.target_value);
+        });
+      }
+    } catch (e: any) {
+      console.error('Error fetching goals:', e);
+      debugErrors.goals = e.message;
     }
 
     // 1. Buscando dados da View Inteligente (Customer Health Score)
-    let customers = [];
+    let customers: any[] = [];
     try {
       const healthScores = await env.DB.prepare(`
         SELECT * FROM customer_health_score ORDER BY mrr_value_cents DESC
         `).all();
       customers = healthScores.results || [];
-    } catch (e) {
+    } catch (e: any) {
       console.warn('View customer_health_score not found, using empty list');
+      debugErrors.customers = e.message;
       customers = [];
     }
 
@@ -390,34 +398,44 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
     try {
       const mrrResult = await env.DB.prepare("SELECT get_current_mrr() as mrr").first();
       currentMrr = Number(mrrResult?.mrr || 0);
-    } catch (e) {
-      const mrrCalc = await env.DB.prepare(`
-            SELECT SUM(mrr_value_cents) as total 
-            FROM subscriptions 
-            WHERE status IN ('active', 'trial')
-        `).first();
-      currentMrr = Number(mrrCalc?.total || 0);
+    } catch (e: any) {
+      try {
+        const mrrCalc = await env.DB.prepare(`
+                SELECT SUM(mrr_value_cents) as total 
+                FROM subscriptions 
+                WHERE status IN ('active', 'trial')
+            `).first();
+        currentMrr = Number(mrrCalc?.total || 0);
+      } catch (e2: any) {
+        debugErrors.mrr = e2.message;
+      }
     }
 
     // 5. Chart Data (Historical Revenue)
-    // Get last 6 months of PAID invoices
-    // If no data, return empty array to avoid confusion
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+    let chartData: any[] = [];
+    try {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      const dateStr = sixMonthsAgo.toISOString().split('T')[0];
 
-    const revenueHistory = await env.DB.prepare(`
-        SELECT 
-            TO_CHAR(paid_at, 'Mon') as name,
-            DATE_TRUNC('month', paid_at) as month_date,
-            SUM(amount) as revenue
-        FROM invoices
-        WHERE status = 'paid' AND paid_at >= ?
-        GROUP BY DATE_TRUNC('month', paid_at), TO_CHAR(paid_at, 'Mon')
-        ORDER BY month_date ASC
-    `).bind(dateStr).all();
+      // Safe query avoiding TO_CHAR if uncertain, but keeping TO_CHAR for now as it is Postgres
+      const revenueHistory = await env.DB.prepare(`
+            SELECT 
+                TO_CHAR(paid_at, 'Mon') as name,
+                DATE_TRUNC('month', paid_at) as month_date,
+                SUM(amount) as revenue
+            FROM invoices
+            WHERE status = 'paid' AND paid_at >= ?
+            GROUP BY DATE_TRUNC('month', paid_at), TO_CHAR(paid_at, 'Mon')
+            ORDER BY month_date ASC
+        `).bind(dateStr).all();
 
-    let chartData = revenueHistory.results || [];
+      chartData = revenueHistory.results || [];
+    } catch (e: any) {
+      console.error('Error fetching chart data:', e);
+      debugErrors.chart_data = e.message;
+      chartData = [];
+    }
 
     // If no history, mock ONLY if it's a fresh install to show potential
     if (chartData.length === 0 && currentMrr === 0) {
@@ -430,20 +448,35 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
     const aiAdoptionRate = totalActiveOrgs > 0 ? (aiActiveOrgs / totalActiveOrgs) : 0;
 
     // 7. Plan Distribution (New)
-    const planDistribution = await env.DB.prepare(`
-        SELECT subscription_plan as name, COUNT(*) as value
-        FROM organizations
-        WHERE is_active = true
-        GROUP BY subscription_plan
-    `).all();
+    let planDistribution: any[] = [];
+    try {
+      const planDistResult = await env.DB.prepare(`
+            SELECT subscription_plan as name, COUNT(*) as value
+            FROM organizations
+            WHERE is_active = true
+            GROUP BY subscription_plan
+        `).all();
+      planDistribution = planDistResult.results || [];
+    } catch (e: any) {
+      debugErrors.plan_dist = e.message;
+    }
 
     // 8. Customer Status (New)
-    const customerStatus = await env.DB.prepare(`
-        SELECT 
-            SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active,
-            SUM(CASE WHEN is_active = false THEN 1 ELSE 0 END) as inactive
-        FROM organizations
-    `).first();
+    let customerStatus = { active: 0, inactive: 0 };
+    try {
+      const custStatusResult = await env.DB.prepare(`
+            SELECT 
+                SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN is_active = false THEN 1 ELSE 0 END) as inactive
+            FROM organizations
+        `).first();
+      if (custStatusResult) {
+        customerStatus.active = Number(custStatusResult.active || 0);
+        customerStatus.inactive = Number(custStatusResult.inactive || 0);
+      }
+    } catch (e: any) {
+      debugErrors.cust_status = e.message;
+    }
 
     // 9. Revenue Concentration (Top 5)
     // Using health score view which already sorts by MRR
@@ -467,12 +500,10 @@ systemAdminRoutes.get("/bi-analytics", authMiddleware, requireProtectedSysAdmin(
         arpu: totalActiveOrgs > 0 ? (currentMrr / totalActiveOrgs) : 0
       },
       chart_data: chartData,
-      plan_distribution: planDistribution.results || [],
-      customer_status: {
-        active: Number(customerStatus?.active || 0),
-        inactive: Number(customerStatus?.inactive || 0)
-      },
-      revenue_concentration: topClients
+      plan_distribution: planDistribution,
+      customer_status: customerStatus,
+      revenue_concentration: topClients,
+      _debug_errors: debugErrors
     });
 
   } catch (error) {

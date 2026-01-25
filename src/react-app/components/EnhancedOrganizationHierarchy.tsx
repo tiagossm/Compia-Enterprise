@@ -190,8 +190,8 @@ function TreeNode({
                 )}
                 {organization.subscription_plan && (
                   <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-                    {organization.subscription_plan === 'basic' ? 'Básico' :
-                      organization.subscription_plan === 'pro' ? 'Pro' : 'Enterprise'}
+                    {organization.subscription_plan === 'basic' ? 'Essencial' :
+                      organization.subscription_plan === 'pro' ? 'Inteligente' : 'Corporativo'}
                   </span>
                 )}
               </div>
@@ -441,8 +441,8 @@ export default function EnhancedOrganizationHierarchy({
               {organization.subscription_plan && (
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                    {organization.subscription_plan === 'basic' ? 'Básico' :
-                      organization.subscription_plan === 'pro' ? 'Pro' : 'Enterprise'}
+                    {organization.subscription_plan === 'basic' ? 'Essencial' :
+                      organization.subscription_plan === 'pro' ? 'Inteligente' : 'Corporativo'}
                   </span>
                 </div>
               )}

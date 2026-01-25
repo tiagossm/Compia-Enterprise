@@ -197,7 +197,15 @@ export default function Billing() {
             const plansRes = await fetchWithAuth('/api/financial/plans');
             if (plansRes.ok) {
                 const data = await plansRes.json();
-                setPlans(data.plans || []);
+                // Map display names and filter out enterprise
+                const mappedPlans = (data.plans || [])
+                    .filter((p: Plan) => p.name !== 'enterprise' && p.price_cents > 0)
+                    .map((p: Plan) => ({
+                        ...p,
+                        display_name: p.name === 'basic' ? 'Essencial' :
+                            p.name === 'pro' ? 'Inteligente' : p.display_name
+                    }));
+                setPlans(mappedPlans);
             }
 
             // Load billing info
@@ -205,6 +213,14 @@ export default function Billing() {
             const billingRes = await fetchWithAuth(`/api/billing/current${orgParam}`);
             if (billingRes.ok) {
                 const data = await billingRes.json();
+
+                // Force display names
+                if (data.subscription) {
+                    const pName = data.subscription.plan_name;
+                    if (pName === 'basic') data.subscription.plan_display_name = 'Essencial';
+                    if (pName === 'pro') data.subscription.plan_display_name = 'Inteligente';
+                }
+
                 setBillingInfo(data);
             }
 

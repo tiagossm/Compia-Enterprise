@@ -600,8 +600,8 @@ export default function Organizations() {
                         <span className="text-sm text-purple-600">Plano</span>
                       </div>
                       <p className="text-sm font-semibold text-purple-900 mt-1 capitalize">
-                        {selectedOrganization.subscription_plan === 'basic' ? 'Básico' :
-                          selectedOrganization.subscription_plan === 'pro' ? 'Profissional' : 'Empresarial'}
+                        {selectedOrganization.subscription_plan === 'basic' ? 'Essencial' :
+                          selectedOrganization.subscription_plan === 'pro' ? 'Inteligente' : 'Corporativo'}
                       </p>
                     </div>
 

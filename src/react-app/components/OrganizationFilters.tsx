@@ -96,8 +96,8 @@ export default function OrganizationFilters({
               key={type}
               onClick={() => handleTypeChange(type)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filters.type.includes(type)
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                  : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
                 }`}
             >
               <Building2 className="inline h-3 w-3 mr-1" />
@@ -116,8 +116,8 @@ export default function OrganizationFilters({
               key={key}
               onClick={() => handleStatusChange(key)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filters.status.includes(key)
-                  ? `bg-${color}-100 text-${color}-700 border border-${color}-200`
-                  : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                ? `bg-${color}-100 text-${color}-700 border border-${color}-200`
+                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
                 }`}
             >
               <Activity className="inline h-3 w-3 mr-1" />
@@ -130,8 +130,8 @@ export default function OrganizationFilters({
         <button
           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${showAdvancedFilters || hasActiveFilters
-              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-              : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
             }`}
         >
           <SlidersHorizontal className="h-3 w-3" />
@@ -169,7 +169,7 @@ export default function OrganizationFilters({
                 Planos de Assinatura
               </label>
               <div className="space-y-2">
-                {['basic', 'pro', 'enterprise'].map((plan) => (
+                {['basic', 'pro'].map((plan) => (
                   <label key={plan} className="flex items-center">
                     <input
                       type="checkbox"
@@ -178,7 +178,7 @@ export default function OrganizationFilters({
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <span className="ml-2 text-sm text-gray-600">
-                      {plan === 'basic' ? 'Básico' : plan === 'pro' ? 'Profissional' : 'Empresarial'}
+                      {plan === 'basic' ? 'Essencial' : 'Inteligente'}
                     </span>
                   </label>
                 ))}

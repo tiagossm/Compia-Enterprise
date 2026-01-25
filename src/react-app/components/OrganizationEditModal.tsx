@@ -825,9 +825,8 @@ export default function OrganizationEditModal({
                       onChange={(e) => setFormData({ ...formData, subscription_plan: e.target.value as any })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="basic">Básico</option>
-                      <option value="pro">Profissional</option>
-                      <option value="enterprise">Empresarial</option>
+                      <option value="basic">Essencial</option>
+                      <option value="pro">Inteligente</option>
                     </select>
                   </div>
 
