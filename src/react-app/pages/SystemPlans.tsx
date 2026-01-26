@@ -130,8 +130,14 @@ export default function SystemPlans() {
                 setShowCouponModal(false);
                 setEditingCoupon(null);
             } else {
-                const err = await res.json();
-                alert(`Erro ao salvar cupom: ${err.error}`);
+                const text = await res.text();
+                try {
+                    const err = JSON.parse(text);
+                    alert(`Erro ao salvar cupom: ${err.error || 'Erro desconhecido'}`);
+                } catch (e) {
+                    console.error("Backend returned non-JSON error:", text);
+                    alert(`Erro no servidor (${res.status}). Verifique o console para mais detalhes.`);
+                }
             }
         } catch (e) {
             console.error("Error saving coupon", e);

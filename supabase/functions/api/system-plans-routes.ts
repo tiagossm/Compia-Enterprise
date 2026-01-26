@@ -150,13 +150,13 @@ systemPlansRoutes.post('/coupons', async (c) => {
     const user = c.get('user');
     try {
         const body = await c.req.json();
-        const { 
-            code, 
-            discount_type, 
-            discount_value, 
-            max_uses, 
-            description, 
-            expires_at, 
+        const {
+            code,
+            discount_type,
+            discount_value,
+            max_uses,
+            description,
+            expires_at,
             minimum_amount_cents,
             valid_for_plans,
             is_active = true
@@ -177,17 +177,17 @@ systemPlansRoutes.post('/coupons', async (c) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
         `).bind(
-            normalizedCode, 
-            description || null, 
-            discount_type, 
-            discount_value, 
+            normalizedCode,
+            description || null,
+            discount_type,
+            discount_value,
             max_uses || null,
             expires_at || null,
             minimum_amount_cents || null,
             valid_for_plans ? JSON.stringify(valid_for_plans) : null,
             is_active
         ).run();
-        
+
         const newCouponId = res.results?.[0]?.id;
 
         // Audit Log
@@ -198,7 +198,7 @@ systemPlansRoutes.post('/coupons', async (c) => {
             ) VALUES (?, ?, 'COUPON_CREATE', ?, 'COUPON', ?, ?)
         `).bind(
             user.id,
-            user.organization_id || null, 
+            user.organization_id || null,
             `Criou cupom: ${normalizedCode}`,
             newCouponId,
             JSON.stringify({ code: normalizedCode, discount: `${discount_value} (${discount_type})` })
@@ -217,22 +217,29 @@ systemPlansRoutes.put('/coupons/:id', async (c) => {
     const id = c.req.param('id');
     try {
         const body = await c.req.json();
-        const { 
-            description, 
-            expires_at, 
-            max_uses, 
+        const {
+            code,
+            discount_type,
+            discount_value,
+            description,
+            expires_at,
+            max_uses,
             is_active,
-            valid_for_plans, 
-            minimum_amount_cents 
+            valid_for_plans,
+            minimum_amount_cents
         } = body;
 
         await c.env.DB.prepare(`
             UPDATE coupons 
-            SET description = ?, expires_at = ?, max_uses = ?, 
+            SET code = ?, discount_type = ?, discount_value = ?,
+                description = ?, expires_at = ?, max_uses = ?, 
                 is_active = ?, valid_for_plans = ?, minimum_amount_cents = ?,
                 updated_at = NOW()
             WHERE id = ?
         `).bind(
+            code,
+            discount_type,
+            discount_value,
             description,
             expires_at || null,
             max_uses,

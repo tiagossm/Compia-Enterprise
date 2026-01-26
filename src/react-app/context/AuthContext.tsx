@@ -44,6 +44,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(userObj);
                     // Cache for offline
                     localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
+                } else if (response.status === 401) {
+                    console.warn('[AuthContext] Session expired or invalid (401). Clearing user.');
+                    setUser(null);
+                    setSession(null);
+                    await supabase.auth.signOut();
+                    return;
                 } else if (response.status === 403) {
                     // User exists but pending approval or rejected
                     const errorData = await response.json().catch(() => ({}));
