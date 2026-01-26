@@ -187,7 +187,7 @@ export default function Register() {
                             <div className="space-y-3 md:space-y-4">
                                 <h2 className="text-2xl md:text-5xl font-bold text-white leading-tight tracking-tight">
                                     Painel <br />
-                                    <span className="text-[#38BDF8]">Corporativo</span>
+                                    <span className="text-primary-light">Corporativo</span>
                                 </h2>
                                 <p className="text-slate-400 text-lg leading-relaxed">
                                     Crie sua conta para gerenciar auditorias e inspeções.
@@ -212,7 +212,7 @@ export default function Register() {
                         <h2 className="text-2xl font-bold text-[#0F172A] mb-2 tracking-tight">Criar Conta</h2>
                         <p className="text-slate-500 text-sm">
                             Já tem cadastro?{' '}
-                            <Link to="/login" className="font-bold text-[#0369A1] hover:underline">
+                            <Link to="/login" className="font-bold text-primary hover:underline hover:text-primary-hover">
                                 Fazer login
                             </Link>
                         </p>
@@ -230,7 +230,7 @@ export default function Register() {
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
                                 <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
-                                    <User className="h-5 w-5 text-slate-400 group-focus-within:text-[#0369A1] transition-colors" />
+                                    <User className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 </div>
                             </div>
                             <input
@@ -238,7 +238,7 @@ export default function Register() {
                                 required
                                 value={formData.name}
                                 onChange={handleChange}
-                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-400 font-medium transition-all"
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 font-medium transition-all"
                                 placeholder="Nome completo"
                             />
                         </div>
@@ -247,7 +247,7 @@ export default function Register() {
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
                                 <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
-                                    <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-[#0369A1] transition-colors" />
+                                    <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 </div>
                             </div>
                             <input
@@ -256,7 +256,7 @@ export default function Register() {
                                 required
                                 value={formData.email}
                                 onChange={handleChange}
-                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-400 font-medium transition-all"
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 font-medium transition-all"
                                 placeholder="Email profissional"
                             />
                         </div>
@@ -265,7 +265,7 @@ export default function Register() {
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
                                 <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
-                                    <Briefcase className="h-5 w-5 text-slate-400 group-focus-within:text-[#0369A1] transition-colors" />
+                                    <Briefcase className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 </div>
                             </div>
                             <input
@@ -273,7 +273,7 @@ export default function Register() {
                                 required
                                 value={formData.organizationName}
                                 onChange={handleChange}
-                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-400 font-medium transition-all"
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 font-medium transition-all"
                                 placeholder="Nome da empresa"
                             />
                         </div>
@@ -292,7 +292,7 @@ export default function Register() {
                                     required
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="block w-full pl-14 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-400 font-medium transition-all"
+                                    className="block w-full pl-14 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 font-medium transition-all"
                                     placeholder="Crie uma senha"
                                 />
                                 <button
@@ -333,7 +333,7 @@ export default function Register() {
                                 required
                                 value={formData.confirmPassword}
                                 onChange={handleChange}
-                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-400 font-medium transition-all"
+                                className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 font-medium transition-all"
                                 placeholder="Confirme a senha"
                             />
                         </div>
@@ -347,18 +347,18 @@ export default function Register() {
                                     type="checkbox"
                                     checked={acceptedTerms}
                                     onChange={(e) => setAcceptedTerms(e.target.checked)}
-                                    className="w-4 h-4 rounded border-slate-300 text-[#0369A1] focus:ring-[#0369A1] cursor-pointer"
+                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                                 />
                             </div>
                             <label htmlFor="terms" className="text-sm text-slate-600 font-medium cursor-pointer">
-                                Li e concordo com os <a href="#" className="font-bold text-[#0369A1] hover:underline">Termos de Uso</a> e <a href="#" className="font-bold text-[#0369A1] hover:underline">Política de Privacidade</a>.
+                                Li e concordo com os <a href="#" className="font-bold text-primary hover:underline hover:text-primary-hover">Termos de Uso</a> e <a href="#" className="font-bold text-primary hover:underline hover:text-primary-hover">Política de Privacidade</a>.
                             </label>
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-bold h-14 rounded-xl shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6 text-lg"
+                            className="w-full bg-primary hover:bg-primary-hover text-white font-bold h-14 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6 text-lg"
                         >
                             {loading ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

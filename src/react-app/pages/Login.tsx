@@ -146,13 +146,13 @@ export default function Login() {
               </div>
             )}
 
-            {/* CAMPO E-MAIL */}
+            {/* CAMPO USUÁRIO */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider ml-1">Usuário</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
                   <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
-                    <User className="h-5 w-5 text-slate-400 group-focus-within:text-[#0369A1] transition-colors" />
+                    <User className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                   </div>
                 </div>
                 <input
@@ -162,7 +162,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="nome@empresa.com"
-                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-300 font-medium transition-all duration-200"
+                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-300 font-medium transition-all duration-200"
                 />
               </div>
             </div>
@@ -173,7 +173,7 @@ export default function Login() {
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
                   <div className="h-full px-3 flex items-center justify-center border-r border-slate-100">
-                    <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-[#0369A1] transition-colors" />
+                    <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                   </div>
                 </div>
                 <input
@@ -183,7 +183,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl focus:ring-2 focus:ring-[#0369A1]/20 focus:border-[#0369A1] placeholder:text-slate-300 font-medium transition-all duration-200"
+                  className="block w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-300 font-medium transition-all duration-200"
                 />
               </div>
             </div>
@@ -192,18 +192,18 @@ export default function Login() {
               <label className="flex items-center gap-2 cursor-pointer group select-none">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 rounded border-slate-300 text-[#0369A1] focus:ring-[#0369A1] transition-all"
+                  className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary transition-all"
                 />
-                <span className="text-slate-600 font-medium group-hover:text-[#0369A1] transition-colors">Lembrar de mim</span>
+                <span className="text-slate-600 font-medium group-hover:text-primary transition-colors">Lembrar de mim</span>
               </label>
-              <a className="text-[#0369A1] hover:text-[#024d77] font-semibold transition-colors hover:underline" href="#">Esqueceu a senha?</a>
+              <a className="text-primary hover:text-primary-hover font-semibold transition-colors hover:underline" href="#">Esqueceu a senha?</a>
             </div>
 
             {/* BOTÃO PRIMÁRIO (EMAIL) - Agora em cima */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-bold h-14 rounded-xl shadow-lg shadow-slate-900/20 hover:shadow-slate-900/30 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6 text-lg"
+              className="w-full bg-primary hover:bg-primary-hover text-white font-bold h-14 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300 transform active:scale-[0.99] flex items-center justify-center gap-2 mt-6 text-lg"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -236,7 +236,7 @@ export default function Login() {
             <span className="text-slate-400">Sua empresa ainda não tem acesso? </span>
             <Link
               to="/register"
-              className="text-[#0369A1] hover:text-[#024d77] font-bold transition-colors block mt-1 hover:underline text-base"
+              className="text-primary hover:text-primary-hover font-bold transition-colors block mt-1 hover:underline text-base"
             >
               Solicitar conta corporativa
             </Link>
