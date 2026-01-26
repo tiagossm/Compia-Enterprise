@@ -59,21 +59,21 @@ export default function SecurityTransition() {
 
             <div className="relative z-10 flex flex-col items-center w-full max-w-md p-8">
 
-                {/* Logo Reduzida */}
+                {/* Logo Ampliada */}
                 <img
                     src="/compia_logo.png"
                     alt="Compia"
-                    className="h-8 md:h-10 w-auto mb-12 opacity-80 grayscale transition-all duration-700"
+                    className="h-16 md:h-20 w-auto mb-12 transition-all duration-700"
                 />
 
                 {/* Central Animation */}
                 <div className="relative mb-12">
                     {/* Pulsing Rings */}
-                    <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-ping"></div>
-                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-pulse delay-75"></div>
+                    <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping"></div>
+                    <div className="absolute inset-0 bg-primary/20 rounded-full animate-pulse delay-75"></div>
 
                     <div className="relative bg-white p-4 rounded-full shadow-xl shadow-slate-200 border border-slate-100">
-                        <ShieldCheck className="w-12 h-12 text-[#0369A1] animate-pulse" strokeWidth={1.5} />
+                        <ShieldCheck className="w-12 h-12 text-primary animate-pulse" strokeWidth={1.5} />
                     </div>
 
                     {/* Scanning Beam Effect (CSS Trick) */}
@@ -84,7 +84,7 @@ export default function SecurityTransition() {
 
                 {/* Main Status Text */}
                 <div className="h-8 mb-6 flex items-center justify-center">
-                    <span className="text-slate-700 font-semibold text-lg tracking-tight animate-in fade-in slide-in-from-bottom-2 duration-300 key={statusIndex}">
+                    <span className="text-slate-800 font-semibold text-lg tracking-tight animate-in fade-in slide-in-from-bottom-2 duration-300 key={statusIndex}">
                         {statuses[statusIndex]}
                     </span>
                 </div>
@@ -92,7 +92,7 @@ export default function SecurityTransition() {
                 {/* Determinate Progress Bar */}
                 <div className="w-64 h-1.5 bg-slate-200 rounded-full overflow-hidden mb-12 relative">
                     <div
-                        className="h-full bg-[#0369A1] transition-all duration-100 ease-out relative overflow-hidden"
+                        className="h-full bg-primary transition-all duration-100 ease-out relative overflow-hidden"
                         style={{ width: `${progress}%` }}
                     >
                         {/* Shimmer effect on bar */}

@@ -4,6 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Shield, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { ExtendedMochaUser } from '../../shared/user-types';
 import DatabaseStatus from './DatabaseStatus';
+import SecurityTransition from './SecurityTransition';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -60,24 +61,12 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
 
   if ((isPending && !authTimeout) || isRetrying) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <DatabaseStatus onRetry={handleRetry} />
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center max-w-md">
-          <div className="p-4 bg-blue-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <Shield className="w-8 h-8 text-blue-600" />
-          </div>
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-            <span className="text-slate-700">
-              {isRetrying ? 'Tentando reconectar...' : 'Verificando autenticação...'}
-            </span>
-          </div>
-          <p className="text-slate-500 text-sm">
-            {isRetrying ? 'Reconectando com o servidor' : 'Aguarde enquanto validamos suas credenciais'}
-            {retryCount > 0 && ` (Tentativa ${retryCount})`}
-          </p>
-        </div>
-      </div>
+      <>
+        {/* Render SecurityTransition for global auth checking */}
+        <SecurityTransition />
+        {/* Still keep DatabaseStatus hidden or minimized if needed, but usually SecurityTransition covers it */}
+        {/* If retrying specifically, we might want to communicate that, but SecurityTransition handles generic 'Connecting' well */}
+      </>
     );
   }
 

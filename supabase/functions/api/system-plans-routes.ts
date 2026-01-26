@@ -131,6 +131,10 @@ systemPlansRoutes.delete('/plans/:id', async (c) => {
 // COUPONS
 // ============================================================================
 
+// ============================================================================
+// COUPONS
+// ============================================================================
+
 // GET /coupons
 systemPlansRoutes.get('/coupons', async (c) => {
     try {
@@ -143,26 +147,147 @@ systemPlansRoutes.get('/coupons', async (c) => {
 
 // POST /coupons (Create)
 systemPlansRoutes.post('/coupons', async (c) => {
+    const user = c.get('user');
     try {
         const body = await c.req.json();
-        const { code, discount_type, discount_value, max_uses } = body;
+        const { 
+            code, 
+            discount_type, 
+            discount_value, 
+            max_uses, 
+            description, 
+            expires_at, 
+            minimum_amount_cents,
+            valid_for_plans,
+            is_active = true
+        } = body;
+
+        if (!code || !discount_type || !discount_value) {
+            return c.json({ error: 'Campos obrigatórios: code, discount_type, discount_value' }, 400);
+        }
+
+        const normalizedCode = code.toUpperCase().trim();
+
+        const res = await c.env.DB.prepare(`
+            INSERT INTO coupons (
+                code, description, discount_type, discount_value, 
+                max_uses, expires_at, minimum_amount_cents, 
+                valid_for_plans, is_active
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+        `).bind(
+            normalizedCode, 
+            description || null, 
+            discount_type, 
+            discount_value, 
+            max_uses || null,
+            expires_at || null,
+            minimum_amount_cents || null,
+            valid_for_plans ? JSON.stringify(valid_for_plans) : null,
+            is_active
+        ).run();
+        
+        const newCouponId = res.results?.[0]?.id;
+
+        // Audit Log
+        await c.env.DB.prepare(`
+            INSERT INTO activity_log (
+                user_id, organization_id, action_type, action_description, 
+                target_type, target_id, metadata
+            ) VALUES (?, ?, 'COUPON_CREATE', ?, 'COUPON', ?, ?)
+        `).bind(
+            user.id,
+            user.organization_id || null, 
+            `Criou cupom: ${normalizedCode}`,
+            newCouponId,
+            JSON.stringify({ code: normalizedCode, discount: `${discount_value} (${discount_type})` })
+        ).run();
+
+        return c.json({ success: true, id: newCouponId });
+    } catch (e: any) {
+        console.error("Error creating coupon:", e);
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// PUT /coupons/:id (Update)
+systemPlansRoutes.put('/coupons/:id', async (c) => {
+    const user = c.get('user');
+    const id = c.req.param('id');
+    try {
+        const body = await c.req.json();
+        const { 
+            description, 
+            expires_at, 
+            max_uses, 
+            is_active,
+            valid_for_plans, 
+            minimum_amount_cents 
+        } = body;
 
         await c.env.DB.prepare(`
-            INSERT INTO coupons (code, discount_type, discount_value, max_uses, is_active)
-            VALUES (?, ?, ?, ?, true)
-        `).bind(code, discount_type, discount_value, max_uses || null).run();
+            UPDATE coupons 
+            SET description = ?, expires_at = ?, max_uses = ?, 
+                is_active = ?, valid_for_plans = ?, minimum_amount_cents = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        `).bind(
+            description,
+            expires_at || null,
+            max_uses,
+            is_active,
+            valid_for_plans ? JSON.stringify(valid_for_plans) : null,
+            minimum_amount_cents,
+            id
+        ).run();
+
+        // Audit Log
+        await c.env.DB.prepare(`
+            INSERT INTO activity_log (
+                user_id, organization_id, action_type, action_description, 
+                target_type, target_id, metadata
+            ) VALUES (?, ?, 'COUPON_UPDATE', ?, 'COUPON', ?, ?)
+        `).bind(
+            user.id,
+            user.organization_id || null,
+            `Atualizou cupom ID: ${id}`,
+            id,
+            JSON.stringify(body)
+        ).run();
 
         return c.json({ success: true });
     } catch (e: any) {
+        console.error("Error updating coupon:", e);
         return c.json({ error: e.message }, 500);
     }
 });
 
 // DELETE /coupons/:id
 systemPlansRoutes.delete('/coupons/:id', async (c) => {
+    const user = c.get('user');
     const id = c.req.param('id');
     try {
+        // Get code for audit before delete
+        const coupon = await c.env.DB.prepare("SELECT code FROM coupons WHERE id = ?").bind(id).first();
+        const code = coupon?.code || 'Unknown';
+
         await c.env.DB.prepare("DELETE FROM coupons WHERE id = ?").bind(id).run();
+
+        // Audit Log
+        await c.env.DB.prepare(`
+            INSERT INTO activity_log (
+                user_id, organization_id, action_type, action_description, 
+                target_type, target_id, metadata
+            ) VALUES (?, ?, 'COUPON_DELETE', ?, 'COUPON', ?, ?)
+        `).bind(
+            user.id,
+            user.organization_id || null,
+            `Deletou cupom: ${code}`,
+            id,
+            JSON.stringify({ deleted_code: code })
+        ).run();
+
         return c.json({ success: true });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);
