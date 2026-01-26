@@ -296,7 +296,7 @@ apiRoutes.route('/crm', crmRoutes);
 apiRoutes.route('/financial', financialRoutes);
 apiRoutes.route('/billing', financialRoutes); // Alias for easier frontend access
 apiRoutes.route('/webhooks/asaas', asaasWebhookRoutes); // Asaas payment gateway webhooks
-apiRoutes.route('/system-admin', systemPlansRoutes); // Extends system-admin with plans/coupons
+apiRoutes.route('/system-commerce', systemPlansRoutes); // Isolated Commerce Module
 
 
 // TEMPORARY DEBUG ROUTE

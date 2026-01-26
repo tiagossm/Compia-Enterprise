@@ -87,12 +87,10 @@ const SuccessModal = ({ onClose }: { onClose: () => void }) => (
 
 const ConfirmationModal = ({
     plan,
-    currentPlan,
     onConfirm,
     onCancel
 }: {
     plan: Plan;
-    currentPlan: any;
     onConfirm: (method: 'CREDIT_CARD' | 'PIX') => void;
     onCancel: () => void;
 }) => {
@@ -590,7 +588,6 @@ export default function Billing() {
             {pendingPlan && (
                 <ConfirmationModal
                     plan={pendingPlan}
-                    currentPlan={billingInfo?.subscription}
                     onConfirm={(method) => initiateCheckout(pendingPlan, method)}
                     onCancel={() => setPendingPlan(null)}
                 />

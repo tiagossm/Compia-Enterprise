@@ -29,8 +29,18 @@ systemPlansRoutes.use('*', async (c, next) => {
 // GET /plans
 systemPlansRoutes.get('/plans', async (c) => {
     try {
-        const plans = await c.env.DB.prepare("SELECT * FROM plans ORDER BY price_cents ASC").all();
-        return c.json({ plans: plans.results || [] });
+        const { results } = await c.env.DB.prepare("SELECT * FROM plans ORDER BY price_cents ASC").all();
+
+        const plans = (results || []).map((p: any) => ({
+            ...p,
+            limits: typeof p.limits === 'string' ? JSON.parse(p.limits) : p.limits,
+            features: typeof p.features === 'string' ? JSON.parse(p.features) : p.features,
+            addon_config: typeof p.addon_config === 'string' ? JSON.parse(p.addon_config) : p.addon_config,
+            is_active: Boolean(p.is_active),
+            is_public: Boolean(p.is_public)
+        }));
+
+        return c.json({ plans });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);
     }
@@ -40,18 +50,33 @@ systemPlansRoutes.get('/plans', async (c) => {
 systemPlansRoutes.post('/plans', async (c) => {
     try {
         const body = await c.req.json();
-        const { name, display_name, price_cents, description } = body;
+        const {
+            name, display_name, price_cents, description,
+            type = 'subscription',
+            billing_period = 'monthly',
+            is_public = false,
+            limits = {},
+            features = {},
+            addon_config = {}
+        } = body;
 
         const slug = body.slug || name.toLowerCase().replace(/\s+/g, '-');
 
         const res = await c.env.DB.prepare(`
-            INSERT INTO plans (name, display_name, slug, price_cents, billing_period, limits, features, is_active)
-            VALUES (?, ?, ?, ?, 'monthly', ?, ?, true)
+            INSERT INTO plans (
+                name, display_name, slug, price_cents, billing_period, 
+                type, limits, features, addon_config, 
+                is_active, is_public
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?)
             RETURNING id
         `).bind(
-            name, display_name, slug, price_cents,
-            body.limits ? JSON.stringify(body.limits) : '{}',
-            body.features ? JSON.stringify(body.features) : '{}'
+            slug, display_name, slug, price_cents, billing_period,
+            type,
+            JSON.stringify(limits),
+            JSON.stringify(features),
+            JSON.stringify(addon_config),
+            is_public
         ).run();
 
         return c.json({ success: true, id: res.results?.[0]?.id });
@@ -66,12 +91,35 @@ systemPlansRoutes.put('/plans/:id', async (c) => {
     const body = await c.req.json();
 
     try {
+        // Build dynamic update query
         await c.env.DB.prepare(`
             UPDATE plans 
-            SET display_name = ?, price_cents = ?, is_active = ?, name = ?
+            SET display_name = ?, price_cents = ?, is_active = ?, is_public = ?,
+                description = ?, features = ?, limits = ?, addon_config = ?
             WHERE id = ?
-        `).bind(body.display_name, body.price_cents, body.is_active, body.name, id).run();
+        `).bind(
+            body.display_name,
+            body.price_cents,
+            body.is_active,
+            body.is_public,
+            body.description,
+            JSON.stringify(body.features || {}),
+            JSON.stringify(body.limits || {}),
+            JSON.stringify(body.addon_config || {}),
+            id
+        ).run();
 
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// DELETE /plans/:id
+systemPlansRoutes.delete('/plans/:id', async (c) => {
+    const id = c.req.param('id');
+    try {
+        await c.env.DB.prepare("DELETE FROM plans WHERE id = ?").bind(id).run();
         return c.json({ success: true });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);

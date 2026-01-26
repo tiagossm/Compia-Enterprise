@@ -125,7 +125,80 @@ export default function LandingPage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  /* New Dynamic Pricing Logic */
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
 
+  useEffect(() => {
+    // Load plans from API to ensure pricing is consistent
+    const loadPlans = async () => {
+      try {
+        const res = await fetch('/api/financial/plans');
+        if (res.ok) {
+          const data = await res.json();
+
+          // Map API plans to Landing Page Format
+          const formattedPlans = (data.plans || []).map((p: any) => ({
+            name: p.display_name,
+            slug: p.slug,  // Use slug from API
+            description: p.description || (p.name === 'pro' ? 'Assistentes IA, análises avançadas e múltiplas unidades' : 'Para profissionais iniciando a digitalização'),
+            price: p.price_display,
+            features: [
+              p.limits?.inspections_monthly >= 99999 ? "Inspeções ilimitadas" : `Até ${p.limits?.inspections_monthly} inspeções/mês`,
+              p.limits?.users >= 9999 ? "Usuários ilimitados" : `Até ${p.limits?.users} usuários`,
+              `${p.limits?.storage_gb}GB Armazenamento`,
+              ...(p.features?.ai_multimodal ? ["IA Multimodal (Fotos/Vídeo)"] : []),
+              ...(p.features?.dashboard ? ["Dashboards Avançados"] : ["Relatórios Básicos"])
+            ],
+            featured: p.name === 'pro' // Highlight Pro/Inteligente by default
+          }));
+
+          // Add Enterprise manually if not in DB public list (usually custom)
+          if (!formattedPlans.find((p: any) => p.slug === 'enterprise')) {
+            formattedPlans.push({
+              name: "Corporativo",
+              slug: "enterprise",
+              description: "Customizações, integrações e suporte técnico dedicado",
+              features: ["Tudo do Empresa", "Customizações", "Integrações API", "Suporte dedicado", "Treinamento especializado"],
+              price: "Sob consulta"
+            });
+          }
+
+          setPlans(formattedPlans);
+        }
+      } catch (error) {
+        console.error("Failed to load plans", error);
+        // Fallback to hardcoded if API fails
+        setPlans([
+          {
+            name: "Técnico",
+            slug: "basic",
+            description: "Para profissionais iniciando a digitalização",
+            features: ["Até 10 inspeções/mês", "2 assistentes IA", "Relatórios básicos", "Suporte por email"],
+            price: "R$ 199,00"
+          },
+          {
+            name: "Inteligente",
+            slug: "pro",
+            description: "Assistentes IA, análises avançadas e múltiplas unidades",
+            features: ["Inspeções ilimitadas", "Todos os assistentes IA", "Dashboards avançados", "Múltiplas unidades", "Suporte prioritário"],
+            featured: true,
+            price: "R$ 397,00"
+          },
+          {
+            name: "Corporativo",
+            slug: "enterprise",
+            description: "Customizações, integrações e suporte técnico dedicado",
+            features: ["Tudo do Empresa", "Customizações", "Integrações API", "Suporte dedicado", "Treinamento especializado"],
+            price: "Sob consulta"
+          }
+        ]);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    loadPlans();
+  }, []);
   useEffect(() => {
     setIsVisible(true);
     const interval = setInterval(() => {
@@ -572,26 +645,13 @@ export default function LandingPage() {
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Planos & Preços</h2>
             <div className="w-24 h-1 bg-gradient-to-r from-blue-600 to-cyan-600 mx-auto"></div>
           </div>
-
           <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Técnico",
-                description: "Para profissionais iniciando a digitalização",
-                features: ["Até 10 inspeções/mês", "2 assistentes IA", "Relatórios básicos", "Suporte por email"]
-              },
-              {
-                name: "Empresa",
-                description: "Assistentes IA, análises avançadas e múltiplas unidades",
-                features: ["Inspeções ilimitadas", "Todos os assistentes IA", "Dashboards avançados", "Múltiplas unidades", "Suporte prioritário"],
-                featured: true
-              },
-              {
-                name: "Corporativo",
-                description: "Customizações, integrações e suporte técnico dedicado",
-                features: ["Tudo do Empresa", "Customizações", "Integrações API", "Suporte dedicado", "Treinamento especializado"]
-              }
-            ].map((plan, index) => (
+            {loadingPlans ? (
+              <div className="col-span-3 text-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-gray-500">Carregando planos atualizados...</p>
+              </div>
+            ) : plans.map((plan, index) => (
               <div
                 key={index}
                 className={`relative p-8 rounded-xl ${plan.featured
@@ -610,12 +670,19 @@ export default function LandingPage() {
                 <h3 className={`text-2xl font-bold mb-2 ${plan.featured ? 'text-white' : 'text-gray-900'}`}>
                   {plan.name}
                 </h3>
+
+                { /* Price Display */}
+                <div className={`text-3xl font-bold mb-2 ${plan.featured ? 'text-white' : 'text-gray-900'}`}>
+                  {plan.price}
+                  {plan.price !== 'Sob consulta' && <span className="text-sm font-normal opacity-75">/mês</span>}
+                </div>
+
                 <p className={`mb-6 ${plan.featured ? 'text-blue-100' : 'text-gray-600'}`}>
                   {plan.description}
                 </p>
 
                 <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, idx) => (
+                  {plan.features.map((feature: string, idx: number) => (
                     <li key={idx} className="flex items-center">
                       <CheckCircle className={`w-5 h-5 mr-3 ${plan.featured ? 'text-blue-200' : 'text-green-500'}`} />
                       <span className={plan.featured ? 'text-blue-100' : 'text-gray-700'}>{feature}</span>
@@ -625,17 +692,17 @@ export default function LandingPage() {
 
                 <button
                   onClick={() => {
-                    if (plan.name === 'Enterprise') {
+                    if (plan.slug === 'enterprise') {
                       window.location.href = 'mailto:contato@compia.tech?subject=Interesse no Plano Enterprise';
                     } else {
-                      window.location.href = `/register?plan=${plan.name.toLowerCase().replace('essencial', 'basic').replace('inteligente', 'pro')}`;
+                      window.location.href = `/register?plan=${plan.slug}`;
                     }
                   }}
                   className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${plan.featured
                     ? 'bg-white text-blue-600 hover:bg-gray-100'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}>
-                  {plan.name === 'Enterprise' ? 'Falar com vendas' : 'Começar agora'}
+                  {plan.slug === 'enterprise' ? 'Falar com vendas' : 'Começar agora'}
                 </button>
               </div>
             ))}
