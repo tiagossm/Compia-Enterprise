@@ -214,6 +214,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
                     <NavItem item={{ name: 'CRM / Leads', href: '/admin/crm', iconSrc: '/assets/icons/icon-users.png', icon: Users }} />
                     <NavItem item={{ name: 'Permissões', href: '/settings/permissions', iconSrc: '/assets/icons/icon-lock.png', icon: Lock }} />
                     <NavItem item={{ name: 'Sinc. Dados', href: '/admin/data-sync', iconSrc: '/assets/icons/icon-cloud.png', icon: Cloud }} />
+                    <NavItem item={{ name: 'Planos & Ofertas', href: '/admin/plans', iconSrc: '/assets/icons/icon-calendar.png', icon: Calendar }} />
                     <NavItem item={{ name: 'Logs Auditoria', href: '/admin/audit', icon: Activity }} />
                   </>
                 )}
