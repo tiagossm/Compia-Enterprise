@@ -47,6 +47,7 @@ const SystemAdminFinance = lazy(() => import("@/react-app/components/dashboard/S
 const SystemAdminCRMPage = lazy(() => import("@/react-app/components/dashboard/SystemAdminCRMPage"));
 const SystemPlans = lazy(() => import("@/react-app/pages/SystemPlans"));
 const Billing = lazy(() => import("@/react-app/pages/Billing"));
+const Checkout = lazy(() => import("@/react-app/pages/Checkout"));
 
 
 export default function App() {
@@ -63,6 +64,7 @@ export default function App() {
               }>
                 <Routes>
                   {/* Public routes */}
+                  <Route path="/checkout" element={<Checkout />} />
                   <Route path="/landing" element={<LandingPage />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />

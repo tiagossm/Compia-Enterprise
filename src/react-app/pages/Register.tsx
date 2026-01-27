@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchWithAuth } from '@/react-app/utils/auth';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, CheckCircle2, Briefcase, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
-    const navigate = useNavigate();
 
     const [searchParams] = useSearchParams();
     const planParam = searchParams.get('plan');
 
-    // Default to 'basic' if not provided or invalid
-    const selectedPlan = planParam === 'pro' || planParam === 'inteligente' ? 'pro' : 'basic';
+    // Treat 'basic' and 'free' as free plans. Anything else (pro, starter, enterprise) is PAID.
+    const isPaidPlan = planParam && planParam !== 'basic' && planParam !== 'free';
+    const selectedPlan = isPaidPlan ? (planParam || 'pro') : 'basic';
+
+    // Auto-redirect to new Checkout Flow if Paid Plan
+    useEffect(() => {
+        if (isPaidPlan) {
+            window.location.href = `/checkout?plan=${planParam}`;
+        }
+    }, [isPaidPlan, planParam]);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -109,19 +116,24 @@ export default function Register() {
                 // If Paid Plan -> Redirect to Billing / Checkout
                 // If Free Plan -> Redirect to Login
 
-                if (selectedPlan === 'pro') {
-                    // Auto login logic would be better here, but for security MVP let's ask to login -> redirect
+                if (isPaidPlan) {
+                    // Since we auto-login now, redirect directly to billing!
+                    setSuccess(true);
                     setTimeout(() => {
-                        // Redirect with returnUrl to go straight to billing after login
-                        navigate('/login?returnUrl=/billing&message=complete_payment');
-                    }, 3000);
+                        window.location.href = '/billing?message=complete_payment';
+                    }, 2000);
                 } else {
+                    setSuccess(true);
                     setTimeout(() => {
-                        navigate('/login');
+                        window.location.href = '/login';
                     }, 5000);
                 }
             } else {
-                setError(data.error || 'Erro ao criar conta. Tente novamente.');
+                if (response.status === 409) {
+                    setError('Este email já está cadastrado. Tente fazer login.');
+                } else {
+                    setError(data.error || 'Erro ao criar conta. Tente novamente.');
+                }
             }
         } catch (err) {
             console.error('Erro no registro:', err);
@@ -140,12 +152,12 @@ export default function Register() {
                             <CheckCircle2 className="h-10 w-10 text-green-500" />
                         </div>
                         <h2 className="text-2xl font-bold text-[#303C60] mb-4 leading-snug">
-                            {selectedPlan === 'pro' ? 'Conta Criada! Vamos ao Pagamento.' : 'Solicitação Enviada!'}
+                            {isPaidPlan ? 'Redirecionando para Pagamento...' : 'Solicitação Enviada!'}
                         </h2>
                         <div className="bg-slate-50 rounded-2xl p-6 mb-8 text-left border border-slate-100">
                             <p className="text-slate-600 text-sm leading-relaxed text-center">
-                                {selectedPlan === 'pro'
-                                    ? "Sua conta foi criada. Você será redirecionado para concluir a assinatura do plano Inteligente."
+                                {isPaidPlan
+                                    ? "Sua conta foi criada. Você será redirecionado para concluir a assinatura do seu plano."
                                     : "Um administrador do sistema revisará seus dados (Plano Essencial). Você receberá um e-mail quando aprovado."
                                 }
                             </p>

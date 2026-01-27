@@ -46,6 +46,7 @@ import integrationsRoutes from "./integrations-routes.ts";
 import calendarUploadRoutes from "./calendar-upload-routes.ts";
 import crmRoutes from "./crm-routes.ts";
 import systemPlansRoutes from "./system-plans-routes.ts";
+import commerceRoutes from "./checkout-flow.ts";
 
 const app = new Hono()
 
@@ -296,6 +297,7 @@ apiRoutes.route('/crm', crmRoutes);
 apiRoutes.route('/financial', financialRoutes);
 apiRoutes.route('/billing', financialRoutes); // Alias for easier frontend access
 apiRoutes.route('/webhooks/asaas', asaasWebhookRoutes); // Asaas payment gateway webhooks
+apiRoutes.route('/commerce', commerceRoutes);
 apiRoutes.route('/system-commerce', systemPlansRoutes); // Isolated Commerce Module
 
 

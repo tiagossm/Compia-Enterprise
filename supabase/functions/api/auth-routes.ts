@@ -118,16 +118,9 @@ authRoutes.get("/me", async (c) => {
             return c.json({ user: null });
         }
 
-        // VERIFICAÇÃO CRÍTICA: Bloquear usuários pendentes
-        if (dbUser.approval_status === 'pending') {
-            return c.json({
-                error: "Conta em análise",
-                message: "Sua conta aguarda aprovação do administrador.",
-                code: "APPROVAL_PENDING",
-                approval_status: "pending",
-                user: null
-            }, 403);
-        } else if (dbUser.approval_status === 'rejected') {
+
+        // VERIFICAÇÃO CRÍTICA: Bloquear APENAS usuários rejeitados
+        if (dbUser.approval_status === 'rejected') {
             return c.json({
                 error: "Conta recusada",
                 message: "Sua solicitação de cadastro foi recusada.",
@@ -139,6 +132,8 @@ authRoutes.get("/me", async (c) => {
 
         // Build profile object as expected by frontend
         const profile = {
+            // ... existing profile build ...
+
             id: dbUser.id,
             email: dbUser.email,
             name: dbUser.name,
@@ -361,11 +356,42 @@ authRoutes.post("/register", async (c) => {
             console.error("Error triggering welcome email:", emailErr);
         }
 
+        // AUTO-LOGIN: Set session cookie immediately
+        // SEGURANÇA: Gerar token de sessão com UUID criptográfico
+        const sessionToken = crypto.randomUUID();
+
+        // SEGURANÇA: Armazenar sessão no banco
+        try {
+            await env.DB.prepare(`
+                INSERT INTO user_sessions (id, user_id, token, created_at, expires_at)
+                VALUES (?, ?, ?, NOW(), NOW() + INTERVAL '7 days')
+            `).bind(crypto.randomUUID(), userId, sessionToken).run();
+        } catch (sessionErr) {
+            console.warn('[AUTH] Warn saving session:', sessionErr);
+        }
+
+        // SEGURANÇA: Cookie secure dinâmico
+        const isProduction = Deno.env.get('ENVIRONMENT') !== 'development';
+
+        setCookie(c, "mocha-session-token", sessionToken, {
+            httpOnly: true,
+            path: "/",
+            sameSite: "Lax",
+            secure: isProduction,
+            maxAge: 60 * 60 * 24 * 7 // 7 dias
+        });
+
         return c.json({
             success: true,
-            message: "Conta criada com sucesso. Aguardando aprovação do administrador.",
-            requires_approval: true,
-            user: { id: userId, email, name }
+            message: "Conta criada com sucesso. Redirecionando...",
+            requires_approval: true, // Still true, but we allow access to limited areas
+            user: {
+                id: userId,
+                email,
+                name,
+                role: initialRole,
+                approval_status: initialStatus
+            }
         }, 201);
 
     } catch (error) {
@@ -395,13 +421,8 @@ authRoutes.post("/login", async (c) => {
         }
 
         // VERIFICAÇÃO DE APROVAÇÃO
-        if (user.approval_status === 'pending') {
-            return c.json({
-                error: "Conta em análise",
-                message: "Sua conta aguarda aprovação do administrador.",
-                code: "APPROVAL_PENDING"
-            }, 403);
-        } else if (user.approval_status === 'rejected') {
+        // VERIFICAÇÃO DE APROVAÇÃO
+        if (user.approval_status === 'rejected') {
             return c.json({
                 error: "Conta recusada",
                 message: "Sua solicitação de cadastro foi recusada.",

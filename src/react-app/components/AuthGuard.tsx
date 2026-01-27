@@ -124,23 +124,29 @@ export default function AuthGuard({ children, requiredRole, requiredRoles }: Aut
   const approvalStatus = (currentUser as any)?.approval_status || (currentUser as any)?.profile?.approval_status;
 
   if (approvalStatus === 'pending' || approvalStatus === 'rejected') {
+    // ALLOW ACCESS to BILLING context for pending users (to complete payment)
+    const isBillingContext = location.pathname.startsWith('/billing') || location.pathname.startsWith('/admin/finance');
+
+    if (approvalStatus === 'pending' && isBillingContext) {
+      return <>{children}</>;
+    }
+
+    if (approvalStatus === 'pending' && !isBillingContext) {
+      return <Navigate to="/billing" replace />;
+    }
+
+    // Block rejected users completely
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 text-center max-w-md w-full">
-          <div className={`p-4 ${approvalStatus === 'rejected' ? 'bg-red-100' : 'bg-amber-100'} rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center`}>
-            {approvalStatus === 'rejected' ? (
-              <AlertTriangle className="w-8 h-8 text-red-600" />
-            ) : (
-              <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
-            )}
+          <div className="p-4 bg-red-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
           <h2 className="text-xl font-semibold text-slate-900 mb-2">
-            {approvalStatus === 'rejected' ? 'Acesso Negado' : 'Aguardando Aprovação'}
+            Acesso Negado
           </h2>
           <p className="text-slate-600 mb-4">
-            {approvalStatus === 'rejected'
-              ? 'Sua solicitação de acesso foi recusada pelo administrador.'
-              : 'Sua conta foi criada com sucesso e está aguardando aprovação do administrador do sistema.'}
+            Sua solicitação de acesso foi recusada pelo administrador.
           </p>
           <div className="bg-slate-50 rounded-lg p-4 text-left text-sm text-slate-600 mb-4">
             <p className="font-medium text-slate-800 mb-2">Próximos passos:</p>
