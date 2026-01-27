@@ -20,15 +20,9 @@ import {
   Truck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DynamicPricing from '@/react-app/components/landing/DynamicPricing';
 
-interface Plan {
-  name: string;
-  slug: string;
-  description: string;
-  price: string;
-  features: string[];
-  featured?: boolean;
-}
+
 
 const RevealOnScroll = ({ children, className = "", delay = 0 }: { children: React.ReactNode, className?: string, delay?: number }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -65,24 +59,7 @@ const RevealOnScroll = ({ children, className = "", delay = 0 }: { children: Rea
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [plans] = useState<Plan[]>([
-    {
-      name: "Professional",
-      slug: "professional",
-      description: "Para pequenas equipes e consultores independentes.",
-      price: "R$ 149/mês",
-      features: ["Até 5 Usuários", "Inspeções ilimitadas", "Dashboards básicos", "Customização de checklist", "IA Mãos Livres (Beta)"],
-      featured: false
-    },
-    {
-      name: "Business",
-      slug: "business",
-      description: "Gestão completa para médias empresas.",
-      price: "R$ 399/mês",
-      features: ["Até 15 Usuários", "Dashboards avançados", "API de integração", "Gerente de conta", "IA Mãos Livres", "GPS Atômico"],
-      featured: true
-    }
-  ]);
+
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
@@ -246,28 +223,49 @@ export default function LandingPage() {
             </div>
 
             <h1 className="text-5xl md:text-7xl font-bold text-slate-900 tracking-tight mb-8 leading-[1.1] animate-slide-up">
-              Dados do Mundo Real, <br className="hidden md:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600">Sem Intermediários.</span>
+              Garanta Conformidade Total. <br className="hidden md:block" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600">Em Tempo Real.</span>
             </h1>
 
             <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed animate-slide-up animation-delay-200 font-medium">
-              Agro, Indústria, Construção e SST. Gere relatórios de conformidade apenas falando, com evidência irrefutável via <strong>GPS Atômico</strong>.
+              A plataforma definitiva para auditorias de alta complexidade. Gere evidências irrefutáveis com <strong>GPS Atômico</strong> e elimine 100% do retrabalho administrativo.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up animation-delay-300">
               <button
                 onClick={() => navigate('/auth/signup')}
-                className="w-full sm:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all hover:-translate-y-1 shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 group"
+                className="w-full sm:w-auto px-8 py-4 bg-blue-700 text-white rounded-xl font-bold hover:bg-blue-800 transition-all hover:-translate-y-1 shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 group ring-4 ring-blue-500/10"
               >
-                Começar do Zero
+                Começar Auditoria Grátis
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
               <button
                 onClick={() => navigate('/login')}
                 className="w-full sm:w-auto px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all hover:border-slate-300 shadow-sm hover:shadow-md"
               >
-                Ver Demonstração
+                Já sou cliente
               </button>
+            </div>
+
+            {/* Trust Badges - Authority Injection */}
+            <div className="mt-12 pt-8 border-t border-slate-200/60 animate-fade-in animation-delay-500">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">SEGURANÇA E CONFORMIDADE</p>
+              <div className="flex justify-center items-center gap-8 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+                <div className="flex items-center gap-2">
+                  <ShieldIcon className="w-5 h-5 text-slate-600" />
+                  <span className="font-bold text-slate-600 text-sm">LGPD Ready</span>
+                </div>
+                <div className="h-4 w-px bg-slate-300"></div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-slate-600" />
+                  <span className="font-bold text-slate-600 text-sm">ISO 27001</span>
+                </div>
+                <div className="h-4 w-px bg-slate-300"></div>
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-slate-600" />
+                  <span className="font-bold text-slate-600 text-sm">SLA 99.9%</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -465,58 +463,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Section (Fixed) */}
-      <section id="planos" className="py-24 bg-slate-50 relative">
-        <div className="container mx-auto px-6">
-          <RevealOnScroll className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 tracking-tight">Planos Simples</h2>
-            <p className="text-lg text-slate-600">Sem custos ocultos.</p>
-          </RevealOnScroll>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto justify-center">
-            {plans.map((plan) => (
-              <RevealOnScroll key={plan.slug} className={`relative rounded - 2xl p - 8 transition - all duration - 300 flex flex - col ${plan.featured
-                ? 'bg-white shadow-xl ring-2 ring-indigo-600 scale-105 z-10'
-                : 'bg-white shadow-sm border border-slate-200 hover:shadow-md'
-                } `}>
-
-                {plan.featured && (
-                  <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
-                    MAIS POPULAR
-                  </div>
-                )}
-
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-6">
-                  <span className="text-4xl font-bold text-slate-900">{plan.price.split('/')[0]}</span>
-                  <span className="text-slate-500">/mês</span>
-                </div>
-
-                <p className="text-slate-600 mb-8 text-sm min-h-[40px]">{plan.description}</p>
-
-                <ul className="space-y-4 mb-8 flex-1">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm">
-                      <CheckCircle2 className={`w - 5 h - 5 flex - shrink - 0 ${plan.featured ? 'text-indigo-600' : 'text-slate-400'} `} />
-                      <span className="text-slate-700 font-medium">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  onClick={() => navigate('/auth/signup')}
-                  className={`w - full py - 4 rounded - xl font - bold transition - all ${plan.featured
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                    } `}
-                >
-                  Começar Agora
-                </button>
-              </RevealOnScroll>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Pricing Section (Dynamic) */}
+      <DynamicPricing />
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 pt-16 pb-8">

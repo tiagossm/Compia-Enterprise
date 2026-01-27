@@ -300,6 +300,26 @@ apiRoutes.route('/webhooks/asaas', asaasWebhookRoutes); // Asaas payment gateway
 apiRoutes.route('/commerce', commerceRoutes);
 apiRoutes.route('/system-commerce', systemPlansRoutes); // Isolated Commerce Module
 
+// PUBLIC ROUTES (Landing Page)
+apiRoutes.get('/public-plans', async (c) => {
+    try {
+        const { results } = await c.env.DB.prepare("SELECT * FROM plans WHERE is_active = true AND is_public = true ORDER BY price_cents ASC").all();
+
+        const plans = (results || []).map((p: any) => ({
+            ...p,
+            limits: typeof p.limits === 'string' ? JSON.parse(p.limits) : p.limits,
+            features: typeof p.features === 'string' ? JSON.parse(p.features) : p.features,
+            addon_config: typeof p.addon_config === 'string' ? JSON.parse(p.addon_config) : p.addon_config,
+            is_active: Boolean(p.is_active),
+            is_public: Boolean(p.is_public)
+        }));
+
+        return c.json({ plans });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
 
 // TEMPORARY DEBUG ROUTE
 apiRoutes.get('/debug-usage/:orgId', async (c) => {

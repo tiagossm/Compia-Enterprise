@@ -51,27 +51,27 @@ export default function Checkout() {
 
     const loadPlan = async () => {
         try {
-            // Mock or Fetch Plan - For now using mock to speed up UI dev
-            // In real impl, would fetch /api/financial/plans?slug=...
-            const mockPlans: Record<string, Plan> = {
-                'pro': {
-                    id: 'pro-id',
-                    name: 'pro',
-                    display_name: 'Plano Inteligente',
-                    price_display: 'R$ 397,00',
-                    price_cents: 39700,
-                    description: 'Acesso completo a todos os assistentes IA e inspeções ilimitadas.'
-                },
-                'starter': {
-                    id: 'starter-id',
-                    name: 'starter',
-                    display_name: 'Plano Técnico',
-                    price_display: 'R$ 199,00',
-                    price_cents: 19900,
-                    description: 'Para profissionais que estão começando.'
+            setLoading(true);
+            const res = await fetch('/api/public-plans');
+            if (res.ok) {
+                const data = await res.json();
+                const foundPlan = data.plans?.find((p: any) => p.slug === planSlug || p.name === planSlug) || data.plans?.[0];
+
+                if (foundPlan) {
+                    setPlan({
+                        id: foundPlan.id,
+                        name: foundPlan.name,
+                        display_name: foundPlan.display_name,
+                        price_display: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(foundPlan.price_cents / 100),
+                        price_cents: foundPlan.price_cents,
+                        description: foundPlan.description || 'Plano selecionado'
+                    });
                 }
-            };
-            setPlan(mockPlans[planSlug] || mockPlans['pro']);
+            } else {
+                console.error('Failed to load plans');
+            }
+        } catch (err) {
+            console.error('Error loading plans', err);
         } finally {
             setLoading(false);
         }

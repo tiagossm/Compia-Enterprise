@@ -9,7 +9,8 @@ import {
   ArrowLeft,
   Sparkles,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Copy
 } from 'lucide-react';
 
 export default function AIChecklistGenerator() {
@@ -46,7 +47,8 @@ export default function AIChecklistGenerator() {
     detail_level: 'intermediario',
     regulation: '',
     custom_industry: '',
-    custom_location: ''
+    custom_location: '',
+    generation_mode: 'standard' // 'standard' | 'import'
   });
 
   const industryOptions = [
@@ -136,21 +138,39 @@ export default function AIChecklistGenerator() {
   };
 
   const handleGenerate = async () => {
-    if (!formData.industry || !formData.location_type || !formData.template_name || !formData.category) {
-      setError('Por favor, preencha todos os campos obrigatórios.');
-      return;
+    // Validation based on mode
+    if (formData.generation_mode === 'import') {
+      if (!formData.specific_requirements || !formData.template_name || !formData.category) {
+        setError('Por favor, cole o procedimento e preencha o nome do template.');
+        return;
+      }
+    } else {
+      if (!formData.industry || !formData.location_type || !formData.template_name || !formData.category) {
+        setError('Por favor, preencha todos os campos obrigatórios.');
+        return;
+      }
     }
 
     setGenerating(true);
     setError('');
 
     try {
-      console.log('Gerando checklist simples...', formData);
+      console.log('Gerando checklist...', formData);
 
-      const response = await fetch('/api/checklist/checklist-templates/generate-ai-simple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Prepare payload based on mode
+      const payload = formData.generation_mode === 'import'
+        ? {
+          industry: 'Geral', // Default for import
+          location_type: 'Geral', // Default for import
+          template_name: formData.template_name,
+          category: formData.category,
+          num_questions: 15, // Max questions for imports to capture detail
+          specific_requirements: `[IMPORT_MODE] \n\n ${formData.specific_requirements}`, // Tag for prompt engineering if needed
+          detail_level: 'avancado', // Force detailed for imports
+          regulation: 'Baseado no Texto Importado',
+          priority_focus: 'conformidade_texto'
+        }
+        : {
           industry: formData.industry,
           location_type: formData.location_type,
           template_name: formData.template_name,
@@ -160,7 +180,12 @@ export default function AIChecklistGenerator() {
           detail_level: formData.detail_level,
           regulation: formData.regulation,
           priority_focus: 'seguranca'
-        })
+        };
+
+      const response = await fetch('/api/checklist/checklist-templates/generate-ai-simple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -306,174 +331,256 @@ export default function AIChecklistGenerator() {
 
             {/* Simple Form */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Setor/Indústria *
-                  </label>
-                  <select
-                    value={formData.industry}
-                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Selecione o setor</option>
-                    {industryOptions.map(industry => (
-                      <option key={industry} value={industry}>{industry}</option>
-                    ))}
-                  </select>
-                  {formData.industry === 'Outro' && (
-                    <input
-                      type="text"
-                      value={formData.custom_industry}
-                      onChange={(e) => setFormData({ ...formData, custom_industry: e.target.value })}
-                      placeholder="Digite o setor/indústria"
-                      className="w-full px-3 py-2 mt-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50"
-                      required
+              {/* Mode Switcher */}
+              <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
+                <button
+                  onClick={() => setFormData({ ...formData, generation_mode: 'standard' })}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all ${formData.generation_mode !== 'import'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                  <Sparkles size={16} />
+                  Modo Padrão
+                </button>
+                <button
+                  onClick={() => setFormData({ ...formData, generation_mode: 'import' })}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all ${formData.generation_mode === 'import'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                  <Copy size={16} />
+                  Importação Inteligente (Copiar/Colar)
+                </button>
+              </div>
+
+              {formData.generation_mode === 'import' ? (
+                /* SMART IMPORT MODE */
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
+                      <Copy size={16} />
+                      Como funciona?
+                    </h3>
+                    <p className="text-sm text-blue-800">
+                      Cole aqui o texto de seus procedimentos, normas internas, manuais em PDF ou planilhas antigas.
+                      A IA vai ler, entender a estrutura e converter automaticamente em um checklist digital pronto para uso.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Cole seu procedimento aqui *
+                    </label>
+                    <textarea
+                      rows={12}
+                      value={formData.specific_requirements}
+                      onChange={(e) => setFormData({ ...formData, specific_requirements: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm leading-relaxed"
+                      placeholder={`Exemplo:
+1. Verificar estado dos pneus (calibragem 32psi).
+2. Checar nível de óleo do motor.
+3. Inspecionar luzes de freio e faróis...
+
+(Pode colar textos longos, normas ou procedimentos completos)`}
                     />
-                  )}
-                </div>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Tipo de Local *
-                  </label>
-                  <select
-                    value={formData.location_type}
-                    onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Selecione o tipo de local</option>
-                    {locationTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                  {formData.location_type === 'Outro' && (
-                    <input
-                      type="text"
-                      value={formData.custom_location}
-                      onChange={(e) => setFormData({ ...formData, custom_location: e.target.value })}
-                      placeholder="Digite o tipo de local"
-                      className="w-full px-3 py-2 mt-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50"
-                      required
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <TemplateSuggestions
+                      label="Nome do Template"
+                      name="template_name"
+                      value={formData.template_name}
+                      onChange={(value) => setFormData({ ...formData, template_name: value })}
+                      placeholder="Ex: Checklist Importado - Veículos"
+                      required={true}
+                      type="name"
                     />
-                  )}
+                    <TemplateSuggestions
+                      label="Categoria"
+                      name="category"
+                      value={formData.category}
+                      onChange={(value) => setFormData({ ...formData, category: value })}
+                      placeholder="Ex: Segurança, Manutenção"
+                      required={true}
+                      type="category"
+                    />
+                  </div>
                 </div>
-
-                <TemplateSuggestions
-                  label="Nome do Template"
-                  name="template_name"
-                  value={formData.template_name}
-                  onChange={(value) => setFormData({ ...formData, template_name: value })}
-                  placeholder="Ex: Checklist de Segurança - Construção"
-                  required={true}
-                  type="name"
-                />
-
-                <TemplateSuggestions
-                  label="Categoria"
-                  name="category"
-                  value={formData.category}
-                  onChange={(value) => setFormData({ ...formData, category: value })}
-                  placeholder="Ex: Segurança, EPIs, Equipamentos"
-                  required={true}
-                  type="category"
-                />
-
-                {/* Nível de Detalhe */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-3">
-                    Nível de Detalhe
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {detailLevels.map((level) => (
-                      <button
-                        key={level.value}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, detail_level: level.value })}
-                        className={`p-4 border-2 rounded-lg transition-all text-left ${formData.detail_level === level.value
-                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
-                          }`}
+              ) : (
+                /* STANDARD MODE (Existing Form) */
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Setor/Indústria *
+                      </label>
+                      <select
+                        value={formData.industry}
+                        onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.detail_level === level.value
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-slate-300'
-                            }`}>
-                            {formData.detail_level === level.value && (
-                              <div className="w-2 h-2 bg-white rounded-full"></div>
-                            )}
-                          </div>
-                          <span className="font-medium text-slate-900">{level.label}</span>
-                        </div>
-                        <p className="text-xs text-slate-600">{level.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Baseado em Norma */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Baseado em Norma (Opcional)
-                  </label>
-                  <select
-                    value={formData.regulation}
-                    onChange={(e) => setFormData({ ...formData, regulation: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {regulations.map(regulation => (
-                      <option key={regulation} value={regulation}>{regulation}</option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Selecione uma norma para gerar perguntas de conformidade
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Número de Perguntas: {formData.num_questions}
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="15"
-                    value={formData.num_questions}
-                    onChange={(e) => setFormData({ ...formData, num_questions: parseInt(e.target.value) })}
-                    className="w-full accent-blue-500"
-                  />
-                  <div className="flex justify-between items-center text-xs mt-2">
-                    <span className="text-slate-500">5 (Rápido)</span>
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-medium ${getEstimatedTime(formData.num_questions).seconds <= 30
-                      ? 'bg-green-100 text-green-700'
-                      : getEstimatedTime(formData.num_questions).seconds <= 60
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-orange-100 text-orange-700'
-                      }`}>
-                      <span>⏱️</span>
-                      <span>{getEstimatedTime(formData.num_questions).label}</span>
-                      <span className="text-xs opacity-75">({getEstimatedTime(formData.num_questions).speed})</span>
+                        <option value="">Selecione o setor</option>
+                        {industryOptions.map(industry => (
+                          <option key={industry} value={industry}>{industry}</option>
+                        ))}
+                      </select>
+                      {formData.industry === 'Outro' && (
+                        <input
+                          type="text"
+                          value={formData.custom_industry}
+                          onChange={(e) => setFormData({ ...formData, custom_industry: e.target.value })}
+                          placeholder="Digite o setor/indústria"
+                          className="w-full px-3 py-2 mt-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50"
+                          required
+                        />
+                      )}
                     </div>
-                    <span className="text-slate-500">15 (Detalhado)</span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Requisitos Específicos (Opcional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.specific_requirements}
-                  onChange={(e) => setFormData({ ...formData, specific_requirements: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Descreva requisitos específicos, equipamentos especiais, etc..."
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Tipo de Local *
+                      </label>
+                      <select
+                        value={formData.location_type}
+                        onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      >
+                        <option value="">Selecione o tipo de local</option>
+                        {locationTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                      {formData.location_type === 'Outro' && (
+                        <input
+                          type="text"
+                          value={formData.custom_location}
+                          onChange={(e) => setFormData({ ...formData, custom_location: e.target.value })}
+                          placeholder="Digite o tipo de local"
+                          className="w-full px-3 py-2 mt-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50"
+                          required
+                        />
+                      )}
+                    </div>
+
+                    <TemplateSuggestions
+                      label="Nome do Template"
+                      name="template_name"
+                      value={formData.template_name}
+                      onChange={(value) => setFormData({ ...formData, template_name: value })}
+                      placeholder="Ex: Checklist de Segurança - Construção"
+                      required={true}
+                      type="name"
+                    />
+
+                    <TemplateSuggestions
+                      label="Categoria"
+                      name="category"
+                      value={formData.category}
+                      onChange={(value) => setFormData({ ...formData, category: value })}
+                      placeholder="Ex: Segurança, EPIs, Equipamentos"
+                      required={true}
+                      type="category"
+                    />
+
+                    {/* Nível de Detalhe */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-3">
+                        Nível de Detalhe
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {detailLevels.map((level) => (
+                          <button
+                            key={level.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, detail_level: level.value })}
+                            className={`p-4 border-2 rounded-lg transition-all text-left ${formData.detail_level === level.value
+                              ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                              : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                              }`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.detail_level === level.value
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-slate-300'
+                                }`}>
+                                {formData.detail_level === level.value && (
+                                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                                )}
+                              </div>
+                              <span className="font-medium text-slate-900">{level.label}</span>
+                            </div>
+                            <p className="text-xs text-slate-600">{level.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Baseado em Norma */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Baseado em Norma (Opcional)
+                      </label>
+                      <select
+                        value={formData.regulation}
+                        onChange={(e) => setFormData({ ...formData, regulation: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        {regulations.map(regulation => (
+                          <option key={regulation} value={regulation}>{regulation}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Selecione uma norma para gerar perguntas de conformidade
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Número de Perguntas: {formData.num_questions}
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="15"
+                        value={formData.num_questions}
+                        onChange={(e) => setFormData({ ...formData, num_questions: parseInt(e.target.value) })}
+                        className="w-full accent-blue-500"
+                      />
+                      <div className="flex justify-between items-center text-xs mt-2">
+                        <span className="text-slate-500">5 (Rápido)</span>
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-medium ${getEstimatedTime(formData.num_questions).seconds <= 30
+                          ? 'bg-green-100 text-green-700'
+                          : getEstimatedTime(formData.num_questions).seconds <= 60
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-orange-100 text-orange-700'
+                          }`}>
+                          <span>⏱️</span>
+                          <span>{getEstimatedTime(formData.num_questions).label}</span>
+                          <span className="text-xs opacity-75">({getEstimatedTime(formData.num_questions).speed})</span>
+                        </div>
+                        <span className="text-slate-500">15 (Detalhado)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Requisitos Específicos (Opcional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.specific_requirements}
+                      onChange={(e) => setFormData({ ...formData, specific_requirements: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Descreva requisitos específicos, equipamentos especiais, etc..."
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Generate Button */}
