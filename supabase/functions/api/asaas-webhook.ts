@@ -166,7 +166,7 @@ async function handlePaymentConfirmed(db: any, payload: AsaasWebhookPayload) {
             UPDATE subscriptions 
             SET status = 'active',
                 updated_at = NOW()
-            WHERE gateway_subscription_id = ? AND status IN ('past_due', 'grace_period', 'trial')
+            WHERE gateway_subscription_id = ? AND status IN ('pending', 'past_due', 'grace_period', 'trial')
         `).bind(subscriptionId).run();
 
         console.log(`[ASAAS-WEBHOOK] Updated subscription ${subscriptionId} to active`);
