@@ -11,9 +11,9 @@ commerceRoutes.use('/*', cors());
 commerceRoutes.post("/initiate", async (c) => {
     try {
         const body = await c.req.json();
-        const { user, company, plan, payment_method } = body;
+        const { user, company, plan_slug, payment_method } = body;
 
-        console.log("[COMMERCE] Initiate Checkout for:", user.email);
+        console.log("[COMMERCE] Initiate Checkout for:", user.email, "Plan:", plan_slug);
 
         // 1. Initialize Services
         const supabaseAdmin = createClient(
@@ -28,7 +28,7 @@ commerceRoutes.post("/initiate", async (c) => {
             'pro': { price: 397.00, name: 'Inteligente' },
             'enterprise': { price: 0, name: 'Corporativo' } // Should not happen here usually
         };
-        const selectedPlan = plans[plan] || plans['basic'];
+        const selectedPlan = plans[plan_slug] || plans['basic'];
 
         if (selectedPlan.price === 0) {
             return c.json({ error: "Invalid plan for checkout" }, 400);
@@ -68,7 +68,7 @@ commerceRoutes.post("/initiate", async (c) => {
                 document: company.document,
                 slug: company.slug,
                 subscription_status: 'pending_payment',
-                subscription_plan: plan.slug,
+                subscription_plan: plan_slug,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
@@ -125,7 +125,7 @@ commerceRoutes.post("/initiate", async (c) => {
         // 8. Store Subscription locally
         await supabaseAdmin.from('subscriptions').insert({
             organization_id: org.id,
-            plan_id: plan, // Assuming plan slug matches or handled casually
+            plan_id: plan_slug, // Assuming plan slug matches or handled casually
             status: 'pending',
             gateway: 'asaas',
             gateway_subscription_id: subscription.id,

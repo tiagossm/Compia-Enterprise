@@ -160,8 +160,8 @@ export default function LandingPage() {
 
       {/* Navbar */}
       <nav className={`fixed w - full z - 50 transition - all duration - 300 ${scrolled ? 'bg-white/80 backdrop-blur-lg border-b border-slate-200/60 py-3' : 'bg-transparent py-5'} `}>
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-2">
+        <div className="container mx-auto px-6 flex justify-between items-center h-20">
+          <div className="flex items-center gap-3">
             <div className="relative group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <img src="/compia_logo.png" alt="Compia" className="relative h-9 w-auto" />
             </div>
@@ -171,9 +171,9 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#recursos" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Diferenciais</a>
-            <a href="#setores" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Setores</a>
-            <a href="#planos" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Planos</a>
+            <a href="#recursos" className="text-base font-medium text-slate-600 hover:text-slate-900 transition-colors">Diferenciais</a>
+            <a href="#setores" className="text-base font-medium text-slate-600 hover:text-slate-900 transition-colors">Setores</a>
+            <a href="#planos" className="text-base font-medium text-slate-600 hover:text-slate-900 transition-colors">Planos</a>
             <button
               onClick={() => navigate('/login')}
               className="px-5 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-slate-900/10"
@@ -222,7 +222,7 @@ export default function LandingPage() {
               Nova Geração de Auditoria IA
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold text-slate-900 tracking-tight mb-8 leading-[1.1] animate-slide-up">
+            <h1 className="text-5xl md:text-7xl font-bold text-slate-900 tracking-tight mb-8 leading-tight animate-slide-up">
               Garanta Conformidade Total. <br className="hidden md:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600">Em Tempo Real.</span>
             </h1>
@@ -233,10 +233,10 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up animation-delay-300">
               <button
-                onClick={() => navigate('/auth/signup')}
+                onClick={() => navigate('/auth/signup?plan=pro-monthly')}
                 className="w-full sm:w-auto px-8 py-4 bg-blue-700 text-white rounded-xl font-bold hover:bg-blue-800 transition-all hover:-translate-y-1 shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 group ring-4 ring-blue-500/10"
               >
-                Começar Auditoria Grátis
+                Começar Agora
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
               <button

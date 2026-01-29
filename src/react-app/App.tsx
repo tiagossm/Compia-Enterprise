@@ -69,6 +69,7 @@ export default function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/auth/signup" element={<Register />} />
                   <Route path="/shared/:token" element={<SharedInspection />} />
                   <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
 

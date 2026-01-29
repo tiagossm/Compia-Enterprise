@@ -33,11 +33,11 @@ export default function DynamicPricing() {
                     console.warn('API de planos indisponível, usando fallback estático.');
                     setPlans([
                         {
-                            id: 'fallback-pro',
-                            name: 'professional',
-                            slug: 'pro-monthly',
-                            display_name: 'Professional',
-                            description: 'Para pequenas equipes e consultores independentes.',
+                            id: 'fallback-starter',
+                            name: 'starter',
+                            slug: 'starter-monthly',
+                            display_name: 'Essencial',
+                            description: 'Para profissionais que buscam eficiência básica.',
                             price_cents: 14900,
                             billing_period: 'monthly',
                             features: {
@@ -48,11 +48,11 @@ export default function DynamicPricing() {
                             is_active: true
                         },
                         {
-                            id: 'fallback-biz',
-                            name: 'business',
-                            slug: 'business-monthly',
-                            display_name: 'Business',
-                            description: 'Gestão completa para médias empresas.',
+                            id: 'fallback-pro',
+                            name: 'professional',
+                            slug: 'pro-monthly',
+                            display_name: 'Inteligente',
+                            description: 'Gestão completa com inteligência artificial.',
                             price_cents: 39900,
                             billing_period: 'monthly',
                             features: {
