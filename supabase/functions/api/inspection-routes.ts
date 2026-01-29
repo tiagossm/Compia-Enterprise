@@ -12,7 +12,8 @@ type Env = {
   [key: string]: any;
 };
 
-const inspectionRoutes = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: TenantContext } }>();
+const inspectionRoutes = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: TenantContext } }>()
+  .basePath('/api/inspections');
 
 // Get all inspections for current user
 // Get all inspections with Pagination & Server-Side Filtering

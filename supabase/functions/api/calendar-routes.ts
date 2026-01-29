@@ -146,7 +146,7 @@ async function checkConflict(
     }
 }
 
-const app = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/calendar');
 
 // ROTA TEMPORÁRIA PARA TESTE DE PERFORMANCE (seed)
 app.get('/seed-test', tenantAuthMiddleware, async (c) => {

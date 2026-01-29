@@ -31,13 +31,17 @@ export class AsaasService {
     constructor() {
         this.apiKey = Deno.env.get('ASAAS_API_KEY') || '';
         // Default to Sandbox if not specified, explicitly check for 'production' value
-        const mode = Deno.env.get('ASAAS_MODE'); // 'sandbox' or 'production'
+        // Support both naming conventions (EN/PT)
+        const mode = Deno.env.get('ASAAS_MODE') || Deno.env.get('MODO_ASAAS');
         this.apiUrl = mode === 'production'
             ? 'https://api.asaas.com/v3'
             : 'https://sandbox.asaas.com/api/v3';
 
         if (!this.apiKey) {
             console.warn('[AsaasService] ASAAS_API_KEY not found in environment variables.');
+        } else {
+            console.log(`[AsaasService] Initialized. Mode: ${mode || 'default(sandbox)'}. Key Length: ${this.apiKey.length}. Target: ${this.apiUrl}`);
+            console.log(`[AsaasService] Key Prefix: ${this.apiKey.substring(0, 4)}...`);
         }
     }
 
@@ -65,7 +69,7 @@ export class AsaasService {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`[AsaasService] Error ${response.status}: ${errorText}`);
-                throw new Error(`Asaas API Error: ${response.status} - ${errorText}`);
+                throw new Error(`Asaas API Error: ${response.status} on ${url} - ${errorText}`);
             }
 
             return await response.json();
@@ -156,5 +160,11 @@ export class AsaasService {
         chargeType: 'DETACHED'; // One-time charge
     }) {
         return await this.request('/paymentLinks', 'POST', data);
+    }
+    /**
+     * Get PIX QR Code and Copy & Paste string for a payment
+     */
+    async getPixQrCode(paymentId: string): Promise<{ encodedImage: string; payload: string; expirationDate: string }> {
+        return await this.request(`/payments/${paymentId}/pixQrCode`);
     }
 }

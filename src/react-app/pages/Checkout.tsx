@@ -45,6 +45,58 @@ export default function Checkout() {
 
     const [error, setError] = useState('');
 
+    // Coupon State
+    const [couponCode, setCouponCode] = useState('');
+    const [couponApplied, setCouponApplied] = useState(false);
+    const [validatingCoupon, setValidatingCoupon] = useState(false);
+    const [couponError, setCouponError] = useState('');
+    const [couponSuccess, setCouponSuccess] = useState('');
+    const [discountValue, setDiscountValue] = useState(0);
+    const [finalPrice, setFinalPrice] = useState(0);
+
+    // Update final price when plan loads
+    useEffect(() => {
+        if (plan) {
+            setFinalPrice(plan.price_cents / 100);
+        }
+    }, [plan]);
+
+    const handleApplyCoupon = async () => {
+        if (!couponCode) return;
+        setValidatingCoupon(true);
+        setCouponError('');
+        setCouponSuccess('');
+
+        try {
+            const apiUrl = import.meta.env.PROD
+                ? 'https://vjlvvmriqerfmztwtewa.supabase.co/functions/v1/api/commerce/validate-coupon'
+                : '/api/commerce/validate-coupon';
+
+            const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: couponCode, plan_slug: planSlug })
+            });
+
+            const data = await res.json();
+
+            if (data.valid) {
+                setCouponApplied(true);
+                setDiscountValue(data.discount / 100);
+                setFinalPrice(data.final_price / 100);
+                setCouponSuccess(`Desconto de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.discount / 100)} aplicado!`);
+            } else {
+                setCouponError(data.message || 'Cupom inválido');
+                setCouponApplied(false);
+            }
+        } catch (err) {
+            console.error(err);
+            setCouponError('Erro ao validar cupom');
+        } finally {
+            setValidatingCoupon(false);
+        }
+    };
+
     useEffect(() => {
         loadPlan();
     }, [planSlug]);
@@ -86,14 +138,24 @@ export default function Checkout() {
         setSubmitting(true);
         setError('');
 
+        console.log('[CHECKOUT] Submit started', { formData, planSlug });
+
         try {
             // Validate
             if (!formData.name || !formData.email || !formData.cpfCnpj || !formData.password) {
                 throw new Error('Preencha todos os campos obrigatórios.');
             }
 
-            // Call API
-            const res = await fetch('/api/commerce/initiate', {
+            console.log('[CHECKOUT] Calling API...');
+
+            // Call API - Use full URL to avoid routing issues
+            const apiUrl = import.meta.env.PROD
+                ? 'https://vjlvvmriqerfmztwtewa.supabase.co/functions/v1/api/commerce/initiate'
+                : '/api/commerce/initiate';
+
+            console.log('[CHECKOUT] API URL:', apiUrl);
+
+            const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -104,24 +166,42 @@ export default function Checkout() {
                         password: formData.password
                     },
                     company: {
-                        tax_id: formData.cpfCnpj
+                        name: formData.name, // Use name as company name for now
+                        cnpj: formData.cpfCnpj
                     },
                     plan_slug: planSlug,
-                    payment_method: formData.paymentMethod
+                    payment_method: formData.paymentMethod,
+                    coupon_code: couponApplied ? couponCode : undefined
                 })
             });
 
+            console.log('[CHECKOUT] Response status:', res.status);
+
             const data = await res.json();
+            console.log('[CHECKOUT] Response data:', data);
 
-            if (!res.ok) throw new Error(data.error || 'Erro ao processar checkout.');
+            if (data.status === 'pending' && data.can_retry) {
+                setError(data.message || 'Houve um problema. Tente novamente.');
+                return;
+            }
 
-            // Success -> Redirect to Payment URL (Asaas) or Show PIX Modal
+            if (data.status === 'existing_user') {
+                setError('Este email já está cadastrado. Faça login para continuar.');
+                return;
+            }
+
+            if (!res.ok && data.error) {
+                throw new Error(data.error);
+            }
+
+            // Success -> Redirect to Payment URL (Asaas)
             if (data.payment_url) {
+                console.log('[CHECKOUT] Redirecting to:', data.payment_url);
                 window.location.href = data.payment_url;
             }
 
         } catch (err: any) {
-            console.error(err);
+            console.error('[CHECKOUT] Error:', err);
             setError(err.message || 'Erro desconhecido');
         } finally {
             setSubmitting(false);
@@ -175,13 +255,49 @@ export default function Checkout() {
                             </div>
 
                             <div className="space-y-4 mb-8">
+                                {/* Coupon Section */}
+                                <div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Cupom de desconto"
+                                            value={couponCode}
+                                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                            disabled={couponApplied || validatingCoupon}
+                                            className={`flex-1 px-3 py-2 border rounded-lg text-sm bg-white ${couponError ? 'border-red-300 focus:border-red-500' :
+                                                couponApplied ? 'border-green-300 bg-green-50 text-green-700' : 'border-slate-200'
+                                                }`}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyCoupon}
+                                            disabled={!couponCode || couponApplied || validatingCoupon}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${couponApplied ? 'bg-green-100 text-green-700 cursor-default' :
+                                                'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                                }`}
+                                        >
+                                            {validatingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : couponApplied ? 'Aplicado' : 'Aplicar'}
+                                        </button>
+                                    </div>
+                                    {couponError && <p className="text-xs text-red-500 mt-1">{couponError}</p>}
+                                    {couponSuccess && <p className="text-xs text-green-600 mt-1">{couponSuccess}</p>}
+                                </div>
+
                                 <div className="flex justify-between text-sm text-slate-600 border-b border-slate-100 pb-2">
                                     <span>Subtotal</span>
                                     <span>{plan?.price_display}</span>
                                 </div>
+
+                                {couponApplied && discountValue > 0 && (
+                                    <div className="flex justify-between text-sm text-green-600 border-b border-green-100 pb-2">
+                                        <span>Desconto</span>
+                                        <span>- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discountValue)}</span>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-between text-lg font-bold text-slate-900">
                                     <span>Total</span>
-                                    <span>{plan?.price_display}</span>
+                                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalPrice)}</span>
                                 </div>
                             </div>
 

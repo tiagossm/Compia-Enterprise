@@ -9,7 +9,8 @@ type Env = {
 
 const getDatabase = (env: any) => env.DB;
 
-const app = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+    .basePath('/api/crm');
 
 // Require System Admin Middleware
 const requireSysAdmin = async (c: any, next: any) => {

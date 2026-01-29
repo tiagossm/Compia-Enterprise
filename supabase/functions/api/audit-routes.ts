@@ -7,7 +7,7 @@ type Env = {
     [key: string]: any;
 };
 
-const auditRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const auditRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/audit');
 
 // Middleware to ensure user has access to audit logs (System Admin or Org Admin)
 const requireAuditAccess = async (c: any, next: any) => {

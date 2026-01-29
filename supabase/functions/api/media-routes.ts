@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { tenantAuthMiddleware as authMiddleware } from "./tenant-auth-middleware.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const mediaRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const mediaRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/media');
 
 type Env = {
   DB: any;

@@ -6,7 +6,8 @@ type Env = {
   DB: any;
 };
 
-const dashboardRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const dashboardRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+  .basePath('/api/dashboard');
 
 // GET estatísticas gerais do dashboard
 dashboardRoutes.get("/stats", tenantAuthMiddleware, async (c) => {

@@ -7,7 +7,7 @@ type Env = {
     [key: string]: unknown;
 };
 
-const userAssignmentRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const userAssignmentRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/user-assignments');
 
 // Helper para verificar se usuário pode atribuir a uma organização
 async function canAssignToOrganization(

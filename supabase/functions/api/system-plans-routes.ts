@@ -1,23 +1,28 @@
-
 import { Hono } from "hono";
-import { USER_ROLES } from "./user-types.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-type Env = {
-    DB: any;
-};
+const systemPlansRoutes = new Hono().basePath('/api/system-commerce');
 
-const systemPlansRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+// Helper function to get Supabase Admin Client
+const getSupabaseAdmin = () => createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
 
 // Middleware: Check System Admin
 systemPlansRoutes.use('*', async (c, next) => {
     const user = c.get('user');
     if (!user) return c.json({ error: 'Unauthorized' }, 401);
 
-    const env = c.env;
-    // Verify SysAdmin
-    const profile = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(user.id).first();
-    if (profile?.role !== 'system_admin' && profile?.role !== 'sys_admin') {
-        return c.json({ error: 'Forbiden: System Admin only' }, 403);
+    const supabase = getSupabaseAdmin();
+    const { data: profile, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (error || (profile?.role !== 'system_admin' && profile?.role !== 'sys_admin')) {
+        return c.json({ error: 'Forbidden: System Admin only' }, 403);
     }
     await next();
 });
@@ -28,22 +33,15 @@ systemPlansRoutes.use('*', async (c, next) => {
 
 // GET /plans
 systemPlansRoutes.get('/plans', async (c) => {
-    try {
-        const { results } = await c.env.DB.prepare("SELECT * FROM plans ORDER BY price_cents ASC").all();
+    const supabase = getSupabaseAdmin();
+    const { data: plans, error } = await supabase
+        .from('plans')
+        .select('*')
+        .order('price_cents', { ascending: true });
 
-        const plans = (results || []).map((p: any) => ({
-            ...p,
-            limits: typeof p.limits === 'string' ? JSON.parse(p.limits) : p.limits,
-            features: typeof p.features === 'string' ? JSON.parse(p.features) : p.features,
-            addon_config: typeof p.addon_config === 'string' ? JSON.parse(p.addon_config) : p.addon_config,
-            is_active: Boolean(p.is_active),
-            is_public: Boolean(p.is_public)
-        }));
+    if (error) return c.json({ error: error.message }, 500);
 
-        return c.json({ plans });
-    } catch (e: any) {
-        return c.json({ error: e.message }, 500);
-    }
+    return c.json({ plans: plans || [] });
 });
 
 // POST /plans (Create)
@@ -61,75 +59,86 @@ systemPlansRoutes.post('/plans', async (c) => {
         } = body;
 
         const slug = body.slug || name.toLowerCase().replace(/\s+/g, '-');
+        const supabase = getSupabaseAdmin();
 
-        const res = await c.env.DB.prepare(`
-            INSERT INTO plans (
-                name, display_name, slug, price_cents, billing_period, 
-                type, limits, features, addon_config, 
-                is_active, is_public
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?)
-            RETURNING id
-        `).bind(
-            slug, display_name, slug, price_cents, billing_period,
-            type,
-            JSON.stringify(limits),
-            JSON.stringify(features),
-            JSON.stringify(addon_config),
-            is_public
-        ).run();
+        const { data, error } = await supabase
+            .from('plans')
+            .insert({
+                slug,
+                name: slug, // Using slug as internal name for consistency
+                display_name,
+                price_cents,
+                description,
+                billing_period,
+                type,
+                limits, // Supabase handles JSON/JSONB automatically
+                features,
+                addon_config,
+                is_active: true,
+                is_public
+            })
+            .select()
+            .single();
 
-        return c.json({ success: true, id: res.results?.[0]?.id });
+        if (error) throw error;
+
+        return c.json({ success: true, id: data.id });
     } catch (e: any) {
-        return c.json({ error: e.message }, 500);
+        return c.json({ error: e.message || e.details }, 500);
     }
 });
 
 // PUT /plans/:id (Update)
 systemPlansRoutes.put('/plans/:id', async (c) => {
     const id = c.req.param('id');
-    const body = await c.req.json();
-
     try {
-        // Build dynamic update query
-        await c.env.DB.prepare(`
-            UPDATE plans 
-            SET display_name = ?, price_cents = ?, is_active = ?, is_public = ?,
-                description = ?, features = ?, limits = ?, addon_config = ?
-            WHERE id = ?
-        `).bind(
-            body.display_name,
-            body.price_cents,
-            body.is_active,
-            body.is_public,
-            body.description,
-            JSON.stringify(body.features || {}),
-            JSON.stringify(body.limits || {}),
-            JSON.stringify(body.addon_config || {}),
-            id
-        ).run();
+        const body = await c.req.json();
+        const supabase = getSupabaseAdmin();
+
+        const updateData: any = {
+            updated_at: new Date().toISOString()
+        };
+
+        // Only update fields present in body
+        if (body.display_name !== undefined) updateData.display_name = body.display_name;
+        if (body.price_cents !== undefined) updateData.price_cents = body.price_cents;
+        if (body.is_active !== undefined) updateData.is_active = body.is_active;
+        if (body.is_public !== undefined) updateData.is_public = body.is_public;
+        if (body.description !== undefined) updateData.description = body.description;
+        if (body.features !== undefined) updateData.features = body.features;
+        if (body.limits !== undefined) updateData.limits = body.limits;
+        if (body.addon_config !== undefined) updateData.addon_config = body.addon_config;
+        if (body.billing_period !== undefined) updateData.billing_period = body.billing_period;
+        if (body.name !== undefined) updateData.slug = body.name; // Updating slug if name changes
+
+        const { error } = await supabase
+            .from('plans')
+            .update(updateData)
+            .eq('id', id);
+
+        if (error) throw error;
 
         return c.json({ success: true });
     } catch (e: any) {
-        return c.json({ error: e.message }, 500);
+        return c.json({ error: e.message || e.details }, 500);
     }
 });
 
 // DELETE /plans/:id
 systemPlansRoutes.delete('/plans/:id', async (c) => {
     const id = c.req.param('id');
-    try {
-        await c.env.DB.prepare("DELETE FROM plans WHERE id = ?").bind(id).run();
-        return c.json({ success: true });
-    } catch (e: any) {
-        return c.json({ error: e.message }, 500);
-    }
+    const supabase = getSupabaseAdmin();
+
+    const { error } = await supabase
+        .from('plans')
+        .delete()
+        .eq('id', id);
+
+    if (error) return c.json({ error: error.message }, 500);
+
+    return c.json({ success: true });
 });
 
-
-// ============================================================================
-// COUPONS
-// ============================================================================
 
 // ============================================================================
 // COUPONS
@@ -137,12 +146,15 @@ systemPlansRoutes.delete('/plans/:id', async (c) => {
 
 // GET /coupons
 systemPlansRoutes.get('/coupons', async (c) => {
-    try {
-        const coupons = await c.env.DB.prepare("SELECT * FROM coupons ORDER BY created_at DESC").all();
-        return c.json({ coupons: coupons.results || [] });
-    } catch (e: any) {
-        return c.json({ error: e.message }, 500);
-    }
+    const supabase = getSupabaseAdmin();
+    const { data: coupons, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) return c.json({ error: error.message }, 500);
+
+    return c.json({ coupons: coupons || [] });
 });
 
 // POST /coupons (Create)
@@ -167,47 +179,39 @@ systemPlansRoutes.post('/coupons', async (c) => {
         }
 
         const normalizedCode = code.toUpperCase().trim();
+        const supabase = getSupabaseAdmin();
 
-        const res = await c.env.DB.prepare(`
-            INSERT INTO coupons (
-                code, description, discount_type, discount_value, 
-                max_uses, expires_at, minimum_amount_cents, 
-                valid_for_plans, is_active
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
-        `).bind(
-            normalizedCode,
-            description || null,
-            discount_type,
-            discount_value,
-            max_uses || null,
-            expires_at || null,
-            minimum_amount_cents || null,
-            valid_for_plans ? JSON.stringify(valid_for_plans) : null,
-            is_active
-        ).run();
+        const { data, error } = await supabase
+            .from('coupons')
+            .insert({
+                code: normalizedCode,
+                description,
+                discount_type,
+                discount_value,
+                max_uses: max_uses || null,
+                expires_at: expires_at || null,
+                minimum_amount_cents: minimum_amount_cents || null,
+                valid_for_plans: valid_for_plans || null, // JSONB
+                is_active
+            })
+            .select()
+            .single();
 
-        const newCouponId = res.results?.[0]?.id;
+        if (error) throw error;
 
         // Audit Log
-        await c.env.DB.prepare(`
-            INSERT INTO activity_log (
-                user_id, organization_id, action_type, action_description, 
-                target_type, target_id, metadata
-            ) VALUES (?, ?, 'COUPON_CREATE', ?, 'COUPON', ?, ?)
-        `).bind(
-            user.id,
-            user.organization_id || null,
-            `Criou cupom: ${normalizedCode}`,
-            newCouponId,
-            JSON.stringify({ code: normalizedCode, discount: `${discount_value} (${discount_type})` })
-        ).run();
+        await supabase.from('activity_log').insert({
+            user_id: user.id,
+            action_type: 'COUPON_CREATE',
+            action_description: `Criou cupom: ${normalizedCode}`,
+            target_type: 'COUPON',
+            target_id: data.id,
+            metadata: { code: normalizedCode, discount: `${discount_value} (${discount_type})` }
+        });
 
-        return c.json({ success: true, id: newCouponId });
+        return c.json({ success: true, id: data.id });
     } catch (e: any) {
-        console.error("Error creating coupon:", e);
-        return c.json({ error: e.message }, 500);
+        return c.json({ error: e.message || e.details }, 500);
     }
 });
 
@@ -217,56 +221,42 @@ systemPlansRoutes.put('/coupons/:id', async (c) => {
     const id = c.req.param('id');
     try {
         const body = await c.req.json();
-        const {
-            code,
-            discount_type,
-            discount_value,
-            description,
-            expires_at,
-            max_uses,
-            is_active,
-            valid_for_plans,
-            minimum_amount_cents
-        } = body;
+        const supabase = getSupabaseAdmin();
 
-        await c.env.DB.prepare(`
-            UPDATE coupons 
-            SET code = ?, discount_type = ?, discount_value = ?,
-                description = ?, expires_at = ?, max_uses = ?, 
-                is_active = ?, valid_for_plans = ?, minimum_amount_cents = ?,
-                updated_at = NOW()
-            WHERE id = ?
-        `).bind(
-            code,
-            discount_type,
-            discount_value,
-            description,
-            expires_at || null,
-            max_uses,
-            is_active,
-            valid_for_plans ? JSON.stringify(valid_for_plans) : null,
-            minimum_amount_cents,
-            id
-        ).run();
+        const updateData: any = {
+            updated_at: new Date().toISOString()
+        };
+
+        // Bulk update fields
+        const fields = [
+            'code', 'discount_type', 'discount_value', 'description',
+            'expires_at', 'max_uses', 'is_active', 'valid_for_plans', 'minimum_amount_cents'
+        ];
+
+        for (const field of fields) {
+            if (body[field] !== undefined) updateData[field] = body[field];
+        }
+
+        const { error } = await supabase
+            .from('coupons')
+            .update(updateData)
+            .eq('id', id);
+
+        if (error) throw error;
 
         // Audit Log
-        await c.env.DB.prepare(`
-            INSERT INTO activity_log (
-                user_id, organization_id, action_type, action_description, 
-                target_type, target_id, metadata
-            ) VALUES (?, ?, 'COUPON_UPDATE', ?, 'COUPON', ?, ?)
-        `).bind(
-            user.id,
-            user.organization_id || null,
-            `Atualizou cupom ID: ${id}`,
-            id,
-            JSON.stringify(body)
-        ).run();
+        await supabase.from('activity_log').insert({
+            user_id: user.id,
+            action_type: 'COUPON_UPDATE',
+            action_description: `Atualizou cupom ID: ${id}`,
+            target_type: 'COUPON',
+            target_id: id,
+            metadata: body
+        });
 
         return c.json({ success: true });
     } catch (e: any) {
-        console.error("Error updating coupon:", e);
-        return c.json({ error: e.message }, 500);
+        return c.json({ error: e.message || e.details }, 500);
     }
 });
 
@@ -274,26 +264,34 @@ systemPlansRoutes.put('/coupons/:id', async (c) => {
 systemPlansRoutes.delete('/coupons/:id', async (c) => {
     const user = c.get('user');
     const id = c.req.param('id');
+    const supabase = getSupabaseAdmin();
+
     try {
         // Get code for audit before delete
-        const coupon = await c.env.DB.prepare("SELECT code FROM coupons WHERE id = ?").bind(id).first();
+        const { data: coupon } = await supabase
+            .from('coupons')
+            .select('code')
+            .eq('id', id)
+            .single();
+
         const code = coupon?.code || 'Unknown';
 
-        await c.env.DB.prepare("DELETE FROM coupons WHERE id = ?").bind(id).run();
+        const { error } = await supabase
+            .from('coupons')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
 
         // Audit Log
-        await c.env.DB.prepare(`
-            INSERT INTO activity_log (
-                user_id, organization_id, action_type, action_description, 
-                target_type, target_id, metadata
-            ) VALUES (?, ?, 'COUPON_DELETE', ?, 'COUPON', ?, ?)
-        `).bind(
-            user.id,
-            user.organization_id || null,
-            `Deletou cupom: ${code}`,
-            id,
-            JSON.stringify({ deleted_code: code })
-        ).run();
+        await supabase.from('activity_log').insert({
+            user_id: user.id,
+            action_type: 'COUPON_DELETE',
+            action_description: `Deletou cupom: ${code}`,
+            target_type: 'COUPON',
+            target_id: id,
+            metadata: { deleted_code: code }
+        });
 
         return c.json({ success: true });
     } catch (e: any) {

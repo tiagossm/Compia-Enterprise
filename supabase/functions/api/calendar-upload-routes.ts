@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tenantAuthMiddleware as authMiddleware } from "./tenant-auth-middleware.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const calendarUploadRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const calendarUploadRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/calendar-upload');
 
 type Env = {
     DB: any;

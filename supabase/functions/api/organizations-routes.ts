@@ -12,7 +12,8 @@ type Env = {
 
 const getDatabase = (env: any) => env.DB;
 
-const app = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: any } }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: any } }>()
+  .basePath('/api/organizations');
 
 // DEBUG: Log all requests hitting this router
 app.get('*', async (c, next) => {

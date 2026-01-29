@@ -8,7 +8,7 @@ type Env = {
   DB: any;
 };
 
-const systemAdminRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const systemAdminRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/system-admin');
 
 // Endpoint para garantir que o usuário eng.tiagosm@gmail.com seja sempre system_admin
 systemAdminRoutes.post("/ensure-protected-sysadmin", authMiddleware, requireProtectedSysAdmin(), async (c) => {

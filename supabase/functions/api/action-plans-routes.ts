@@ -3,7 +3,7 @@ import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 import { USER_ROLES } from "./user-types.ts";
 import { addXP } from "./gamification-routes.ts";
 
-const actionPlansRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const actionPlansRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/action-plans');
 
 // Get all action items across all inspections with optional organization filter
 actionPlansRoutes.get("/all", tenantAuthMiddleware, async (c) => {

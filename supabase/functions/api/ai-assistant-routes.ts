@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { tenantAuthMiddleware } from './tenant-auth-middleware.ts';
 import { incrementAiUsage } from './ai-usage-tracker.ts';
 
-const aiAssistant = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const aiAssistant = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+    .basePath('/api/ai-assistant');
 
 // System context for the AI assistant
 const SYSTEM_CONTEXT = `Você é o COMPIA AI, o assistente inteligente do sistema COMPIA - uma plataforma de gestão de inspeções de segurança do trabalho.

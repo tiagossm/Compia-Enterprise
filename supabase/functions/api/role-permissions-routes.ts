@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { tenantAuthMiddleware as authMiddleware } from "./tenant-auth-middleware.ts";
 import { USER_ROLES } from "./user-types.ts";
 
-const rolePermissionsRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const rolePermissionsRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/role-permissions');
 
 // Middleware to check if user can manage role permissions
 const requirePermissionAdmin = async (c: any, next: any) => {

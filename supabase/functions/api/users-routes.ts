@@ -7,7 +7,8 @@ type Env = {
   DB: any;
 };
 
-const usersRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const usersRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+  .basePath('/api/users');
 
 // Get current user profile (alias for /profile)
 usersRoutes.get("/me", authMiddleware, async (c) => {

@@ -8,7 +8,7 @@ type Env = {
   DB: any;
 };
 
-const checklistFoldersRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const checklistFoldersRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/checklist');
 
 // Função para gerar slug único
 function generateSlug(name: string, existing: string[] = []): string {

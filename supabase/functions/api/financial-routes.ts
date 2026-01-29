@@ -6,7 +6,8 @@ type Env = {
     DB: any;
 };
 
-const financialRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const financialRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+    .basePath('/api/financial');
 
 // ============================================================================
 // GET /plans - Lista todos os planos ativos (público para autenticados)

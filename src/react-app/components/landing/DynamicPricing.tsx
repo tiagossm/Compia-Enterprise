@@ -88,7 +88,7 @@ export default function DynamicPricing() {
     const sortedPlans = [...plans].sort((a, b) => a.price_cents - b.price_cents);
 
     return (
-        <div id="plans" className="py-24 bg-slate-50 relative overflow-hidden">
+        <div id="planos" className="py-32 scroll-mt-32 bg-slate-50 relative overflow-hidden">
             {/* Background Decoration */}
             <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-100/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-pulse-slow"></div>

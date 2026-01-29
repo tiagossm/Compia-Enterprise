@@ -64,8 +64,8 @@ export default function App() {
               }>
                 <Routes>
                   {/* Public routes */}
+                  <Route path="/" element={<LandingPage />} />
                   <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/landing" element={<LandingPage />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
@@ -74,7 +74,7 @@ export default function App() {
                   <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
 
                   {/* Protected routes */}
-                  <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} />
+                  <Route path="/app" element={<AuthGuard><HomePage /></AuthGuard>} />
                   <Route path="/inspections" element={<AuthGuard><Inspections /></AuthGuard>} />
                   <Route path="/inspections/new" element={<AuthGuard><NewInspection /></AuthGuard>} />
                   <Route path="/inspections/:id/edit" element={<AuthGuard><NewInspection /></AuthGuard>} />

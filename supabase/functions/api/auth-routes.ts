@@ -3,7 +3,7 @@ import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 
 
-const authRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const authRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/auth');
 console.log('[AUTH-ROUTES] Auth routes module loaded, typeof:', typeof authRoutes);
 
 // Helper para hash de senha SEGURO usando PBKDF2 (recomendado para senhas)

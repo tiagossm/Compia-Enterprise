@@ -56,13 +56,6 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                     const userRole = (user as any)?.role || (user as any)?.profile?.role;
                     const isSysAdmin = userRole === 'system_admin' || userRole === 'sys_admin';
 
-                    console.log('[OrganizationContext] Restore check:', {
-                        storedOrgId,
-                        userRole,
-                        isSysAdmin,
-                        orgsCount: orgs.length
-                    });
-
                     if (storedOrgId === '0' && isSysAdmin) {
                         targetOrg = {
                             id: 0,
@@ -75,18 +68,11 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                     } else if (storedOrgId) {
                         // Use String comparison to avoid type mismatch (API might return number or string)
                         targetOrg = orgs.find(o => String(o.id) === storedOrgId) || null;
-
-                        console.log('[OrganizationContext] Looking for storedId:', {
-                            storedOrgId,
-                            found: !!targetOrg,
-                            availableIds: orgs.slice(0, 5).map(o => ({ id: o.id, type: typeof o.id }))
-                        });
                     }
 
                     // Default to primary or first
                     if (!targetOrg && orgs.length > 0) {
                         targetOrg = orgs.find(o => o.is_primary) || orgs[0];
-                        console.log('[OrganizationContext] Using fallback org:', targetOrg?.name);
                     }
 
                     setSelectedOrgState(targetOrg);

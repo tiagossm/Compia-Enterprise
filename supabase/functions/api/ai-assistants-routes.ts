@@ -11,7 +11,7 @@ type Variables = {
   user: any;
 };
 
-const aiAssistantsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
+const aiAssistantsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>().basePath('/api/ai-assistants');
 
 // Get all AI assistants
 // Get all AI assistants

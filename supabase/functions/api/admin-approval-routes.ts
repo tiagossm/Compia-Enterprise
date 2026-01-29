@@ -7,7 +7,7 @@ import { logActivity } from './audit-logger.ts';
  * @security System Admin tem acesso total
  * @security Org Admin pode aprovar usuários da sua organização
  */
-const adminApprovalRoutes = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: any } }>();
+const adminApprovalRoutes = new Hono<{ Bindings: Env; Variables: { user: any; tenantContext: any } }>().basePath('/api/admin');
 
 /**
  * Helper: Verificar se usuário é SysAdmin

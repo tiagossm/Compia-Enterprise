@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 
-const notificationsRoutes = new Hono<{ Bindings: any; Variables: { user: any } }>();
+const notificationsRoutes = new Hono<{ Bindings: any; Variables: { user: any } }>().basePath('/api/notifications');
 
 // List notifications
 notificationsRoutes.get("/", tenantAuthMiddleware, async (c) => {

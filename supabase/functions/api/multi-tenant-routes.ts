@@ -6,7 +6,7 @@ type Env = {
   DB: any;
 };
 
-const multiTenantRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const multiTenantRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/multi-tenant');
 
 // Middleware to check if user can manage organizations
 const requireOrgAdmin = async (c: any, next: any) => {

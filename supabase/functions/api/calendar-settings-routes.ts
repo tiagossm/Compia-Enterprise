@@ -8,7 +8,7 @@ type Env = {
 
 const getDatabase = (env: any) => env.DB;
 
-const app = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/calendar-settings');
 
 // Ensure table exists helper
 async function ensureTableExists(db: any) {

@@ -1,54 +1,19 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { createClient } from '@supabase/supabase-js'
+// Imports removidos para Lazy Loading (d1-wrapper, supabase-js)
 
-// Import wrapper para compatibilidade
-import { createD1Wrapper } from './d1-wrapper.ts'
 
-// Importar rotas
-import usersRoutes from "./users-routes.ts";
-import kanbanRoutes from "./kanban-routes.ts";
-import organizationsRoutes from "./organizations-routes.ts";
-import inspectionRoutes from "./inspection-routes.ts";
-import checklistRoutes from "./checklist-routes.ts";
-import authRoutes from "./auth-routes.ts";
-import aiAssistantsRoutes from "./ai-assistants-routes.ts";
-import checklistFoldersRoutes from "./checklist-folders-routes.ts";
-import dashboardRoutes from "./dashboard-routes.ts";
-import shareRoutes from "./share-routes.ts";
-import adminApprovalRoutes from "./admin-approval-routes.ts";
-import userAssignmentRoutes from "./user-assignment-routes.ts";
-import multiTenantRoutes from "./multi-tenant-routes.ts";
-import systemAdminRoutes from "./system-admin-routes.ts";
-import rolePermissionsRoutes from "./role-permissions-routes.ts";
-import cepRoutes from "./cep-routes.ts";
-import cnpjRoutes from "./cnpj-routes.ts";
-import mediaRoutes from "./media-routes.ts";
-import adminDebugRoutes from "./admin-debug-routes.ts";
-import databaseDebugRoutes from "./database-debug-routes.ts";
-import autoOrganizeFolders from "./auto-organize-folders.ts";
-import autosuggestRoutes from "./autosuggest-routes.ts";
-import { aiUsageRoutes } from "./ai-usage-routes.ts";
-import securityEndpoints from "./security-endpoints.ts";
-import actionPlansRoutes from "./action-plans-routes.ts";
-import resetProjectRoutes from "./reset-project.ts";
-import notificationsRoutes from "./notifications-routes.ts";
-import financialRoutes from "./financial-routes.ts";
-import asaasWebhookRoutes from "./asaas-webhook.ts";
-import inspectionItemRoutes from "./inspection-item-routes.ts";
-import gamificationRoutes from "./gamification-routes.ts";
-import aiAssistantRoutes from "./ai-assistant-routes.ts";
-import { auditRoutes } from "./audit-routes.ts";
-import calendarRoutes from "./calendar-routes.ts";
-import calendarSettingsRoutes from "./calendar-settings-routes.ts";
-import testOrgsRoutes from "./test-orgs.ts";
-import integrationsRoutes from "./integrations-routes.ts";
-import calendarUploadRoutes from "./calendar-upload-routes.ts";
-import crmRoutes from "./crm-routes.ts";
-import systemPlansRoutes from "./system-plans-routes.ts";
-import commerceRoutes from "./checkout-flow.ts";
+// Types
+type Env = {
+    DB: any;
+    SUPABASE_URL: string;
+    SUPABASE_ANON_KEY: string;
+    SUPABASE_SERVICE_ROLE_KEY: string;
+    OPENAI_API_KEY: string;
+    GEMINI_API_KEY: string;
+};
 
-const app = new Hono()
+const app = new Hono<{ Bindings: Env }>()
 
 // GLOBAL ERROR HANDLER (Sentinela Security Pattern)
 app.onError((err, c) => {
@@ -68,7 +33,13 @@ app.onError((err, c) => {
 
 app.use('/*', cors({
     origin: (origin) => {
-        const allowed = ['https://compia.tech', 'https://www.compia.tech', 'http://localhost:3000', 'http://localhost:5173', 'https://compia-06092520-aqb5140o0-tiagossms-projects.vercel.app'];
+        const allowed = [
+            'https://compia.tech',
+            'https://www.compia.tech',
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'https://compia-06092520-aqb5140o0-tiagossms-projects.vercel.app'
+        ];
         // Allow Vercel preview URLs dynamically
         if (origin && (allowed.includes(origin) || origin.endsWith('.vercel.app'))) {
             return origin;
@@ -79,7 +50,7 @@ app.use('/*', cors({
 
     allowHeaders: ['authorization', 'x-client-info', 'apikey', 'content-type'],
     allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE'],
-    exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],
+    exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
     maxAge: 600,
     credentials: true,
 }))
@@ -91,20 +62,22 @@ app.use('*', async (c, next) => {
     c.env = c.env || {}
 
     if (dbUrl) {
+        // Lazy load D1 Wrapper (Postgres driver) to reduce boot time
+        const { createD1Wrapper } = await import('./d1-wrapper.ts');
         // @ts-ignore
         c.env.DB = createD1Wrapper(dbUrl)
     }
 
-    // Inject OPENAI_API_KEY from Deno.env so routes can access it
+    // Inject keys from Deno.env
     // @ts-ignore
     c.env.OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || ''
-    // @ts-ignore - Gemini API key for AI fallback
+    // @ts-ignore
     c.env.GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || ''
     // @ts-ignore
     c.env.SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
     // @ts-ignore
     c.env.SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
-    // @ts-ignore - Required for Supabase Storage uploads
+    // @ts-ignore
     c.env.SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
     const path = c.req.path;
@@ -129,6 +102,9 @@ app.use('*', async (c, next) => {
         console.log(`[AUTH-DEBUG] Authorization header: ${authHeader ? 'present (' + authHeader.substring(0, 30) + '...)' : 'absent'}`);
 
         if (authHeader) {
+            // Lazy load Supabase Client to reduce boot time
+            const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+
             const supabaseClient = createClient(
                 Deno.env.get('SUPABASE_URL') ?? '',
                 Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -196,7 +172,7 @@ app.use('*', async (c, next) => {
 })
 
 // Criar sub-app para as rotas da API
-const apiRoutes = new Hono();
+const apiRoutes = new Hono<{ Bindings: Env }>();
 
 // Middleware para propagar contexto de autenticação do app pai para o sub-app
 apiRoutes.use('*', async (c, next) => {
@@ -221,14 +197,6 @@ apiRoutes.get('/health', async (c) => {
         try {
             await c.env.DB.prepare('SELECT 1').bind().first();
             dbStatus = 'connected';
-
-            // Debug: Check organization addresses
-            const orgsResult = await c.env.DB.prepare(`
-                SELECT id, name, nome_fantasia, address, contact_email 
-                FROM organizations 
-                LIMIT 5
-            `).all();
-            orgAddresses = orgsResult.results || [];
         } catch (e) {
             dbStatus = 'error';
             dbError = e instanceof Error ? e.message : String(e);
@@ -242,63 +210,85 @@ apiRoutes.get('/health', async (c) => {
         status: dbStatus === 'connected' ? 'online' : 'degraded',
         database: dbStatus,
         db_error: dbError,
-        env_vars: {
-            SUPABASE_DB_URL: dbUrl ? 'present' : 'missing',
-        },
-        debug_org_addresses: orgAddresses,
         timestamp: new Date().toISOString()
     }, dbStatus === 'connected' ? 200 : 503)
 })
 
-// Debug middleware for apiRoutes
-apiRoutes.use('*', async (c, next) => {
-    console.log('[API_ROUTER] Method:', c.req.method, 'Path:', c.req.path);
-    await next();
+// --- SCALABLE LAZY LOADING ARCHITECTURE ---
+const lazy = (importer: () => Promise<any>) => async (c: any) => {
+    try {
+        const { default: router } = await importer();
+        return router.fetch(c.req.raw, c.env, c.executionCtx);
+    } catch (e: any) {
+        console.error(`Lazy Load Error (${c.req.path}):`, e);
+        return c.json({ error: 'Internal Server Error', details: e.message }, 500);
+    }
+};
+
+// CHECKLIST ROUTING (Advanced Dispatch)
+apiRoutes.all('/checklist/*', async (c) => {
+    try {
+        if (c.req.path.includes('/checklist/folders') || c.req.path.includes('/checklist/migrate-categories')) {
+            const { default: router } = await import('./checklist-folders-routes.ts');
+            return router.fetch(c.req.raw, c.env, c.executionCtx);
+        }
+        const { default: router } = await import('./checklist-routes.ts');
+        return router.fetch(c.req.raw, c.env, c.executionCtx);
+    } catch (e: any) {
+        return c.json({ error: 'Lazy Load Error', details: e.message }, 500);
+    }
 });
 
-// Registrar todas as rotas no sub-app (sem prefixos, pois serão montadas)
-apiRoutes.route('/users', usersRoutes);
-console.log('Registering /organizations route');
-apiRoutes.route('/organizations', organizationsRoutes);
-apiRoutes.route('/test-orgs', testOrgsRoutes);
-apiRoutes.route('/inspections', inspectionRoutes);
-apiRoutes.route('/checklist', checklistRoutes);
-apiRoutes.route('/auth', authRoutes);
-apiRoutes.route('/ai-assistants', aiAssistantsRoutes);
-apiRoutes.route('/checklist', checklistFoldersRoutes);
-apiRoutes.route('/dashboard', dashboardRoutes);
-apiRoutes.route('/share', shareRoutes);
-apiRoutes.route('/notifications', notificationsRoutes);
-apiRoutes.route('/admin', adminApprovalRoutes);
-apiRoutes.route('/user-assignments', userAssignmentRoutes);
-apiRoutes.route('/multi-tenant', multiTenantRoutes);
-apiRoutes.route('/ai-usage', aiUsageRoutes);
-apiRoutes.route('/system-admin', systemAdminRoutes);
-apiRoutes.route('/role-permissions', rolePermissionsRoutes);
-apiRoutes.route('/cep', cepRoutes);
-apiRoutes.route('/cnpj', cnpjRoutes);
-// Mount routes
-apiRoutes.route('/inspection-items', inspectionItemRoutes);
-apiRoutes.route('/media', mediaRoutes);
-apiRoutes.route('/gamification', gamificationRoutes);
-apiRoutes.route('/action-plans', actionPlansRoutes);
-apiRoutes.route('/action-items', actionPlansRoutes); // Alias
-apiRoutes.route('/autosuggest', autosuggestRoutes);
-apiRoutes.route('/ai-assistant', aiAssistantRoutes);
+// Explicit Lazy Routes
+apiRoutes.all('/users/*', lazy(() => import('./users-routes.ts')));
+apiRoutes.all('/organizations/*', lazy(() => import('./organizations-routes.ts')));
+apiRoutes.all('/inspections/*', lazy(() => import('./inspection-routes.ts')));
+apiRoutes.all('/dashboard/*', lazy(() => import('./dashboard-routes.ts')));
+apiRoutes.all('/auth/*', lazy(() => import('./auth-routes.ts')));
+apiRoutes.all('/ai-assistants/*', lazy(() => import('./ai-assistants-routes.ts')));
+apiRoutes.all('/share/*', lazy(() => import('./share-routes.ts')));
+apiRoutes.all('/notifications/*', lazy(() => import('./notifications-routes.ts')));
+apiRoutes.all('/admin/*', lazy(() => import('./admin-approval-routes.ts')));
+apiRoutes.all('/user-assignments/*', lazy(() => import('./user-assignment-routes.ts')));
+apiRoutes.all('/multi-tenant/*', lazy(() => import('./multi-tenant-routes.ts')));
+apiRoutes.all('/ai-usage/*', lazy(() => import('./ai-usage-routes.ts')));
+apiRoutes.all('/system-admin/*', lazy(() => import('./system-admin-routes.ts')));
+apiRoutes.all('/role-permissions/*', lazy(() => import('./role-permissions-routes.ts')));
+apiRoutes.all('/cep/*', lazy(() => import('./cep-routes.ts')));
+apiRoutes.all('/cnpj/*', lazy(() => import('./cnpj-routes.ts')));
+apiRoutes.all('/inspection-items/*', lazy(() => import('./inspection-item-routes.ts')));
+apiRoutes.all('/media/*', lazy(() => import('./media-routes.ts')));
+apiRoutes.all('/gamification/*', lazy(() => import('./gamification-routes.ts')));
+apiRoutes.all('/action-plans/*', lazy(() => import('./action-plans-routes.ts')));
 
-apiRoutes.route('/kanban', kanbanRoutes);
-apiRoutes.route('/audit', auditRoutes);
-apiRoutes.route('/audit', auditRoutes);
-apiRoutes.route('/calendar', calendarRoutes);
-apiRoutes.route('/calendar-settings', calendarSettingsRoutes);
-apiRoutes.route('/calendar-upload', calendarUploadRoutes);
-apiRoutes.route('/integrations', integrationsRoutes);
-apiRoutes.route('/crm', crmRoutes);
-apiRoutes.route('/financial', financialRoutes);
-apiRoutes.route('/billing', financialRoutes); // Alias for easier frontend access
-apiRoutes.route('/webhooks/asaas', asaasWebhookRoutes); // Asaas payment gateway webhooks
-apiRoutes.route('/commerce', commerceRoutes);
-apiRoutes.route('/system-commerce', systemPlansRoutes); // Isolated Commerce Module
+// Alias action-items -> action-plans
+apiRoutes.all('/action-items/*', async (c) => {
+    try {
+        const { default: router } = await import('./action-plans-routes.ts');
+        const newUrl = c.req.url.replace('/action-items', '/action-plans');
+        const newReq = new Request(newUrl, c.req.raw);
+        return router.fetch(newReq, c.env, c.executionCtx);
+    } catch (e: any) {
+        return c.json({ error: 'Lazy Load Error', details: e.message }, 500);
+    }
+});
+
+apiRoutes.all('/autosuggest/*', lazy(() => import('./autosuggest-routes.ts')));
+apiRoutes.all('/ai-assistant/*', lazy(() => import('./ai-assistant-routes.ts')));
+apiRoutes.all('/kanban/*', lazy(() => import('./kanban-routes.ts')));
+apiRoutes.all('/audit/*', lazy(() => import('./audit-routes.ts')));
+apiRoutes.all('/calendar/*', lazy(() => import('./calendar-routes.ts')));
+apiRoutes.all('/calendar-settings/*', lazy(() => import('./calendar-settings-routes.ts')));
+apiRoutes.all('/calendar-upload/*', lazy(() => import('./calendar-upload-routes.ts')));
+apiRoutes.all('/integrations/*', lazy(() => import('./integrations-routes.ts')));
+apiRoutes.all('/crm/*', lazy(() => import('./crm-routes.ts')));
+apiRoutes.all('/financial/*', lazy(() => import('./financial-routes.ts')));
+apiRoutes.all('/billing/*', lazy(() => import('./financial-routes.ts'))); // Alias
+apiRoutes.all('/webhooks/asaas/*', lazy(() => import('./asaas-webhook.ts')));
+apiRoutes.all('/commerce/*', lazy(() => import('./checkout-flow-v2.ts')));
+apiRoutes.all('/system-commerce/*', lazy(() => import('./system-plans-routes.ts')));
+apiRoutes.all('/leads/*', lazy(() => import('./lead-capture.ts')));
+apiRoutes.all('/test-orgs/*', lazy(() => import('./test-orgs.ts')));
 
 // PUBLIC ROUTES (Landing Page)
 apiRoutes.get('/public-plans', async (c) => {
@@ -334,24 +324,13 @@ apiRoutes.get('/debug-usage/:orgId', async (c) => {
 });
 
 // App principal monta o sub-app em dois lugares:
-// 1. Na raiz '/' (para chamadas diretas ou sem prefixo)
-// 2. Em '/api' (para chamadas vindo do Vercel que faz rewrite mantendo o path)
 app.route('/', apiRoutes);
 app.route('/api', apiRoutes);
 
-// CRITICAL FIX: Explicitly mount organizations route to ensure visibility
-// This bypasses any nested routing issues in apiRoutes
-console.log('Explicitly mounting /organizations on root app');
-app.route('/organizations', organizationsRoutes);
-app.route('/orgs', organizationsRoutes); // ALIAS for testing
-app.route('/api/organizations', organizationsRoutes);
-
-// CRITICAL FIX: Explicitly mount financial routes
-console.log('Explicitly mounting /financial on root app');
-app.route('/financial', financialRoutes);
-app.route('/api/financial', financialRoutes);
-app.route('/billing', financialRoutes);
-app.route('/api/billing', financialRoutes);
+// Explicit mounts for critical routes to ensure they work at root level if needed
+// Or simply rely on the default route. 
+// Given the user wants "Conserte", cleaner is better.
+// The /financial, /organizations explicit mounts are redundant if apiRoutes handles them.
 
 Deno.serve(app.fetch)
 

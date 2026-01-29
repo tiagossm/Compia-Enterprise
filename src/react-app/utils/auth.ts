@@ -6,8 +6,7 @@ export function isSystemAdmin(user: any): boolean {
   const userRole = user.profile?.role || user.role;
   return userRole === 'system_admin' ||
     userRole === 'sys_admin' ||
-    userRole === 'admin' ||
-    (user.email && user.email.includes('admin'));
+    userRole === 'admin';
 }
 
 export function hasRole(user: any, role: string): boolean {
@@ -50,7 +49,27 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       const { syncService } = await import('../../lib/sync-service');
       const tempId = -Date.now(); // Temp ID for offline references
 
-      await syncService.enqueueMutation(url, options.method as any, options.body ? JSON.parse(options.body as string) : {}, tempId);
+      // Safe body parsing for offline queue
+      let payload = {};
+      if (options.body) {
+        if (typeof options.body === 'string') {
+          try {
+            payload = JSON.parse(options.body);
+          } catch (e) {
+            console.warn('[Offline] Could not parse body as JSON, storing as raw string', e);
+            payload = { _raw: options.body };
+          }
+        } else if (options.body instanceof FormData) {
+          // Basic serialization for FormData (Note: binary files might be lost if not handled specifically)
+          const obj: any = {};
+          options.body.forEach((value, key) => obj[key] = value);
+          payload = obj;
+        } else {
+          payload = options.body;
+        }
+      }
+
+      await syncService.enqueueMutation(url, options.method as any, payload, tempId);
       console.log('[Offline] Mutation queued:', url, 'TempID:', tempId);
 
       // Return valid fake response to keep UI happy

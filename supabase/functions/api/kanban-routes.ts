@@ -6,7 +6,7 @@ type Env = {
     DB: any;
 };
 
-const kanbanRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const kanbanRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/kanban');
 
 // Get columns for organization
 kanbanRoutes.get("/:orgId/columns", tenantAuthMiddleware, async (c) => {

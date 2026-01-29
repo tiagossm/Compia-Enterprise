@@ -16,7 +16,7 @@ type Env = {
     GEMINI_API_KEY: string;
 };
 
-const inspectionItemRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const inspectionItemRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/inspection-items');
 
 // Robust helper for AI Usage Increment
 // incrementAiUsage moved to ai-usage-tracker.ts

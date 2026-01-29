@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { tenantAuthMiddleware as authMiddleware } from './tenant-auth-middleware.ts';
 import { logActivity } from './audit-logger.ts';
 
-const shareRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const shareRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/share');
 
 const CreateShareSchema = z.object({
   inspection_id: z.number(),

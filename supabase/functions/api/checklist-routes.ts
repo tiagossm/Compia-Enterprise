@@ -12,7 +12,7 @@ type Env = {
   [key: string]: any;
 };
 
-const checklistRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const checklistRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/checklist');
 
 // List all checklist templates - ENHANCED ADMIN VISIBILITY
 // List all checklist templates - ENHANCED ADMIN VISIBILITY

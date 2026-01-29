@@ -22,6 +22,7 @@ import {
 import OrgAdminDashboard from '@/react-app/components/dashboard/OrgAdminDashboard';
 import SystemAdminDashboard from '@/react-app/components/dashboard/SystemAdminDashboard';
 import InspectorStatsWidget from '@/react-app/components/dashboard/InspectorStatsWidget';
+import GamificationCard from '@/react-app/components/gamification/GamificationCard';
 
 
 interface DashboardStats {
@@ -114,7 +115,12 @@ export default function Dashboard() {
       <div className="space-y-6">
         {extendedUser?.profile?.role === 'system_admin' && <SystemAdminDashboard />}
         {extendedUser?.profile?.role === 'org_admin' && <OrgAdminDashboard />}
-        {extendedUser?.profile?.role === 'inspector' && <InspectorStatsWidget />}
+        {extendedUser?.profile?.role === 'inspector' && (
+          <>
+            <GamificationCard />
+            <InspectorStatsWidget />
+          </>
+        )}
 
         {/* Only show standard dashboard for non-admins provided they have an org, or if admins want to see it below */}
         {extendedUser?.profile?.role !== 'system_admin' && extendedUser?.profile?.role !== 'org_admin' && (
