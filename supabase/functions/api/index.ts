@@ -329,7 +329,9 @@ apiRoutes.all('/action-items/*', async (c) => {
         const { default: router } = await import('./action-plans-routes.ts');
         const newUrl = c.req.url.replace('/action-items', '/action-plans');
         const newReq = new Request(newUrl, c.req.raw);
-        return router.fetch(newReq, c.env, c.executionCtx);
+        let executionCtx: any = undefined;
+        try { executionCtx = c.executionCtx; } catch { }
+        return router.fetch(newReq, c.env, executionCtx);
     } catch (e: any) {
         return c.json({ error: 'Lazy Load Error', details: e.message }, 500);
     }
