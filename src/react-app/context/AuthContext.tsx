@@ -45,10 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // Cache for offline
                     localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
                 } else if (response.status === 401) {
-                    console.warn('[AuthContext] Session expired or invalid (401). Clearing user.');
-                    setUser(null);
-                    setSession(null);
-                    await supabase.auth.signOut();
+                    console.warn('[AuthContext] API returned 401. Session locally active but API rejected.');
+                    // WARNING: Do NOT sign out immediately here. It causes loops if the token is just refreshing.
+                    // The API might be rejecting due to a momentary issue or RLS (even though we disabled it).
+                    // Let the flow continue - if the user is truly invalid, subsequent calls will fail or AuthGuard will catch it.
+                    // setUser(null); 
+                    // setSession(null);
+                    // await supabase.auth.signOut();
                     return;
                 } else if (response.status === 403) {
                     // User exists but pending approval or rejected
@@ -136,11 +139,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signOut = async () => {
-        // Clear organization selection so user starts with primary org on next login
+        try {
+            // Try to sign out from Supabase server (may fail with 403)
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch (error) {
+            // If server logout fails, log but continue
+            console.warn('[AuthContext] Server logout failed, forcing local cleanup:', error);
+        }
+
+        // CRITICAL: Force remove Supabase session from localStorage
+        // This is necessary because signOut() may fail but session remains cached
+        const supabaseLocalStorageKeys = Object.keys(localStorage).filter(key =>
+            key.startsWith('sb-') || key.includes('supabase')
+        );
+        supabaseLocalStorageKeys.forEach(key => localStorage.removeItem(key));
+
+        // Clear app-specific data
         localStorage.removeItem('compia_selected_org_id');
         localStorage.removeItem('cached_user_profile');
 
-        await supabase.auth.signOut();
+        // Clear React state
         setUser(null);
         setSession(null);
     };

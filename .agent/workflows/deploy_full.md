@@ -1,18 +1,18 @@
 ---
-description: Realiza o deploy completo da aplicação (Banco de Dados, Edge Functions e Frontend Vercel)
+description: Deploy Full Stack (Supabase Edge Functions + Web App)
 ---
 
-1. Deploy das Edge Functions do Supabase
-   ```bash
-   npx supabase functions deploy api --no-verify-jwt
-   ```
+1.  **Build Web App**:
+    ```poweshell
+    npm run build
+    ```
 
-2. Aplicação de Migrações do Banco de Dados
-   - Verificar migrações pendentes
-   - Aplicar via MCP (`supabase-mcp-server`) ou CLI (`npx supabase db push`)
+2.  **Deploy Edge Functions**:
+    ```powershell
+    supabase functions deploy api --no-verify-jwt
+    ```
 
-3. Deploy de Produção no Vercel
-   - Executar o comand de build e deploy
-   ```bash
-   vercel --prod
-   ```
+3.  **Deploy to Vercel**:
+    ```powershell
+    npx vercel --prod
+    ```

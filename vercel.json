@@ -2,6 +2,19 @@
     "framework": "vite",
     "buildCommand": "npm run build",
     "outputDirectory": "dist",
+    "redirects": [
+        {
+            "source": "/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "compia.tech"
+                }
+            ],
+            "destination": "https://www.compia.tech/:path*",
+            "permanent": false
+        }
+    ],
     "rewrites": [
         {
             "source": "/api/:path*",

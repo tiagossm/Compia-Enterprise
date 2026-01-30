@@ -196,13 +196,13 @@ checklistFoldersRoutes.post("/migrate-categories", tenantAuthMiddleware, async (
       req: c.req
     });
 
-    return c.json({
+    return c.json(safeJson({
       success: true,
       message: `Migração concluída com sucesso`,
       organizations_migrated: migrationDetails.length,
       templates_migrated: totalMigrated,
       details: migrationDetails
-    });
+    }));
 
   } catch (error) {
     console.error('Error in category migration:', error);
@@ -212,6 +212,15 @@ checklistFoldersRoutes.post("/migrate-categories", tenantAuthMiddleware, async (
     }, 500);
   }
 });
+
+// Helper to handle BigInt serialization
+const safeJson = (data: any) => {
+  return JSON.parse(JSON.stringify(data, (key, value) =>
+    typeof value === 'bigint'
+      ? value.toString()
+      : value
+  ));
+};
 
 // Listar pastas com contadores (requires checklist:folders:read scope)
 checklistFoldersRoutes.get("/folders", tenantAuthMiddleware, requireScopes(SCOPES.CHECKLIST_FOLDERS_READ), async (c) => {
@@ -230,16 +239,17 @@ checklistFoldersRoutes.get("/folders", tenantAuthMiddleware, requireScopes(SCOPE
     if (!userProfile && (user as any).profile) {
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
-    const parentId = c.req.query('parent_id') || null;
+    const rawParent = c.req.query('parent_id');
+    const parentId = (rawParent === undefined || rawParent === null || rawParent === '' || rawParent === 'null' || rawParent === 'undefined') ? null : rawParent;
 
     if (!userProfile?.organization_id) {
       return c.json(createAuthErrorResponse('forbidden', 'Usuário não possui organização associada', [SCOPES.CHECKLIST_FOLDERS_READ]), 403);
     }
 
     let whereClause = "WHERE (f.organization_id = ? OR f.organization_id IS NULL)";
-    let params: any[] = [userProfile?.organization_id];
+    let params: any[] = [userProfile?.organization_id || null];
 
-    if (parentId === null || parentId === 'null') {
+    if (parentId === null) {
       whereClause += " AND f.parent_id IS NULL";
     } else {
       whereClause += " AND f.parent_id = ?";
@@ -260,10 +270,10 @@ checklistFoldersRoutes.get("/folders", tenantAuthMiddleware, requireScopes(SCOPE
       ORDER BY f.display_order ASC, f.name ASC
     `).bind(...params).all();
 
-    return c.json({
+    return c.json(safeJson({
       folders: folders.results || [],
       parent_id: parentId
-    });
+    }));
 
   } catch (error) {
     console.error('Error fetching folders:', error);
@@ -305,7 +315,7 @@ checklistFoldersRoutes.get("/tree", tenantAuthMiddleware, async (c) => {
       WHERE (f.organization_id = ? OR f.organization_id IS NULL)
       GROUP BY f.id
       ORDER BY f.display_order ASC, f.name ASC
-    `).bind(userProfile?.organization_id).all();
+    `).bind(userProfile?.organization_id || null).all();
 
     // Construir árvore hierárquica (limitada a 3 níveis por performance)
     function buildTree(parentId: string | null = null, currentDepth = 0): any[] {
@@ -390,7 +400,10 @@ checklistFoldersRoutes.post("/folders", tenantAuthMiddleware, requireScopes(SCOP
 
   try {
     const body = await c.req.json();
-    const { name, description, parent_id, color, icon } = body;
+    let { name, description, parent_id, color, icon } = body;
+
+    // Normalize parent_id
+    if (parent_id === 'null' || parent_id === '' || parent_id === 0) parent_id = null;
 
     if (!name || name.trim() === '') {
       return c.json({ error: "Nome da pasta é obrigatório" }, 400);
@@ -406,23 +419,28 @@ checklistFoldersRoutes.post("/folders", tenantAuthMiddleware, requireScopes(SCOP
       return c.json(createAuthErrorResponse('forbidden', 'Usuário não possui organização associada', [SCOPES.CHECKLIST_FOLDERS_WRITE]), 403);
     }
 
-    // Verificar se pasta pai existe (se especificada)
+    // Verificar se pasta pai existe (se especificada e não null)
     if (parent_id) {
       const parentFolder = await env.DB.prepare(`
         SELECT id FROM checklist_folders 
         WHERE id = ? AND organization_id = ?
-      `).bind(parent_id, userProfile?.organization_id).first();
+      `).bind(parent_id, userProfile?.organization_id || null).first();
 
       if (!parentFolder) {
         return c.json({ error: "Pasta pai não encontrada" }, 404);
       }
     }
 
-    // Gerar slug único
-    const existingSlugs = await env.DB.prepare(`
-      SELECT slug FROM checklist_folders 
-      WHERE organization_id = ? AND parent_id ${parent_id ? '= ?' : 'IS NULL'}
-    `).bind(userProfile?.organization_id, ...(parent_id ? [parent_id] : [])).all();
+    // Gerar slug único (SAFE SQL)
+    const slugQuery = parent_id
+      ? `SELECT slug FROM checklist_folders WHERE organization_id = ? AND parent_id = ?`
+      : `SELECT slug FROM checklist_folders WHERE organization_id = ? AND parent_id IS NULL`;
+
+    const slugParams = parent_id
+      ? [userProfile?.organization_id || null, parent_id]
+      : [userProfile?.organization_id || null];
+
+    const existingSlugs = await env.DB.prepare(slugQuery).bind(...slugParams).all();
 
     const slugs = existingSlugs.results.map((r: any) => r.slug);
     const slug = generateSlug(name, slugs);
@@ -487,7 +505,10 @@ checklistFoldersRoutes.patch("/folders/:id", tenantAuthMiddleware, requireScopes
 
   try {
     const body = await c.req.json();
-    const { name, description, parent_id, color, icon } = body;
+    let { name, description, parent_id, color, icon } = body;
+
+    // Normalize parent_id
+    if (parent_id === 'null' || parent_id === '' || parent_id === 0) parent_id = null;
 
     let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
     if (!userProfile && (user as any).profile) {
@@ -498,7 +519,7 @@ checklistFoldersRoutes.patch("/folders/:id", tenantAuthMiddleware, requireScopes
     const folder = await env.DB.prepare(`
       SELECT * FROM checklist_folders 
       WHERE id = ? AND organization_id = ?
-    `).bind(folderId, userProfile?.organization_id).first() as any;
+    `).bind(folderId, userProfile?.organization_id || null).first() as any;
 
     if (!folder) {
       return c.json({ error: "Pasta não encontrada" }, 404);
@@ -509,25 +530,36 @@ checklistFoldersRoutes.patch("/folders/:id", tenantAuthMiddleware, requireScopes
     // Verificar se novo pai não cria ciclo
     if (parent_id && parent_id !== folder.parent_id) {
       let currentParent = parent_id;
-      while (currentParent) {
+      let depth = 0;
+      const MAX_DEPTH = 50; // Safety limit
+
+      while (currentParent && depth < MAX_DEPTH) {
         if (currentParent === folderId) {
           return c.json({ error: "Não é possível mover pasta para dentro de si mesma" }, 400);
         }
 
         const parentFolder = await env.DB.prepare("SELECT parent_id FROM checklist_folders WHERE id = ?")
           .bind(currentParent).first() as any;
-        currentParent = parentFolder?.parent_id;
+
+        if (!parentFolder) break;
+        currentParent = parentFolder.parent_id;
+        depth++;
       }
     }
 
     let newSlug = folder.slug;
 
-    // Se nome mudou, gerar novo slug
+    // Se nome mudou, gerar novo slug (SAFE SQL)
     if (name && name.trim() !== folder.name) {
-      const existingSlugs = await env.DB.prepare(`
-        SELECT slug FROM checklist_folders 
-        WHERE organization_id = ? AND parent_id ${parent_id ? '= ?' : 'IS NULL'} AND id != ?
-      `).bind(userProfile?.organization_id, ...(parent_id ? [parent_id] : []), folderId).all();
+      const slugQuery = parent_id
+        ? `SELECT slug FROM checklist_folders WHERE organization_id = ? AND parent_id = ? AND id != ?`
+        : `SELECT slug FROM checklist_folders WHERE organization_id = ? AND parent_id IS NULL AND id != ?`;
+
+      const slugParams = parent_id
+        ? [userProfile?.organization_id || null, parent_id, folderId]
+        : [userProfile?.organization_id || null, folderId];
+
+      const existingSlugs = await env.DB.prepare(slugQuery).bind(...slugParams).all();
 
       const slugs = existingSlugs.results.map((r: any) => r.slug);
       newSlug = generateSlug(name.trim(), slugs);
@@ -616,7 +648,7 @@ checklistFoldersRoutes.delete("/folders/:id", tenantAuthMiddleware, requireScope
     const folder = await env.DB.prepare(`
       SELECT * FROM checklist_folders 
       WHERE id = ? AND organization_id = ?
-    `).bind(folderId, userProfile?.organization_id).first() as any;
+    `).bind(folderId, userProfile?.organization_id || null).first() as any;
 
     if (!folder) {
       return c.json({ error: "Pasta não encontrada" }, 404);
@@ -726,7 +758,7 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, req
       const targetFolder = await env.DB.prepare(`
         SELECT id FROM checklist_folders 
         WHERE id = ? AND organization_id = ?
-      `).bind(targetFolderId, userProfile?.organization_id).first();
+      `).bind(targetFolderId, userProfile?.organization_id || null).first();
 
       if (!targetFolder) {
         return c.json({ error: "Pasta destino não encontrada" }, 404);
@@ -743,7 +775,7 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, req
           UPDATE checklist_templates 
           SET folder_id = ?, updated_at = NOW()
           WHERE id = ? AND organization_id = ?
-        `).bind(finalTargetId, templateId, userProfile?.organization_id).run();
+        `).bind(finalTargetId, templateId, userProfile?.organization_id || null).run();
 
         movedCount += result.meta.changes || 0;
       }
@@ -777,7 +809,7 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, req
           UPDATE checklist_folders 
           SET parent_id = ?, updated_at = NOW()
           WHERE id = ? AND organization_id = ?
-        `).bind(finalTargetId, folderId, userProfile?.organization_id).run();
+        `).bind(finalTargetId, folderId, userProfile?.organization_id || null).run();
 
         if (result.meta.changes && result.meta.changes > 0) {
           // Atualizar paths em cascata

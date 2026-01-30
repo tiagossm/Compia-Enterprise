@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 
-const autosuggest = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const autosuggest = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/autosuggest');
 
 type Env = {
   DB: any;

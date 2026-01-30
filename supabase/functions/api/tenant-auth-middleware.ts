@@ -257,11 +257,12 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
     c.set("tenantContext", tenantContext);
 
     // RLS: Configurar variável de sessão no Postgres para as policies funcionarem
-    // Isso é essencial para que 'current_setting('app.current_user_id')' funcione
+    // Usa variáveis padrão Supabase: request.jwt.claim.sub e role
     try {
         if (env.DB) {
-            // Configurar user_id
-            await env.DB.prepare("SELECT set_config('app.current_user_id', ?, false)").bind(userId).run();
+            // Configurar user_id usando padrão Supabase
+            await env.DB.prepare("SELECT set_config('request.jwt.claim.sub', ?, true)").bind(userId).run();
+            await env.DB.prepare("SELECT set_config('role', 'authenticated', true)").bind().run();
         }
     } catch (e) {
         console.error("[TENANT-AUTH] Erro ao configurar RLS session:", e);
@@ -273,8 +274,9 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
         // RLS: Limpar variável de sessão para evitar vazamento em conexões reutilizadas
         try {
             if (env.DB) {
-                // Reset user_id
-                await env.DB.prepare("SELECT set_config('app.current_user_id', '', false)").bind().run();
+                // Reset usando padrão Supabase
+                await env.DB.prepare("SELECT set_config('request.jwt.claim.sub', '', true)").bind().run();
+                await env.DB.prepare("SELECT set_config('role', '', true)").bind().run();
             }
         } catch (e) {
             console.error("[TENANT-AUTH] Erro ao limpar RLS session:", e);

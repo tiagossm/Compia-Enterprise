@@ -24,10 +24,14 @@ app.onError((err, c) => {
 
     return c.json({
         error: "Internal Server Error",
-        message: isDev ? err.message : "Ocorreu um erro interno. Nossa equipe já foi notificada.",
+        // DEBUG: Force stack trace exposure even in production
+        message: err.message || "Ocorreu um erro interno (DEBUG MODE).",
         code: "INTERNAL_ERROR",
-        // Stack apenas em dev
-        stack: isDev ? err.stack : undefined
+        stack: err.stack, // ALWAYS show stack for debugging 500
+        env_check: {
+            is_dev: isDev,
+            has_db: !!c.env?.DB
+        }
     }, 500);
 });
 
@@ -62,17 +66,16 @@ app.use('*', async (c, next) => {
     c.env = c.env || {}
 
     if (dbUrl) {
-        console.warn('[DB-DEBUG] DB Wrapper loading DISABLED for debugging 500 error.');
-        // try {
-        //     // Lazy load D1 Wrapper (Postgres driver) to reduce boot time
-        //     // console.log('[DB-DEBUG] Lazy loading d1-wrapper...');
-        //     const { createD1Wrapper } = await import('./d1-wrapper.ts');
-        //     // @ts-ignore
-        //     c.env.DB = createD1Wrapper(dbUrl)
-        //     // console.log('[DB-DEBUG] DB Wrapper initialized');
-        // } catch (dbErr: any) {
-        //     console.error('[DB-DEBUG] Failed to lazy load DB wrapper:', dbErr);
-        // }
+        try {
+            // Lazy load D1 Wrapper (Postgres driver) to reduce boot time
+            // console.log('[DB-DEBUG] Lazy loading d1-wrapper...');
+            const { createD1Wrapper } = await import('./d1-wrapper.ts');
+            // @ts-ignore
+            c.env.DB = createD1Wrapper(dbUrl)
+            // console.log('[DB-DEBUG] DB Wrapper initialized');
+        } catch (dbErr: any) {
+            console.error('[DB-DEBUG] Failed to lazy load DB wrapper:', dbErr);
+        }
     } else {
         console.warn('[DB-DEBUG] No SUPABASE_DB_URL found');
     }
@@ -89,11 +92,27 @@ app.use('*', async (c, next) => {
     // @ts-ignore
     c.env.SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-    const path = c.req.path;
-    console.log(`[AUTH-DEBUG] ===== Request: ${c.req.method} ${path} =====`);
+    // Normalização robusta do path para Supabase Edge Functions
+    const url = new URL(c.req.url);
+    const rawPath = url.pathname;
+    const path = rawPath.replace('/functions/v1', ''); // Remove prefixo padrão do Supabase se existir
+
+    console.log(`[AUTH-DEBUG] ===== Request: ${c.req.method} ${path} (raw: ${rawPath}) =====`);
 
     // Rotas públicas que não precisam de autenticação
-    const publicPaths = ['/api/health', '/api/', '/api/shared', '/api/test-orgs/debug', '/test-orgs/debug', '/api/calendar/debug', '/api/debug-usage'];
+    const publicPaths = [
+        '/api/health',
+        '/api/',
+        '/api/shared',
+        '/api/test-orgs/debug',
+        '/test-orgs/debug',
+        '/api/calendar/debug',
+        '/api/debug-usage',
+        '/api/public-plans', // CORREÇÃO: Adicionada rota de planos públicos
+        '/api/auth/callback' // Garantir callback
+    ];
+
+    // Verificação flexível (exact match ou prefixo)
     const isPublicRoute = publicPaths.some(p => path === p || path.startsWith(p + '/'));
 
     if (isPublicRoute) {
@@ -111,23 +130,23 @@ app.use('*', async (c, next) => {
         console.log(`[AUTH-DEBUG] Authorization header: ${authHeader ? 'present (' + authHeader.substring(0, 30) + '...)' : 'absent'}`);
 
         if (authHeader) {
-            console.log('[AUTH-DEBUG] Auth Header present but Supabase Client loading DISABLED for debugging 500 error.');
-            // try {
-            //    // Lazy load Supabase Client to reduce boot time
-            //    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-            //    console.log('[AUTH-DEBUG] Supabase Client loaded');
+            console.log('[AUTH-DEBUG] Lazy loading Supabase Client...');
+            try {
+                // Lazy load Supabase Client to reduce boot time
+                const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                console.log('[AUTH-DEBUG] Supabase Client loaded');
 
-            //    const supabaseClient = createClient(
-            //        Deno.env.get('SUPABASE_URL') ?? '',
-            //        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            //        { global: { headers: { Authorization: authHeader } } }
-            //    )
-            //    const { data, error } = await supabaseClient.auth.getUser()
-            //    user = data?.user;
-            //    console.log(`[AUTH-DEBUG] Supabase Auth: ${user ? 'found user ' + user.email : 'no user'}, error: ${error?.message || 'none'}`);
-            // } catch (err: any) {
-            //    console.error('[AUTH-DEBUG] Error loading/using Supabase Client:', err);
-            // }
+                const supabaseClient = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+                    { global: { headers: { Authorization: authHeader } } }
+                )
+                const { data, error } = await supabaseClient.auth.getUser()
+                user = data?.user;
+                console.log(`[AUTH-DEBUG] Supabase Auth: ${user ? 'found user ' + user.email : 'no user'}, error: ${error?.message || 'none'}`);
+            } catch (err: any) {
+                console.error('[AUTH-DEBUG] Error loading/using Supabase Client:', err);
+            }
 
             // AUTO-SYNC: If user from Supabase Auth doesn't exist in DB, create them
             if (user && user.email && c.env?.DB) {
@@ -229,11 +248,26 @@ apiRoutes.get('/health', async (c) => {
     }, dbStatus === 'connected' ? 200 : 503)
 })
 
+// SMOKE TEST ROUTE
+apiRoutes.get('/smoke-test', (c) => {
+    return c.json({
+        status: 'alive',
+        message: 'Routing is working',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // --- SCALABLE LAZY LOADING ARCHITECTURE ---
 const lazy = (importer: () => Promise<any>) => async (c: any) => {
     try {
         const { default: router } = await importer();
-        return router.fetch(c.req.raw, c.env, c.executionCtx);
+        // SAFE ACCESS: c.executionCtx throws if undefined in Hono
+        let executionCtx = undefined;
+        try {
+            executionCtx = c.executionCtx;
+        } catch { }
+
+        return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
         console.error(`Lazy Load Error (${c.req.path}):`, e);
         return c.json({
@@ -248,18 +282,23 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
 // CHECKLIST ROUTING (Advanced Dispatch)
 apiRoutes.all('/checklist/*', async (c) => {
     try {
-        if (c.req.path.includes('/checklist/folders') || c.req.path.includes('/checklist/migrate-categories')) {
+        if (c.req.path.includes('/checklist/folders') || c.req.path.includes('/checklist/migrate-categories') || c.req.path.includes('/checklist/tree')) {
             const { default: router } = await import('./checklist-folders-routes.ts');
             return router.fetch(c.req.raw, c.env, c.executionCtx);
         }
         const { default: router } = await import('./checklist-routes.ts');
         return router.fetch(c.req.raw, c.env, c.executionCtx);
     } catch (e: any) {
-        return c.json({ error: 'Lazy Load Error', details: e.message }, 500);
+        console.error('[LazyLoad] Checkist Route Error:', e);
+        return c.json({ error: 'Lazy Load Error', details: e.message, stack: e.stack }, 500);
     }
 });
 
+// DEBUG ROUTES (temporary for troubleshooting)
+apiRoutes.all('/debug/*', lazy(() => import('./debug-checklist.ts')));
+
 // Explicit Lazy Routes
+apiRoutes.all('/users', lazy(() => import('./users-routes.ts')));
 apiRoutes.all('/users/*', lazy(() => import('./users-routes.ts')));
 apiRoutes.all('/organizations/*', lazy(() => import('./organizations-routes.ts')));
 apiRoutes.all('/inspections/*', lazy(() => import('./inspection-routes.ts')));
@@ -309,6 +348,7 @@ apiRoutes.all('/commerce/*', lazy(() => import('./checkout-flow-v2.ts')));
 apiRoutes.all('/system-commerce/*', lazy(() => import('./system-plans-routes.ts')));
 apiRoutes.all('/leads/*', lazy(() => import('./lead-capture.ts')));
 apiRoutes.all('/test-orgs/*', lazy(() => import('./test-orgs.ts')));
+apiRoutes.all('/test/*', lazy(() => import('./test-rls-routes.ts'))); // RLS Testing Routes
 
 // PUBLIC ROUTES (Landing Page)
 apiRoutes.get('/public-plans', async (c) => {

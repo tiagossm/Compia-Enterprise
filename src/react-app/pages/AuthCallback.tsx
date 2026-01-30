@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth } from '@/react-app/context/AuthContext';
+import { useAuth, supabase } from '@/react-app/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Shield, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export default function AuthCallback() {
       error: sp.get('error'),
       error_description: sp.get('error_description'),
       // opcional: para voltar à rota original
-      redirect: sp.get('redirect') || '/',
+      redirect: sp.get('redirect') || '/dashboard',
     };
   }, []);
 
@@ -39,8 +39,19 @@ export default function AuthCallback() {
         return;
       }
 
-      // 2) Precisa ter code
+      // 2) Precisa ter code (OU já ter uma sessão ativa recuperada pelo cliente Supabase)
       if (!oauthParams.code) {
+        // Correção crítica: O cliente do Supabase (detectSessionInUrl: true) pode ter consumido o código
+        // e limpado a URL antes de chegarmos aqui. Vamos verificar se já temos sessão.
+        const { data } = await supabase.auth.getSession();
+
+        if (data?.session) {
+          console.log('Código não encontrado na URL, mas sessão já está ativa (Supabase auto-detect).');
+          setStatus('success');
+          return;
+        }
+
+        // Se realmente não tem código E não tem sessão, aí sim é erro.
         setStatus('error');
         setError('Código de autorização não encontrado na URL');
         return;
@@ -59,10 +70,23 @@ export default function AuthCallback() {
       try {
         setStatus('loading');
 
-        // 🔸 Chama sem argumentos, conforme esperado pela biblioteca
-        await exchangeCodeForSessionToken?.();
+        // 🔸 Tentar trocar o código
+        try {
+          await exchangeCodeForSessionToken?.();
+          setStatus('success');
+        } catch (exchangeError: any) {
+          console.warn('Troca de código falhou, verificando se já existe sessão válida...', exchangeError);
 
-        setStatus('success');
+          // Fallback: Verificar se o usuário JÁ está logado (Race condition do StrictMode)
+          const { data } = await supabase.auth.getSession();
+          if (data.session) {
+            console.log('Sessão encontrada apesar do erro na troca de código. Prosseguindo.');
+            setStatus('success');
+          } else {
+            // Se não tem sessão, então o erro foi real
+            throw exchangeError;
+          }
+        }
       } catch (e: any) {
         console.error('Auth callback error:', e);
         setStatus('error');
@@ -81,7 +105,7 @@ export default function AuthCallback() {
   // Redireciona quando o status é success (não precisa esperar user carregar)
   if (status === 'success') {
     const sp = new URLSearchParams(window.location.search);
-    const redirectTo = sp.get('redirect') || '/';
+    const redirectTo = sp.get('redirect') || '/dashboard';
     return <Navigate to={redirectTo} replace />;
   }
 

@@ -1,5 +1,5 @@
 import './utils/fetch-setup'; // Configure fetch to always include credentials
-import { Routes, Route, BrowserRouter as Router } from "react-router-dom";
+import { Routes, Route, BrowserRouter as Router, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/react-app/context/AuthContext";
 import { OrganizationProvider } from "@/react-app/context/OrganizationContext";
 import { ToastProvider } from "@/react-app/hooks/useToast";
@@ -74,7 +74,8 @@ export default function App() {
                   <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
 
                   {/* Protected routes */}
-                  <Route path="/app" element={<AuthGuard><HomePage /></AuthGuard>} />
+                  <Route path="/app" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<AuthGuard><HomePage /></AuthGuard>} />
                   <Route path="/inspections" element={<AuthGuard><Inspections /></AuthGuard>} />
                   <Route path="/inspections/new" element={<AuthGuard><NewInspection /></AuthGuard>} />
                   <Route path="/inspections/:id/edit" element={<AuthGuard><NewInspection /></AuthGuard>} />

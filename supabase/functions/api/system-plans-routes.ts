@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 
 const systemPlansRoutes = new Hono().basePath('/api/system-commerce');
 
@@ -10,7 +11,7 @@ const getSupabaseAdmin = () => createClient(
 );
 
 // Middleware: Check System Admin
-systemPlansRoutes.use('*', async (c, next) => {
+systemPlansRoutes.use('*', tenantAuthMiddleware, async (c, next) => {
     const user = c.get('user');
     if (!user) return c.json({ error: 'Unauthorized' }, 401);
 

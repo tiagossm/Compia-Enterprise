@@ -4,6 +4,7 @@ import CompiaLogo from '@/react-app/components/CompiaLogo';
 import Header from '@/react-app/components/Header';
 import { useAuth } from '@/react-app/context/AuthContext';
 import { ExtendedMochaUser } from '@/shared/user-types';
+import { fetchWithAuth } from '@/react-app/utils/auth';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -72,7 +73,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
 
   const fetchOrgUsage = async (orgId: number | string) => {
     try {
-      const response = await fetch(`/api/organizations/${orgId}`);
+      const response = await fetchWithAuth(`/api/organizations/${orgId}`);
       if (response.ok) {
         const data = await response.json();
         const orgData = data.organization || data;
@@ -156,7 +157,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
       >
         {/* Logo Area */}
         <div className="h-20 flex items-center px-6 border-b border-slate-50 shrink-0">
-          <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
+          <Link to="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
             <CompiaLogo size={42} textSize={30} />
           </Link>
           <button
@@ -173,7 +174,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
           {/* Visão Geral */}
           <div className="space-y-1 mb-2">
             <p className="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-4">Visão Geral</p>
-            <NavItem item={{ name: 'Dashboard', href: '/', icon: LayoutDashboard }} />
+            <NavItem item={{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }} />
             <NavItem item={{ name: 'Relatórios', href: '/reports', icon: BarChart3 }} />
           </div>
 
@@ -270,9 +271,9 @@ export default function Layout({ children, actionButton }: LayoutProps) {
             >
               {/* Google Avatar or Initials Fallback */}
               <div className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 border border-gray-200 overflow-hidden shadow-sm group-hover:shadow-md transition-all">
-                {extendedUser?.google_user_data?.picture ? (
+                {extendedUser?.google_user_data?.picture || profile?.avatar_url ? (
                   <img
-                    src={extendedUser.google_user_data.picture}
+                    src={extendedUser?.google_user_data?.picture || profile?.avatar_url || ''}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />

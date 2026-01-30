@@ -162,17 +162,38 @@ usersRoutes.get("/profile", authMiddleware, async (c) => {
       }
 
       userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+
+      if (!userProfile) {
+        return c.json({ error: "User profile not found" }, 404);
+      }
+
+      let organization = null;
+      let managedOrganization = null;
+
+      if (userProfile.organization_id) {
+        organization = await env.DB.prepare("SELECT * FROM organizations WHERE id = ?").bind(userProfile.organization_id).first();
+      }
+
+      if (userProfile.role === USER_ROLES.ORG_ADMIN && userProfile.managed_organization_id) {
+        managedOrganization = await env.DB.prepare("SELECT * FROM organizations WHERE id = ?").bind(userProfile.managed_organization_id).first();
+      }
+
+      return c.json({
+        profile: userProfile,
+        organization: organization,
+        managed_organization: managedOrganization
+      });
     }
 
-    // Get organization if exists
+    // Se o usuário já existe, buscar organização
     let organization = null;
+    let managedOrganization = null;
+
     if (userProfile.organization_id) {
       organization = await env.DB.prepare("SELECT * FROM organizations WHERE id = ?").bind(userProfile.organization_id).first();
     }
 
-    // Get managed organization for org admins
-    let managedOrganization = null;
-    if (userProfile.managed_organization_id) {
+    if (userProfile.role === USER_ROLES.ORG_ADMIN && userProfile.managed_organization_id) {
       managedOrganization = await env.DB.prepare("SELECT * FROM organizations WHERE id = ?").bind(userProfile.managed_organization_id).first();
     }
 
@@ -340,7 +361,7 @@ usersRoutes.get("/simple-list", authMiddleware, async (c) => {
 });
 
 // Get all users (requires users:read scope)
-usersRoutes.get("/", authMiddleware, requireScopes(SCOPES.USERS_READ), async (c) => {
+const listUsersHandler = async (c: any) => {
   const env = c.env;
   const user = c.get("user");
 
@@ -426,7 +447,11 @@ usersRoutes.get("/", authMiddleware, requireScopes(SCOPES.USERS_READ), async (c)
     console.error('[LIST_USERS] Error fetching users:', error);
     return c.json({ error: "Failed to fetch users." }, 500);
   }
-});
+};
+
+// Bind handler to both / and empty path to prevent strict routing issues
+usersRoutes.get("/", authMiddleware, requireScopes(SCOPES.USERS_READ), listUsersHandler);
+usersRoutes.get("", authMiddleware, requireScopes(SCOPES.USERS_READ), listUsersHandler);
 
 // Get user statistics (for admins)
 usersRoutes.get("/stats", authMiddleware, async (c) => {

@@ -12,6 +12,15 @@ type Env = {
   [key: string]: any;
 };
 
+// Helper to handle BigInt serialization
+const safeJson = (data: any) => {
+  return JSON.parse(JSON.stringify(data, (key, value) =>
+    typeof value === 'bigint'
+      ? value.toString()
+      : value
+  ));
+};
+
 const checklistRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/checklist');
 
 // List all checklist templates - ENHANCED ADMIN VISIBILITY
@@ -45,13 +54,22 @@ async function handleListTemplates(c: any) {
   }
 
   try {
-    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
-    if (!userProfile && (user as any).profile) {
-      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    // STAGE 1: Fetch User Profile
+    let userProfile: any = null;
+    try {
+      userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
+      if (!userProfile && (user as any).profile) {
+        userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+      }
+    } catch (userErr: any) {
+      console.error('[TEMPLATES] User Fetch Error:', userErr);
+      // Fail open or return error? Let's return error to debug
+      throw new Error(`User Fetch Error: ${userErr.message} (binding user.id: ${user.id})`);
     }
 
     console.log(`[TEMPLATES] [PROD] Usuario ${user.email} role: ${userProfile?.role} org: ${userProfile?.organization_id}`);
 
+    // STAGE 2: Fetch Templates
     let query = `
       SELECT ct.*, 
              COUNT(cf.id) as field_count,
@@ -64,25 +82,29 @@ async function handleListTemplates(c: any) {
 
     // ADMIN SYSTEM TEM ACESSO IRRESTRITO A TUDO
     if (userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'admin') {
-      console.log(`[TEMPLATES] [PROD] ADMIN COMPLETO - TODAS as templates sem filtros aplicados`);
+      // ...
     } else {
-      // Postgres boolean comparison requires true/false
+      // ...
       let conditions = ["ct.is_public = true", "ct.created_by_user_id = ?"];
       params.push(user.id);
 
       if (userProfile?.organization_id) {
         conditions.push("ct.organization_id = ?");
         params.push(userProfile.organization_id);
+      } else {
+        conditions.push("ct.organization_id IS NULL");
       }
       whereClause.push(`(${conditions.join(" OR ")})`);
     }
 
-    // Filter by folder_id
-    const folderId = c.req.query("folder_id");
-    if (folderId && folderId !== 'null') {
+    // Filter by folder_id - ROBUST NORMALIZATION
+    const rawFolderId = c.req.query("folder_id");
+    const folderId = (rawFolderId === undefined || rawFolderId === null || rawFolderId === '' || rawFolderId === 'null' || rawFolderId === 'undefined') ? null : rawFolderId;
+
+    if (folderId && folderId !== null) {
       whereClause.push("ct.folder_id = ?");
       params.push(folderId);
-    } else if (folderId === 'null') {
+    } else if (folderId === null) {
       whereClause.push("ct.folder_id IS NULL");
     }
 
@@ -92,36 +114,17 @@ async function handleListTemplates(c: any) {
 
     query += " GROUP BY ct.id ORDER BY ct.display_order ASC, ct.created_at DESC";
 
-    console.log(`[TEMPLATES] [PROD] Query final: ${query}`);
-    console.log(`[TEMPLATES] [PROD] Parametros: ${JSON.stringify(params)}`);
+    console.log(`[TEMPLATES] [DEBUG] Query: ${query}`);
+    console.log(`[TEMPLATES] [DEBUG] Params: ${JSON.stringify(params)}`);
 
+    // Using .all() directly on the prepared statement
     const result = await env.DB.prepare(query).bind(...params).all();
     const templates = result.results || [];
 
     console.log(`[TEMPLATES] [PROD] Found ${templates.length} templates for user ${user.email} (role: ${userProfile?.role})`);
 
-    if (templates.length > 0) {
-      console.log(`[TEMPLATES] [PROD] Primeiras templates encontradas:`, templates.slice(0, 5).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        is_public: t.is_public,
-        organization_id: t.organization_id,
-        created_by_user_id: t.created_by_user_id,
-        is_folder: t.is_category_folder
-      })));
-    } else {
-      console.log(`[TEMPLATES] [PROD] ZERO templates encontradas - possível problema de filtros`);
-      console.log(`[TEMPLATES] [PROD] Debug info:`, {
-        userRole: userProfile?.role,
-        userOrgId: userProfile?.organization_id,
-        userId: user.id,
-        userEmail: user.email,
-        isSystemAdmin: userProfile?.role === USER_ROLES.SYSTEM_ADMIN,
-        isAdmin: userProfile?.role === 'admin'
-      });
-    }
-
-    return c.json({ templates });
+    // Use safeJson to handle BigInts
+    return c.json(safeJson({ templates }));
   } catch (error) {
     console.error('[TEMPLATES] [PROD] Error fetching templates:', error);
     return c.json({

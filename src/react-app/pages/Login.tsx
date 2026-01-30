@@ -15,7 +15,7 @@ export default function Login() {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
 
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');

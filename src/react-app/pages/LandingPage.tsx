@@ -18,6 +18,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/react-app/context/AuthContext';
 import DynamicPricing from '@/react-app/components/landing/DynamicPricing';
 
 /* --- Components --- */
@@ -61,7 +62,15 @@ export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth(); // Add auth check
   const [activeSector, setActiveSector] = useState('agro');
+
+  useEffect(() => {
+    // Redirect to dashboard if already authenticated
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const handleScroll = () => {

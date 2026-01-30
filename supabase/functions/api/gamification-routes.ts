@@ -1,5 +1,34 @@
 import { Hono } from "hono";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+
+// Exported function for other modules to add XP
+export async function addXP(userId: string, xpAmount: number, db: any): Promise<void> {
+    try {
+        // Get current XP
+        const current = await db.prepare(
+            "SELECT current_xp, level FROM users WHERE id = ?"
+        ).bind(userId).first();
+
+        if (!current) {
+            console.warn(`[GAMIFICATION] User ${userId} not found for XP update`);
+            return;
+        }
+
+        const newXP = (current.current_xp || 0) + xpAmount;
+        // Level formula: floor(sqrt(XP / 100)) + 1
+        const newLevel = Math.floor(Math.sqrt(newXP / 100)) + 1;
+
+        await db.prepare(
+            "UPDATE users SET current_xp = ?, level = ?, total_points = COALESCE(total_points, 0) + ?, updated_at = NOW() WHERE id = ?"
+        ).bind(newXP, newLevel, xpAmount, userId).run();
+
+        console.log(`[GAMIFICATION] User ${userId}: +${xpAmount}XP (total: ${newXP}, level: ${newLevel})`);
+    } catch (error) {
+        console.error('[GAMIFICATION] Error adding XP:', error);
+        // Don't throw - gamification failures shouldn't break core workflows
+    }
+}
 
 const gamificationRoutes = new Hono().basePath('/api/gamification');
 
@@ -26,7 +55,7 @@ function getCurrentLevelMinXP(currentLevel: number): number {
 }
 
 // Get My Gamification Stats
-gamificationRoutes.get("/me", async (c) => {
+gamificationRoutes.get("/me", tenantAuthMiddleware, async (c) => {
     // 1. Initialize Supabase Client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -106,7 +135,7 @@ gamificationRoutes.get("/me", async (c) => {
 });
 
 // Get Leaderboard (Top 10 by Organization)
-gamificationRoutes.get("/leaderboard", async (c) => {
+gamificationRoutes.get("/leaderboard", tenantAuthMiddleware, async (c) => {
     // 1. Initialize Supabase Client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";

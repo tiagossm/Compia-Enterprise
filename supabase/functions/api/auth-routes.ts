@@ -81,7 +81,7 @@ authRoutes.get("/debug-permissions", tenantAuthMiddleware, (c) => {
 });
 
 // Get current user details - supports both Supabase auth and session cookie
-authRoutes.get("/me", async (c) => {
+authRoutes.get("/me", tenantAuthMiddleware, async (c) => {
     const env = c.env;
 
     // 1. Try Supabase auth user first (for Google login)
@@ -143,6 +143,7 @@ authRoutes.get("/me", async (c) => {
             can_create_organizations: dbUser.can_create_organizations,
             is_active: dbUser.is_active,
             managed_organization_id: dbUser.managed_organization_id,
+            avatar_url: dbUser.avatar_url,
             created_at: dbUser.created_at,
             updated_at: dbUser.updated_at,
             profile_completed: true,

@@ -22,13 +22,28 @@ export function createD1Wrapper(connectionString: string) {
             let paramCount = 0;
             const pgQuery = query.replace(/\?/g, () => `$${++paramCount}`);
 
-            const createExecutionMethods = (params: any[]) => ({
-                bind: (...newParams: any[]) => createExecutionMethods(newParams),
+            const createExecutionMethods = (params: any[], userId?: string) => ({
+                bind: (...newParams: any[]) => createExecutionMethods(newParams, userId),
+                withUser: (id: string) => createExecutionMethods(params, id),
                 first: async () => {
-                    try {
+                    const runQuery = async (trx: any) => {
+                        if (userId) {
+                            await trx`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`;
+                            await trx`SELECT set_config('role', 'authenticated', true)`;
+                        }
                         const sanitizedParams = params.map(p => p === undefined ? null : p);
-                        const result = await sql.unsafe(pgQuery, sanitizedParams);
+                        const result = await trx.unsafe(pgQuery, sanitizedParams);
                         return result[0] || null;
+                    };
+
+                    try {
+                        if (userId) {
+                            // Using a transaction ensures the config is set for THIS operation only
+                            return await sql.begin(runQuery);
+                        } else {
+                            // No RLS context, run directly (might fail policies!)
+                            return await runQuery(sql);
+                        }
                     } catch (error) {
                         const errObj = error instanceof Error ?
                             { name: error.name, message: error.message, stack: error.stack } :
@@ -38,10 +53,22 @@ export function createD1Wrapper(connectionString: string) {
                     }
                 },
                 run: async () => {
-                    try {
+                    const runQuery = async (trx: any) => {
+                        if (userId) {
+                            await trx`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`;
+                            await trx`SELECT set_config('role', 'authenticated', true)`;
+                        }
                         const sanitizedParams = params.map(p => p === undefined ? null : p);
-                        const result = await sql.unsafe(pgQuery, sanitizedParams);
+                        const result = await trx.unsafe(pgQuery, sanitizedParams);
                         return { success: true, meta: { changes: result.count, last_row_id: result[0]?.id }, id: result[0]?.id };
+                    };
+
+                    try {
+                        if (userId) {
+                            return await sql.begin(runQuery);
+                        } else {
+                            return await runQuery(sql);
+                        }
                     } catch (error) {
                         const errObj = error instanceof Error ?
                             { name: error.name, message: error.message, stack: error.stack } :
@@ -51,10 +78,22 @@ export function createD1Wrapper(connectionString: string) {
                     }
                 },
                 all: async () => {
-                    try {
+                    const runQuery = async (trx: any) => {
+                        if (userId) {
+                            await trx`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`;
+                            await trx`SELECT set_config('role', 'authenticated', true)`;
+                        }
                         const sanitizedParams = params.map(p => p === undefined ? null : p);
-                        const result = await sql.unsafe(pgQuery, sanitizedParams);
+                        const result = await trx.unsafe(pgQuery, sanitizedParams);
                         return { results: result };
+                    };
+
+                    try {
+                        if (userId) {
+                            return await sql.begin(runQuery);
+                        } else {
+                            return await runQuery(sql);
+                        }
                     } catch (error) {
                         const errObj = error instanceof Error ?
                             { name: error.name, message: error.message, stack: error.stack } :
@@ -64,10 +103,22 @@ export function createD1Wrapper(connectionString: string) {
                     }
                 },
                 raw: async () => {
-                    try {
+                    const runQuery = async (trx: any) => {
+                        if (userId) {
+                            await trx`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`;
+                            await trx`SELECT set_config('role', 'authenticated', true)`;
+                        }
                         const sanitizedParams = params.map(p => p === undefined ? null : p);
-                        const result = await sql.unsafe(pgQuery, sanitizedParams);
-                        return result;
+                        // raw returns array directly
+                        return await trx.unsafe(pgQuery, sanitizedParams);
+                    };
+
+                    try {
+                        if (userId) {
+                            return await sql.begin(runQuery);
+                        } else {
+                            return await runQuery(sql);
+                        }
                     } catch (error) {
                         const errObj = error instanceof Error ?
                             { name: error.name, message: error.message, stack: error.stack } :

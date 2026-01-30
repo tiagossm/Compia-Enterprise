@@ -81,7 +81,7 @@ export default function Users() {
     try {
       console.log('[USERS_PAGE] Buscando usuarios - usuario atual:', currentUser?.email, 'role:', extendedUser?.profile?.role);
 
-      let url = '/api/users';
+      let url = '/api/users/';
 
       // System admin vê todos os usuários, incluindo os não atribuídos
       if (extendedUser?.profile?.role === 'system_admin' || extendedUser?.profile?.role === 'sys_admin') {
