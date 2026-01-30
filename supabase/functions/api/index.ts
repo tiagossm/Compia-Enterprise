@@ -282,12 +282,15 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
 // CHECKLIST ROUTING (Advanced Dispatch)
 apiRoutes.all('/checklist/*', async (c) => {
     try {
+        let executionCtx: any = undefined;
+        try { executionCtx = c.executionCtx; } catch { }
+
         if (c.req.path.includes('/checklist/folders') || c.req.path.includes('/checklist/migrate-categories') || c.req.path.includes('/checklist/tree')) {
             const { default: router } = await import('./checklist-folders-routes.ts');
-            return router.fetch(c.req.raw, c.env, c.executionCtx);
+            return router.fetch(c.req.raw, c.env, executionCtx);
         }
         const { default: router } = await import('./checklist-routes.ts');
-        return router.fetch(c.req.raw, c.env, c.executionCtx);
+        return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
         console.error('[LazyLoad] Checkist Route Error:', e);
         return c.json({ error: 'Lazy Load Error', details: e.message, stack: e.stack }, 500);
