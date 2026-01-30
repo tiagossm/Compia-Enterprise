@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 import { USER_ROLES } from "./user-types.ts";
+import { isSystemAdmin } from "./rbac-middleware.ts"; // [SEC-011] Gatekeeper 30/01/2026
 import { logActivity } from "./audit-logger.ts";
 import { aiRateLimitMiddleware, finalizeAIUsage } from "./ai-rate-limit.ts";
 import { generateAICompletion } from "./ai-service.ts";
@@ -62,8 +63,8 @@ async function handleListTemplates(c: any) {
     let params: any[] = [];
     let whereClause = ["(ct.is_category_folder = false OR ct.is_category_folder IS NULL)"];
 
-    // ADMIN SYSTEM TEM ACESSO IRRESTRITO A TUDO
-    if (userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'admin') {
+    // [SEC-011] ADMIN SYSTEM TEM ACESSO IRRESTRITO A TUDO - Padronizado via isSystemAdmin()
+    if (isSystemAdmin(userProfile?.role || '')) {
       console.log(`[TEMPLATES] [PROD] ADMIN COMPLETO - TODAS as templates sem filtros aplicados`);
     } else {
       // Postgres boolean comparison requires true/false
@@ -116,8 +117,7 @@ async function handleListTemplates(c: any) {
         userOrgId: userProfile?.organization_id,
         userId: user.id,
         userEmail: user.email,
-        isSystemAdmin: userProfile?.role === USER_ROLES.SYSTEM_ADMIN,
-        isAdmin: userProfile?.role === 'admin'
+        isAdmin: isSystemAdmin(userProfile?.role || '') // [SEC-011] Padronizado
       });
     }
 
@@ -272,10 +272,8 @@ checklistRoutes.post("/checklist-fields", tenantAuthMiddleware, async (c) => {
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
-    // Check permissions
-    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
-      userProfile?.role === 'sys_admin' ||
-      userProfile?.role === 'admin';
+    // [SEC-011] Check permissions - Padronizado via isSystemAdmin()
+    const isSysAdmin = isSystemAdmin(userProfile?.role || '');
 
     if (!isSysAdmin) {
       if (template.created_by_user_id !== user.id && template.organization_id !== userProfile?.organization_id) {
@@ -333,10 +331,8 @@ checklistRoutes.put("/checklist-templates/:id", tenantAuthMiddleware, async (c) 
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
-    // Check permissions - SYS_ADMIN TEM ACESSO TOTAL
-    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
-      userProfile?.role === 'sys_admin' ||
-      userProfile?.role === 'admin';
+    // [SEC-011] Check permissions - Padronizado via isSystemAdmin()
+    const isSysAdmin = isSystemAdmin(userProfile?.role || '');
 
     if (!isSysAdmin) {
       if (template.created_by_user_id !== user.id && template.organization_id !== userProfile?.organization_id) {
@@ -345,7 +341,7 @@ checklistRoutes.put("/checklist-templates/:id", tenantAuthMiddleware, async (c) 
     }
 
     await env.DB.prepare(`
-      UPDATE checklist_templates 
+      UPDATE checklist_templates
       SET name = ?, description = ?, category = ?, is_public = ?, folder_id = ?, updated_at = NOW()
       WHERE id = ?
     `).bind(name, description, category, is_public, folder_id || null, templateId).run();
@@ -392,10 +388,8 @@ checklistRoutes.delete("/checklist-templates/:id", tenantAuthMiddleware, async (
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
-    // Check permissions - SYS_ADMIN TEM ACESSO TOTAL
-    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
-      userProfile?.role === 'sys_admin' ||
-      userProfile?.role === 'admin';
+    // [SEC-011] Check permissions - Padronizado via isSystemAdmin()
+    const isSysAdmin = isSystemAdmin(userProfile?.role || '');
 
     if (!isSysAdmin) {
       if (template.created_by_user_id !== user.id && template.organization_id !== userProfile?.organization_id) {
@@ -543,10 +537,8 @@ checklistRoutes.put("/checklist-templates/:id/share", tenantAuthMiddleware, asyn
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
-    // Check permissions - only owner, org admins, or sys admins can share
-    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
-      userProfile?.role === 'sys_admin' ||
-      userProfile?.role === 'admin';
+    // [SEC-011] Check permissions - Padronizado via isSystemAdmin()
+    const isSysAdmin = isSystemAdmin(userProfile?.role || '');
 
     if (!isSysAdmin) {
       if (template.created_by_user_id !== user.id && template.organization_id !== userProfile?.organization_id) {

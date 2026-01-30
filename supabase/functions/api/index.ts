@@ -93,7 +93,8 @@ app.use('*', async (c, next) => {
     console.log(`[AUTH-DEBUG] ===== Request: ${c.req.method} ${path} =====`);
 
     // Rotas públicas que não precisam de autenticação
-    const publicPaths = ['/api/health', '/api/', '/api/shared', '/api/test-orgs/debug', '/test-orgs/debug', '/api/calendar/debug', '/api/debug-usage'];
+    // [SEC-006/007/008] Removidas rotas de debug da lista pública - Gatekeeper 30/01/2026
+    const publicPaths = ['/api/health', '/api/', '/api/shared'];
     const isPublicRoute = publicPaths.some(p => path === p || path.startsWith(p + '/'));
 
     if (isPublicRoute) {
@@ -331,17 +332,8 @@ apiRoutes.get('/public-plans', async (c) => {
 });
 
 
-// TEMPORARY DEBUG ROUTE
-apiRoutes.get('/debug-usage/:orgId', async (c) => {
-    const orgId = c.req.param('orgId');
-    try {
-        // @ts-ignore
-        const result = await c.env.DB.prepare('SELECT id, name, ai_usage_count FROM organizations WHERE id = ?').bind(orgId).first();
-        return c.json(result || { error: 'Not found' });
-    } catch (e: any) {
-        return c.json({ error: e.message }, 500);
-    }
-});
+// [SEC-006] DEBUG ROUTE REMOVIDA - Gatekeeper 30/01/2026
+// Endpoint expunha dados de uso de IA sem autenticação
 
 // App principal monta o sub-app em dois lugares:
 app.route('/', apiRoutes);

@@ -42,11 +42,17 @@ asaasWebhookRoutes.post("/", async (c) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
-    // 2. Authentication (Optional but recommended)
+    // [SEC-010] FIX: Validação de webhook agora é OBRIGATÓRIA - Gatekeeper 30/01/2026
+    // 2. Authentication (REQUIRED - não aceitar webhooks sem token configurado)
     const webhookToken = c.req.header('asaas-access-token');
     const expectedToken = Deno.env.get('ASAAS_WEBHOOK_TOKEN');
 
-    if (expectedToken && webhookToken !== expectedToken) {
+    if (!expectedToken) {
+        console.error("[ASAAS-WEBHOOK] CRITICAL: ASAAS_WEBHOOK_TOKEN not configured!");
+        return c.json({ error: "Webhook not configured" }, 500);
+    }
+
+    if (webhookToken !== expectedToken) {
         console.warn("[ASAAS-WEBHOOK] Invalid webhook token received");
         return c.json({ error: "Unauthorized" }, 401);
     }

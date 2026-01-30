@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(done)",
+      "Bash(supabase migration repair:*)",
+      "Bash(supabase db pull:*)",
+      "Bash(supabase migration:*)",
+      "Bash(supabase db push:*)"
+    ]
+  }
+}

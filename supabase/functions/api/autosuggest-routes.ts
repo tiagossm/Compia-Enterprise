@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+import { isSystemAdmin as checkIsSystemAdmin } from "./rbac-middleware.ts"; // [SEC-011] Gatekeeper 30/01/2026
 
 const autosuggest = new Hono<{ Bindings: Env; Variables: { user: any } }>();
 
@@ -18,9 +19,9 @@ autosuggest.get("/companies", tenantAuthMiddleware, async (c) => {
       return c.json({ suggestions: [] });
     }
 
-    // Get user profile to check organization access
+    // [SEC-011] Get user profile to check organization access - Padronizado
     const userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
-    const isSystemAdmin = userProfile?.role === 'system_admin' || userProfile?.role === 'sys_admin' || userProfile?.role === 'admin';
+    const isSystemAdmin = checkIsSystemAdmin(userProfile?.role || '');
 
     let companies;
 

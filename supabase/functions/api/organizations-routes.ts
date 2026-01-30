@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 import { ExtendedMochaUser, USER_ROLES, ORGANIZATION_LEVELS } from "./user-types.ts";
+import { isSystemAdmin } from "./rbac-middleware.ts"; // [SEC-011] Gatekeeper 30/01/2026
 
 type Env = {
   DB: any;
@@ -69,8 +70,8 @@ app.get('/stats', tenantAuthMiddleware, async (c) => {
       stats.totalSubsidiaries = subsidiaries?.count || 0;
       // Master/Companies count makes less sense here, keeping 0 or maybe showing 1
     }
-    // CASE 2: Global View (System Admin)
-    else if (user.role === USER_ROLES.SYSTEM_ADMIN || user.role === 'sys_admin' || user.role === 'system_admin') {
+    // [SEC-011] CASE 2: Global View (System Admin) - Padronizado via isSystemAdmin()
+    else if (isSystemAdmin(user.role || '')) {
       const masterOrgs = await db.prepare("SELECT COUNT(*) as count FROM organizations WHERE type = 'master'").first();
       // Companies: Top level (no parent) and NOT master
       const companies = await db.prepare("SELECT COUNT(*) as count FROM organizations WHERE parent_organization_id IS NULL AND type != 'master'").first();
@@ -178,8 +179,10 @@ app.get('/', tenantAuthMiddleware, async (c) => {
       let subConditions = [];
       const subParams = [];
 
-      // 1. Explicit assignments & Primary (via user_organizations usually has primary, but legacy fallback:)
-      subConditions.push(`o.id IN (SELECT organization_id FROM user_organizations WHERE user_id = '${userId}')`);
+      // [SEC-009] FIX SQL Injection - Gatekeeper 30/01/2026
+      // 1. Explicit assignments & Primary (via user_organizations - usando prepared statement)
+      subConditions.push(`o.id IN (SELECT organization_id FROM user_organizations WHERE user_id = ?)`);
+      subParams.push(userId);
 
       // 2. Legacy Primary
       if (userProfile.organization_id) {

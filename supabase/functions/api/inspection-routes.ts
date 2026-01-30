@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 import { USER_ROLES } from "./user-types.ts";
+import { isSystemAdmin } from "./rbac-middleware.ts"; // [SEC-011] Gatekeeper 30/01/2026
 // import database-init removido
 import { TenantContext } from "./tenant-auth-middleware.ts";
 import { logActivity } from "./audit-logger.ts";
@@ -188,14 +189,27 @@ inspectionRoutes.get("/simple-list", tenantAuthMiddleware, async (c) => {
     const params: any[] = [];
     const whereConditions: string[] = [];
 
-    // Filter by Org if provided (and allowed)
+    // [SEC-012] Filter by Org if provided (and VALIDATED)
     if (organizationId) {
-      // TODO: Validate user has access to this org
+      // Validar que o usuário tem acesso a esta organização
+      const tenantContext = c.get("tenantContext");
+      const isSysAdmin = isSystemAdmin(userProfile?.role || '');
+
+      if (!isSysAdmin) {
+        // Verificar se a org solicitada está nas orgs permitidas
+        const allowedOrgIds = tenantContext?.allowedOrganizationIds || [];
+        const userOrgId = userProfile?.organization_id || userProfile?.managed_organization_id;
+
+        if (!allowedOrgIds.includes(Number(organizationId)) && Number(organizationId) !== userOrgId) {
+          return c.json({ error: "Acesso negado: sem permissão para esta organização" }, 403);
+        }
+      }
+
       whereConditions.push("i.organization_id = ?");
       params.push(organizationId);
     } else {
       // RBAC (Simplified for dropdown, usually showing user's org stuff)
-      if (userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'sys_admin') {
+      if (isSystemAdmin(userProfile?.role || '')) {
         // All
       } else if (userProfile?.role === USER_ROLES.ORG_ADMIN) {
         if (userProfile.managed_organization_id) {
@@ -1506,23 +1520,23 @@ SELECT * FROM inspections WHERE id = ?
       organization_id: inspection.organization_id
     });
 
-    // Verificar permissões: Manager+, System Admin ou criador da inspeção
+    // [SEC-011] Verificar permissões - Padronizado via isSystemAdmin()
     const allowedRoles = ['manager', 'org_admin', 'system_admin', 'sys_admin', 'admin', 'technician', 'inspector'];
     const userRole = user.role?.toLowerCase() || '';
     const hasRolePermission = allowedRoles.includes(userRole);
     const isCreator = inspection.created_by === user.id;
-    const isSystemAdmin = userRole === 'sys_admin' || userRole === 'system_admin';
+    const isSysAdmin = isSystemAdmin(userRole);
 
     console.log('[DELETE-INSPECTION] Verificação de permissões:', {
       userRole,
       hasRolePermission,
       isCreator,
-      isSystemAdmin,
+      isSysAdmin,
       tenantContext: tenantContext ? 'presente' : 'ausente'
     });
 
     // SIMPLIFICADO: Permitir se tem role válida OU é o criador OU é sys_admin
-    if (!hasRolePermission && !isCreator && !isSystemAdmin) {
+    if (!hasRolePermission && !isCreator && !isSysAdmin) {
       console.log('[DELETE-INSPECTION] Permissão negada - role não permitida');
       return c.json({
         error: 'Permissão negada',

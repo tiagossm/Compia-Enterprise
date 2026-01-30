@@ -72,8 +72,8 @@ checklistFoldersRoutes.post("/migrate-categories", tenantAuthMiddleware, async (
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
-    // Verificar permissões - admins ou gestores da organização
-    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN || userProfile?.role === 'admin';
+    // [SEC-011] Verificar permissões - Padronizado via isSystemAdmin()
+    const isSysAdmin = isSystemAdmin(userProfile?.role || '');
     const isOrgAdmin = userProfile?.role === USER_ROLES.ORG_ADMIN || userProfile?.role === USER_ROLES.MANAGER;
 
     if (!isSysAdmin && (!isOrgAdmin || !userProfile?.organization_id)) {

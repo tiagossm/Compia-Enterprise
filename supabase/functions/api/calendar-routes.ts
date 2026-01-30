@@ -777,54 +777,8 @@ app.delete('/:id', tenantAuthMiddleware, async (c) => {
     }
 });
 
-// Debug route to diagnose 500 errors
-app.get('/debug', async (c) => {
-    try {
-        const db = getDatabase(c.env);
-        let orgId = c.req.query('org_id');
-
-        // If no orgId provided, try to find the first one
-        if (!orgId) {
-            const firstOrg = await db.prepare("SELECT id FROM organizations LIMIT 1").first();
-            if (firstOrg) {
-                orgId = firstOrg.id;
-            }
-        }
-
-        if (!orgId) return c.json({ error: 'No Org ID found and no organization in DB' });
-
-        const report: any = { orgId, checks: {} };
-
-        // Check 1: Calendar Events
-        try {
-            await db.prepare("SELECT * FROM calendar_events WHERE organization_id = ? LIMIT 1").bind(orgId).all();
-            report.checks.calendar_events = 'OK';
-        } catch (e: any) {
-            report.checks.calendar_events = `FAILED: ${e.message}`;
-        }
-
-        // Check 2: Inspections (Corrected Schema)
-        try {
-            await db.prepare("SELECT id, title, scheduled_date, status FROM inspections WHERE organization_id = ? LIMIT 1").bind(orgId).all();
-            report.checks.inspections = 'OK';
-        } catch (e: any) {
-            report.checks.inspections = `FAILED: ${e.message}`;
-        }
-
-        // Check 3: Action Plans
-        try {
-            await db.prepare("SELECT id, description, due_date, status, priority FROM action_plans WHERE organization_id = ? LIMIT 1").bind(orgId).all();
-            report.checks.action_plans = 'OK';
-        } catch (e: any) {
-            report.checks.action_plans = `FAILED: ${e.message}`;
-        }
-
-        return c.json(report);
-
-    } catch (error: any) {
-        return c.json({ error: error.message, stack: error.stack });
-    }
-});
+// [SEC-007] DEBUG ROUTE REMOVIDA - Gatekeeper 30/01/2026
+// Endpoint expunha dados sensíveis do banco sem autenticação
 
 // RSVP to event
 app.post('/:id/respond', tenantAuthMiddleware, async (c) => {
