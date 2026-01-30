@@ -62,10 +62,19 @@ app.use('*', async (c, next) => {
     c.env = c.env || {}
 
     if (dbUrl) {
-        // Lazy load D1 Wrapper (Postgres driver) to reduce boot time
-        const { createD1Wrapper } = await import('./d1-wrapper.ts');
-        // @ts-ignore
-        c.env.DB = createD1Wrapper(dbUrl)
+        console.warn('[DB-DEBUG] DB Wrapper loading DISABLED for debugging 500 error.');
+        // try {
+        //     // Lazy load D1 Wrapper (Postgres driver) to reduce boot time
+        //     // console.log('[DB-DEBUG] Lazy loading d1-wrapper...');
+        //     const { createD1Wrapper } = await import('./d1-wrapper.ts');
+        //     // @ts-ignore
+        //     c.env.DB = createD1Wrapper(dbUrl)
+        //     // console.log('[DB-DEBUG] DB Wrapper initialized');
+        // } catch (dbErr: any) {
+        //     console.error('[DB-DEBUG] Failed to lazy load DB wrapper:', dbErr);
+        // }
+    } else {
+        console.warn('[DB-DEBUG] No SUPABASE_DB_URL found');
     }
 
     // Inject keys from Deno.env
@@ -102,17 +111,23 @@ app.use('*', async (c, next) => {
         console.log(`[AUTH-DEBUG] Authorization header: ${authHeader ? 'present (' + authHeader.substring(0, 30) + '...)' : 'absent'}`);
 
         if (authHeader) {
-            // Lazy load Supabase Client to reduce boot time
-            const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+            console.log('[AUTH-DEBUG] Auth Header present but Supabase Client loading DISABLED for debugging 500 error.');
+            // try {
+            //    // Lazy load Supabase Client to reduce boot time
+            //    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+            //    console.log('[AUTH-DEBUG] Supabase Client loaded');
 
-            const supabaseClient = createClient(
-                Deno.env.get('SUPABASE_URL') ?? '',
-                Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-                { global: { headers: { Authorization: authHeader } } }
-            )
-            const { data, error } = await supabaseClient.auth.getUser()
-            user = data?.user;
-            console.log(`[AUTH-DEBUG] Supabase Auth: ${user ? 'found user ' + user.email : 'no user'}, error: ${error?.message || 'none'}`);
+            //    const supabaseClient = createClient(
+            //        Deno.env.get('SUPABASE_URL') ?? '',
+            //        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            //        { global: { headers: { Authorization: authHeader } } }
+            //    )
+            //    const { data, error } = await supabaseClient.auth.getUser()
+            //    user = data?.user;
+            //    console.log(`[AUTH-DEBUG] Supabase Auth: ${user ? 'found user ' + user.email : 'no user'}, error: ${error?.message || 'none'}`);
+            // } catch (err: any) {
+            //    console.error('[AUTH-DEBUG] Error loading/using Supabase Client:', err);
+            // }
 
             // AUTO-SYNC: If user from Supabase Auth doesn't exist in DB, create them
             if (user && user.email && c.env?.DB) {
@@ -221,7 +236,12 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
         return router.fetch(c.req.raw, c.env, c.executionCtx);
     } catch (e: any) {
         console.error(`Lazy Load Error (${c.req.path}):`, e);
-        return c.json({ error: 'Internal Server Error', details: e.message }, 500);
+        return c.json({
+            error: 'Lazy Load Crash',
+            details: e.message,
+            stack: e.stack,
+            path: c.req.path
+        }, 500);
     }
 };
 

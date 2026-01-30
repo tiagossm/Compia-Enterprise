@@ -124,7 +124,12 @@ async function handleListTemplates(c: any) {
     return c.json({ templates });
   } catch (error) {
     console.error('[TEMPLATES] [PROD] Error fetching templates:', error);
-    return c.json({ error: error instanceof Error ? error.message : "Failed to fetch templates" }, 500);
+    return c.json({
+      error: error instanceof Error ? error.message : "Failed to fetch templates",
+      details: error instanceof Error ? error.stack : undefined,
+      cause: (error as any)?.cause,
+      user_id: user?.id
+    }, 500);
   }
 }
 

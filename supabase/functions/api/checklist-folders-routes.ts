@@ -31,19 +31,26 @@ function generateSlug(name: string, existing: string[] = []): string {
   return slug;
 }
 
-// Função para construir path baseado na hierarquia
+// Função para construir path baseado na hierarquia (com proteção contra ciclos)
 async function buildFolderPath(db: any, folderId: string): Promise<string> {
   const pathParts: string[] = [];
   let currentId: string | null = folderId;
+  let depth = 0;
+  const maxDepth = 20; // Proteção contra loops infinitos
 
-  while (currentId) {
+  while (currentId && depth < maxDepth) {
     const folder = await db.prepare("SELECT slug, parent_id FROM checklist_folders WHERE id = ?")
       .bind(currentId).first() as any;
 
     if (!folder) break;
 
     pathParts.unshift(folder.slug);
+
+    // Check for self-reference (basic cycle prevention)
+    if (folder.parent_id === currentId) break;
+
     currentId = folder.parent_id;
+    depth++;
   }
 
   return '/' + pathParts.join('/');
@@ -215,9 +222,11 @@ checklistFoldersRoutes.get("/folders", tenantAuthMiddleware, requireScopes(SCOPE
     return c.json({ error: "User not found" }, 401);
   }
 
+  let userProfile: any = null;
+
   try {
     // Buscar perfil do usuário
-    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
     if (!userProfile && (user as any).profile) {
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
@@ -258,7 +267,13 @@ checklistFoldersRoutes.get("/folders", tenantAuthMiddleware, requireScopes(SCOPE
 
   } catch (error) {
     console.error('Error fetching folders:', error);
-    return c.json({ error: error instanceof Error ? error.message : "Failed to fetch folders" }, 500);
+    return c.json({
+      error: error instanceof Error ? error.message : "Failed to fetch folders",
+      details: error instanceof Error ? error.stack : undefined,
+      cause: (error as any)?.cause,
+      user_id: user?.id,
+      org_id: userProfile?.organization_id
+    }, 500);
   }
 });
 
@@ -314,6 +329,8 @@ checklistFoldersRoutes.get("/tree", tenantAuthMiddleware, async (c) => {
   }
 });
 
+
+
 // Get folder path/breadcrumb
 checklistFoldersRoutes.get("/folders/:id/path", tenantAuthMiddleware, async (c) => {
   const env = c.env;
@@ -334,18 +351,24 @@ checklistFoldersRoutes.get("/folders/:id/path", tenantAuthMiddleware, async (c) 
     // Build path from root to this folder
     const path: any[] = [];
     let currentId: string | null = folderId;
+    let depth = 0;
+    const maxDepth = 20; // Proteção contra loops
 
-    while (currentId) {
+    while (currentId && depth < maxDepth) {
       const folder = await env.DB.prepare(`
         SELECT id, name, slug, parent_id, color, icon 
         FROM checklist_folders 
         WHERE id = ? AND organization_id = ?
-      `).bind(currentId, userProfile?.organization_id).first() as any;
+      `).bind(currentId, userProfile?.organization_id || null).first() as any;
 
       if (!folder) break;
 
       path.unshift(folder); // Add to beginning to build path from root
+
+      if (folder.parent_id === currentId) break; // Cycle check
+
       currentId = folder.parent_id;
+      depth++;
     }
 
     return c.json({ path });
