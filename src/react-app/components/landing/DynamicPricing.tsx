@@ -106,15 +106,15 @@ export default function DynamicPricing() {
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-4xl mx-auto items-start">
                     {sortedPlans.map((plan, index) => {
                         const isPopular = plan.name.includes('business') || index === 1;
                         return (
                             <div
                                 key={plan.id}
                                 className={`relative rounded-2xl p-8 transition-all duration-300 ${isPopular
-                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20 scale-105 z-10 ring-4 ring-blue-600/20'
-                                    : 'bg-white text-slate-900 border border-slate-200 hover:shadow-lg hover:-translate-y-1 z-0'
+                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20 ring-4 ring-blue-600/20 md:-mt-4 md:mb-4'
+                                    : 'bg-white text-slate-900 border border-slate-200 hover:shadow-lg hover:-translate-y-1'
                                     }`}
                             >
                                 {isPopular && (
