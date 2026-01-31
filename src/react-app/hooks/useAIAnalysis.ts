@@ -61,31 +61,41 @@ export function useAIAnalysis(
     const processAudioNote = async (audioBlob: Blob) => {
         setAiAnalyzing(true);
         try {
-            // 1. Upload to Supabase Storage
-            const { supabase } = await import('@/react-app/lib/supabase');
-            const filename = `${id}_${Date.now()}.webm`;
-            const { error: uploadError } = await supabase.storage
-                .from('inspection-audio')
-                .upload(filename, audioBlob);
+            // 1. Prepare Context (Items)
+            const simplifiedItems = data.items.map(item => ({
+                id: item.id,
+                title: `${item.item_order}. ${item.category}`,
+                description: item.item_description
+            }));
 
-            if (uploadError) throw uploadError;
+            // 2. Build FormData
+            const formData = new FormData();
+            formData.append('file', audioBlob); // Audio file
+            formData.append('items', JSON.stringify(simplifiedItems)); // Context
+            formData.append('inspection_id', id || '0');
 
-            // 2. Create Signed URL for the Edge Function
-            const { data: signedUrlData } = await supabase.storage
-                .from('inspection-audio')
-                .createSignedUrl(filename, 60);
-
-            if (!signedUrlData?.signedUrl) throw new Error('Failed to sign URL');
-
-            // 3. Process with Edge Function
-            const response = await inspectionService.processAudio({
-                inspection_id: parseInt(id!),
-                audio_url: signedUrlData.signedUrl
-            });
+            // 3. Send to Backend
+            const response = await inspectionService.processAudioData(formData);
 
             if (response.ok) {
                 const result = await response.json();
-                success('Sucesso', 'Áudio processado. Sugestões geradas.');
+
+                // 4. Process Updates
+                // The result should contain { summary, updates: [{ item_id, status, observation }] }
+                if (result.updates && Array.isArray(result.updates)) {
+                    let updateCount = 0;
+
+                    // Iterate and apply updates optimistically
+                    // We need a way to batch these or call updateItem functions?
+                    // For now, let's return the result and let the UI/Component handle or auto-apply.
+                    // Actually, let's try to apply them here if we have the callbacks/methods.
+                    // We don't have direct updateItem methods here, but we can emit an event or return them.
+
+                    // For now: Notify user and return result
+                    success('Sucesso', 'Áudio processado! Verificando itens...');
+                    return { suggestions: result };
+                }
+
                 return result;
             } else {
                 throw new Error('Falha no processamento de áudio');
