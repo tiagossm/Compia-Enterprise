@@ -21,6 +21,10 @@
             "destination": "https://vjlvvmriqerfmztwtewa.supabase.co/functions/v1/api/:path*"
         },
         {
+            "source": "/functions/v1/:path*",
+            "destination": "https://vjlvvmriqerfmztwtewa.supabase.co/functions/v1/:path*"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

@@ -115,6 +115,31 @@ app.use('*', async (c, next) => {
     // Verificação flexível (exact match ou prefixo)
     const isPublicRoute = publicPaths.some(p => path === p || path.startsWith(p + '/'));
 
+    // --- RATE LIMIT GLOBAL ---
+    // Aplica rate limit O MAIS CEDO POSSÍVEL (antes de rotas públicas)
+    // Usa env.DB (d1-wrapper)
+    if (c.env.DB) {
+        try {
+            const { rateLimitMiddleware } = await import('./rate-limit-middleware.ts');
+
+            // Re-instantiate middleware function
+            const limiter = rateLimitMiddleware(60); // 60 req/min base
+
+            let passed = false;
+            const mockNext = async () => { passed = true; };
+
+            const response = await limiter(c, mockNext);
+
+            // If limiter returned a response (429), return it and stop chain
+            if (response instanceof Response) {
+                return response;
+            }
+        } catch (rlError) {
+            console.error('[RATE-LIMIT] Failed to load/exec middleware:', rlError);
+        }
+    }
+    // -------------------------
+
     if (isPublicRoute) {
         console.log(`[AUTH-DEBUG] Public route, skipping auth: ${path}`);
         await next();

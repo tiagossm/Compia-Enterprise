@@ -43,7 +43,8 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
 
     // Inject Supabase Auth Token if present (for Google Login/Supabase Auth)
     // ONLY for trusted origins to avoid leaking token to external APIs (e.g. Maps, ViaCEP)
-    if (isTrustedOrigin) {
+    // Also allow for Supabase Edge Functions which require the Bearer token for auth
+    if (isTrustedOrigin || isExternalSupabase) {
         // Cast headers to any/Record to avoid strict HeadersInit type issues during patch
         const headers = newOptions.headers as Record<string, string>;
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload, X, Image, Video, Mic, FileText, Pause, Camera, Eye, Download, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { Upload, X, Image, Video, Mic, FileText, Pause, Camera, Eye, CheckSquare, Trash2 } from 'lucide-react';
 import { InspectionMediaType } from '@/shared/types';
 import { syncService } from '@/lib/sync-service';
 import MediaViewer from './MediaViewer';
@@ -818,7 +818,7 @@ export default function MediaUpload({
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50"
                   >
                     {selectedMedia.length === existingMedia.length ? (
-                      <><Square className="w-4 h-4" /> Desmarcar Todos</>
+                      <><X className="w-4 h-4" /> Desmarcar Todos</>
                     ) : (
                       <><CheckSquare className="w-4 h-4" /> Selecionar Todos</>
                     )}
