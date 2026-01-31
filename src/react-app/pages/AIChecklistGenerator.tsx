@@ -10,8 +10,14 @@ import {
   Sparkles,
   RefreshCw,
   AlertCircle,
-  Copy
+  Copy,
+  Upload,
+  FileText
 } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Define worker globally if possible or setting dynamically
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function AIChecklistGenerator() {
   const navigate = useNavigate();
@@ -367,6 +373,36 @@ export default function AIChecklistGenerator() {
                       Cole aqui o texto de seus procedimentos, normas internas, manuais em PDF ou planilhas antigas.
                       A IA vai ler, entender a estrutura e converter automaticamente em um checklist digital pronto para uso.
                     </p>
+                  </div>
+
+                  {/* Dropzone PDF */}
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-slate-50 transition-colors group relative cursor-pointer">
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handlePdfUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={generating}
+                    />
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="p-4 bg-purple-100 text-purple-600 rounded-full group-hover:scale-110 transition-transform">
+                        {generating ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div> : <Upload size={24} />}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900">
+                          {generating ? 'Lendo PDF...' : 'Arraste seu PDF aqui'}
+                        </h4>
+                        <p className="text-sm text-slate-500 mt-1">
+                          ou clique para selecionar do computador
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-400 uppercase font-bold tracking-wider justify-center">
+                    <span className="h-px w-12 bg-slate-200"></span>
+                    OU COLE O TEXTO ABAIXO
+                    <span className="h-px w-12 bg-slate-200"></span>
                   </div>
 
                   <div>
