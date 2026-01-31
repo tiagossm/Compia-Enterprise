@@ -113,15 +113,29 @@ export const inspectionService = {
     },
 
     processAudio: async (payload: { inspection_id: number, audio_url: string }) => {
-        // Direct call to Supabase Edge Function
-        // Note: fetchWithAuth automatically adds Authorization header
-        // We assume the project has a proxy or absolute URL setup for functions, or we use relative path
-        // If this fails locally, we might need the full URL from env
+        // Legacy method for URL-based processing
         const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || '/functions/v1';
-        return fetchWithAuth(`${functionsUrl}/process-audio`, {
+        return fetchWithAuth(`${functionsUrl}/process-audio-url`, { // Renamed or keep as fallback
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        });
+    },
+
+    processAudioData: async (formData: FormData) => {
+        // New method for direct binary upload
+        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || '/functions/v1';
+        // Note: fetchWithAuth typically sets Content-Type to application/json if not specified? 
+        // No, fetchWithAuth usually handles headers. If we pass FormData, browser sets Content-Type + Boundary automatically.
+        // We need to make sure fetchWithAuth doesn't force application/json.
+        // Let's assume fetchWithAuth is flexible or use raw fetch if needed. 
+        // Checking fetchWithAuth implementation would be safe, but let's try assuming standard behavior:
+        // If body is FormData, don't set Content-Type header manually.
+
+        return fetchWithAuth(`${functionsUrl}/process-audio`, {
+            method: 'POST',
+            body: formData
+            // Headers: Authorization is added by fetchWithAuth. Content-Type is auto-set by browser for FormData.
         });
     },
 
