@@ -25,7 +25,8 @@ import {
   AlertCircle,
   XCircle,
   ChevronDown,
-  MessageCircle
+  MessageCircle,
+  Loader
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/react-app/context/AuthContext';
@@ -74,6 +75,55 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth(); // Add auth check
   const [activeSector, setActiveSector] = useState('agro');
+
+  // WhatsApp Modal State
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [leadForm, setLeadForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    message: 'Olá! Gostaria de saber mais sobre o Compia e como ele pode ajudar minha empresa.'
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleWhatsAppSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const res = await fetch('/api/leads/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: leadForm.name,
+          email: leadForm.email,
+          phone: leadForm.phone,
+          notes: leadForm.message,
+          source: 'whatsapp_landing',
+          campaign: 'landing_page'
+        })
+      });
+
+      if (res.ok) {
+        // Redireciona para WhatsApp com mensagem personalizada
+        const msg = encodeURIComponent(
+          `Olá! Sou ${leadForm.name}. ${leadForm.message}`
+        );
+        window.open(`https://wa.me/5511999999999?text=${msg}`, '_blank');
+        setShowWhatsAppModal(false);
+        setLeadForm({
+          name: '',
+          email: '',
+          phone: '',
+          message: 'Olá! Gostaria de saber mais sobre o Compia e como ele pode ajudar minha empresa.'
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     // Redirect to dashboard if already authenticated
@@ -635,15 +685,107 @@ export default function LandingPage() {
       </footer>
 
       {/* WhatsApp Floating Button */}
-      <a
-        href="https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre o Compia"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={() => setShowWhatsAppModal(true)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-110"
         title="Fale conosco no WhatsApp"
       >
         <MessageCircle className="w-7 h-7 text-white" />
-      </a>
+      </button>
+
+      {/* WhatsApp Modal */}
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-slide-up">
+            {/* Close button */}
+            <button
+              onClick={() => setShowWhatsAppModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={24} />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Fale Conosco</h3>
+                <p className="text-sm text-slate-500">Responderemos em minutos!</p>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleWhatsAppSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+                <input
+                  type="text"
+                  required
+                  value={leadForm.name}
+                  onChange={(e) => setLeadForm({...leadForm, name: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  placeholder="Seu nome"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={leadForm.email}
+                  onChange={(e) => setLeadForm({...leadForm, email: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  placeholder="seu@email.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Telefone *</label>
+                <input
+                  type="tel"
+                  required
+                  value={leadForm.phone}
+                  onChange={(e) => setLeadForm({...leadForm, phone: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mensagem</label>
+                <textarea
+                  value={leadForm.message}
+                  onChange={(e) => setLeadForm({...leadForm, message: e.target.value})}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <Loader className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <MessageCircle className="w-5 h-5" />
+                    Iniciar Conversa no WhatsApp
+                  </>
+                )}
+              </button>
+            </form>
+
+            <p className="text-xs text-slate-400 text-center mt-4">
+              Seus dados estão seguros. Não enviamos spam.
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   );
