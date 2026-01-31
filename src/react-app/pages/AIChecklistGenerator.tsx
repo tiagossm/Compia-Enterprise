@@ -11,8 +11,7 @@ import {
   RefreshCw,
   AlertCircle,
   Copy,
-  Upload,
-  FileText
+  Upload
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -141,6 +140,49 @@ export default function AIChecklistGenerator() {
     }
 
     return { seconds: totalSeconds, label, speed };
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setError('Por favor, selecione um arquivo PDF.');
+      return;
+    }
+
+    setGenerating(true);
+    setError('');
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      console.log(`PDF carregado: ${pdf.numPages} páginas`);
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        specific_requirements: fullText,
+        template_name: file.name.replace('.pdf', '') // Sugere nome do arquivo
+      }));
+
+    } catch (err) {
+      console.error('Erro ao ler PDF:', err);
+      // Fallback
+      setError('Falha ao processar o arquivo PDF. Tente copiar e colar o texto.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleGenerate = async () => {

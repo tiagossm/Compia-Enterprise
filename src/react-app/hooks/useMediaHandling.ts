@@ -105,31 +105,27 @@ export function useMediaHandling({ inspectionId, onMediaUploaded }: UseMediaHand
                 }
             }
 
-            // Convert file to base64
-            const base64 = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(fileToUpload);
-            });
+            // Create FormData
+            const formData = new FormData();
+            formData.append('inspection_item_id', fieldId.toString());
+            formData.append('media_type', type);
+            formData.append('file_name', finalFileName);
+            // Append file directly
+            formData.append('file', fileToUpload);
+            formData.append('file_size', fileToUpload.size.toString());
+            formData.append('mime_type', finalMimeType);
+            formData.append('captured_at', new Date().toISOString());
 
-            // Send JSON with base64 data - using the correct route that uploads to Supabase Storage
+            if (coordinates) {
+                formData.append('latitude', coordinates.latitude.toString());
+                formData.append('longitude', coordinates.longitude.toString());
+            }
+
+            // Upload via FormData
             const response = await fetchWithAuth(`/api/media/${inspectionId}/media/upload`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    inspection_item_id: fieldId,
-                    media_type: type,
-                    file_name: finalFileName,
-                    file_data: base64,
-                    file_size: fileToUpload.size,
-                    mime_type: finalMimeType,
-                    latitude: coordinates?.latitude || null,
-                    longitude: coordinates?.longitude || null,
-                    captured_at: new Date().toISOString()
-                })
+                body: formData
+                // Note: fetchWithAuth will now correctly NOT set Content-Type: application/json
             });
 
             if (response.ok) {

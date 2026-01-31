@@ -24,7 +24,7 @@ export function hasAnyRole(user: any, roles: string[]): boolean {
 // Note: Authorization header with User Token is injected by fetch-setup.ts
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const headers: any = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
 

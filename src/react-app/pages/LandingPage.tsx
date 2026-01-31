@@ -479,11 +479,11 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               { title: 'Ata de Inspeção por Voz', desc: 'Descreva os riscos falando. A IA transcreve, interpreta e preenche o checklist técnico automaticamente.', icon: <BrainCircuit />, color: 'text-purple-600', bg: 'bg-purple-50' },
-              { title: 'Importação PDF Legado', desc: 'Digitalize procedimentos antigos. Cole seu PDF e transforme em formulário digital vivo em segundos.', icon: <Copy />, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { title: 'Importação de PDF', desc: 'Digitalize procedimentos antigos. Arraste seu arquivo PDF e transforme em formulário digital vivo em segundos.', icon: <Copy />, color: 'text-blue-600', bg: 'bg-blue-50' },
               { title: 'Modo Mãos Livres', desc: 'Auditoria segura. Mantenha as mãos livres para subir em escadas ou manusear equipamentos enquanto dita.', icon: <FileAudio />, color: 'text-pink-600', bg: 'bg-pink-50' },
               { title: 'Planos de Ação', desc: 'Identificou um risco? O plano de correção com prazos e responsáveis é gerado na hora.', icon: <Zap />, color: 'text-yellow-600', bg: 'bg-yellow-50' },
               { title: 'GPS Atômico', desc: 'Prova de presença irrefutável. Logs georreferenciados garantem que o inspetor esteve no local exato.', icon: <MapPin />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { title: 'Mapas de Calor', desc: 'Não veja apenas tabelas. Veja manchas de risco na planta da sua fábrica ou fazenda.', icon: <Activity />, color: 'text-orange-600', bg: 'bg-orange-50' }
+              { title: 'Mapas de Calor', desc: 'Não veja apenas tabelas. Visualize hotspots de risco e não conformidades em mapas de satélite.', icon: <Activity />, color: 'text-orange-600', bg: 'bg-orange-50' }
             ].map((feature, i) => (
               <RevealOnScroll key={i} delay={i * 50}>
                 <div className="bg-white p-8 rounded-2xl border border-slate-100 hover:border-slate-300 hover:shadow-xl transition-all duration-300 group h-full">
@@ -724,7 +724,7 @@ export default function LandingPage() {
                   type="text"
                   required
                   value={leadForm.name}
-                  onChange={(e) => setLeadForm({...leadForm, name: e.target.value})}
+                  onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   placeholder="Seu nome"
                 />
@@ -736,7 +736,7 @@ export default function LandingPage() {
                   type="email"
                   required
                   value={leadForm.email}
-                  onChange={(e) => setLeadForm({...leadForm, email: e.target.value})}
+                  onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   placeholder="seu@email.com"
                 />
@@ -748,7 +748,7 @@ export default function LandingPage() {
                   type="tel"
                   required
                   value={leadForm.phone}
-                  onChange={(e) => setLeadForm({...leadForm, phone: e.target.value})}
+                  onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   placeholder="(11) 99999-9999"
                 />
@@ -758,7 +758,7 @@ export default function LandingPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Mensagem</label>
                 <textarea
                   value={leadForm.message}
-                  onChange={(e) => setLeadForm({...leadForm, message: e.target.value})}
+                  onChange={(e) => setLeadForm({ ...leadForm, message: e.target.value })}
                   rows={3}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none"
                 />

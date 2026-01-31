@@ -64,7 +64,7 @@ export function useAIAnalysis(
             // 1. Prepare Context (Items)
             const simplifiedItems = data.items.map(item => ({
                 id: item.id,
-                title: `${item.item_order}. ${item.category}`,
+                title: `${item.category}: ${item.item_description}`,
                 description: item.item_description
             }));
 
@@ -83,8 +83,6 @@ export function useAIAnalysis(
                 // 4. Process Updates
                 // The result should contain { summary, updates: [{ item_id, status, observation }] }
                 if (result.updates && Array.isArray(result.updates)) {
-                    let updateCount = 0;
-
                     // Iterate and apply updates optimistically
                     // We need a way to batch these or call updateItem functions?
                     // For now, let's return the result and let the UI/Component handle or auto-apply.
