@@ -556,9 +556,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- Dynamic Pricing Section --- */}
-      <div id="planos" className="bg-slate-50">
-        <DynamicPricing />
-      </div>
+      <DynamicPricing />
 
       {/* --- Footer --- */}
       <footer className="bg-slate-900 text-white pt-16 pb-8">
