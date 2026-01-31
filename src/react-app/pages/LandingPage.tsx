@@ -15,7 +15,17 @@ import {
   Activity,
   Trees,
   Truck,
-  ArrowRight
+  ArrowRight,
+  Cloud,
+  Smartphone,
+  Mic,
+  FileText,
+  WifiOff,
+  Bot,
+  AlertCircle,
+  XCircle,
+  ChevronDown,
+  MessageCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/react-app/context/AuthContext';
@@ -258,7 +268,7 @@ export default function LandingPage() {
             Fale o que você vê na obra e deixe nossa IA escrever o relatório técnico, formatar fotos e garantir a conformidade jurídica com GPS Atômico.
           </p>
 
-          {/* CTA Buttons - Removed "Acessar Sistema" button */}
+          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up animation-delay-300">
             <button
               onClick={() => {
@@ -278,19 +288,133 @@ export default function LandingPage() {
               Começar Agora
               <ArrowRight className="w-5 h-5" />
             </button>
+            <button
+              onClick={() => {
+                const element = document.getElementById('como-funciona');
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="w-full sm:w-auto px-8 py-5 bg-white text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all border border-slate-200 flex items-center justify-center gap-2 text-lg"
+            >
+              Ver como funciona
+              <ChevronDown className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* Trust Badges */}
-          <div className="mt-20 pt-10 border-t border-slate-100 animate-fade-in animation-delay-500">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Empresas que confiam na segurança Compia</p>
-            <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8 opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
-              <div className="h-8 w-24 bg-slate-800 mask-image-logo rounded"></div>
-              <div className="h-8 w-24 bg-slate-800 mask-image-logo rounded"></div>
-              <div className="h-8 w-24 bg-slate-800 mask-image-logo rounded"></div>
-              <div className="h-8 w-24 bg-slate-800 mask-image-logo rounded"></div>
-              <div className="h-8 w-24 bg-slate-800 mask-image-logo rounded"></div>
+          {/* Feature Badges - Substitui Trust Badges fake */}
+          <div className="mt-16 pt-8 animate-fade-in animation-delay-500">
+            <div className="flex flex-wrap justify-center items-center gap-6 md:gap-10">
+              <div className="flex items-center gap-2 text-slate-600">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Cloud className="w-5 h-5 text-blue-600" />
+                </div>
+                <span className="text-sm font-medium">100% em Nuvem</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <WifiOff className="w-5 h-5 text-emerald-600" />
+                </div>
+                <span className="text-sm font-medium">Funciona Offline</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <div className="p-2 bg-purple-50 rounded-lg">
+                  <Bot className="w-5 h-5 text-purple-600" />
+                </div>
+                <span className="text-sm font-medium">IA Integrada</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <div className="p-2 bg-orange-50 rounded-lg">
+                  <Smartphone className="w-5 h-5 text-orange-600" />
+                </div>
+                <span className="text-sm font-medium">iOS & Android</span>
+              </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* --- Como Funciona --- */}
+      <section id="como-funciona" className="py-24 bg-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-50/30 via-transparent to-transparent -z-10"></div>
+
+        <div className="container mx-auto px-6 lg:px-12">
+          <RevealOnScroll className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
+              Simples como deve ser
+            </h2>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Em 3 passos você sai do campo com o relatório pronto
+            </p>
+          </RevealOnScroll>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Step 1 */}
+            <RevealOnScroll delay={0}>
+              <div className="relative text-center group">
+                <div className="hidden md:block absolute top-16 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-slate-200 to-slate-100 z-0"></div>
+                <div className="relative z-10 mb-6">
+                  <div className="w-32 h-32 mx-auto rounded-2xl bg-blue-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 border border-blue-100">
+                    <Smartphone className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="absolute -top-3 -right-3 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
+                    1
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">Abra o Checklist</h3>
+                <p className="text-slate-600 leading-relaxed">Escolha o formulário ou crie um com IA em segundos. Funciona mesmo sem internet.</p>
+              </div>
+            </RevealOnScroll>
+
+            {/* Step 2 */}
+            <RevealOnScroll delay={100}>
+              <div className="relative text-center group">
+                <div className="hidden md:block absolute top-16 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-slate-200 to-slate-100 z-0"></div>
+                <div className="relative z-10 mb-6">
+                  <div className="w-32 h-32 mx-auto rounded-2xl bg-purple-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 border border-purple-100">
+                    <Mic className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div className="absolute -top-3 -right-3 w-10 h-10 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
+                    2
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">Fale o que Vê</h3>
+                <p className="text-slate-600 leading-relaxed">Dite suas observações. A IA transcreve, interpreta e preenche os campos automaticamente.</p>
+              </div>
+            </RevealOnScroll>
+
+            {/* Step 3 */}
+            <RevealOnScroll delay={200}>
+              <div className="relative text-center group">
+                <div className="relative z-10 mb-6">
+                  <div className="w-32 h-32 mx-auto rounded-2xl bg-emerald-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 border border-emerald-100">
+                    <FileText className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <div className="absolute -top-3 -right-3 w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
+                    3
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">Receba o PDF</h3>
+                <p className="text-slate-600 leading-relaxed">Relatório técnico formatado com fotos, GPS e assinatura digital. Pronto para enviar.</p>
+              </div>
+            </RevealOnScroll>
+          </div>
+
+          {/* CTA after steps */}
+          <RevealOnScroll className="text-center mt-16">
+            <button
+              onClick={() => {
+                const element = document.getElementById('planos');
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all hover:-translate-y-1 shadow-lg inline-flex items-center gap-2"
+            >
+              Experimente Agora
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </RevealOnScroll>
         </div>
       </section>
 
@@ -374,28 +498,54 @@ export default function LandingPage() {
                 </ul>
               </div>
 
-              {/* Mockup Area */}
-              <div className="bg-slate-100 p-10 md:p-16 relative overflow-hidden flex items-center justify-center">
+              {/* Mockup Area - Checklist Real */}
+              <div className="bg-slate-100 p-6 md:p-10 relative overflow-hidden flex items-center justify-center">
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#64748b 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
 
-                {/* Abstract Card UI */}
-                <div className="w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 relative z-10 p-2 rotate-[-3deg] hover:rotate-0 transition-transform duration-500">
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 h-full">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={`w-10 h-10 rounded-lg ${themeClasses.bg} flex items-center justify-center ${themeClasses.text}`}>
+                {/* Realistic Checklist Card */}
+                <div className="w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 relative z-10 overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+                  {/* Header */}
+                  <div className={`${themeClasses.bg} px-5 py-4 border-b ${themeClasses.border}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg bg-white flex items-center justify-center ${themeClasses.text} shadow-sm`}>
                         {activeSectorData.icon}
                       </div>
-                      <div className="space-y-1.5">
-                        <div className="h-2.5 w-24 bg-slate-200 rounded-full"></div>
-                        <div className="h-2 w-16 bg-slate-100 rounded-full"></div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">{activeSectorData.features[0]}</h4>
+                        <p className="text-xs text-slate-500">Em andamento...</p>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="h-2 w-full bg-slate-100 rounded-full"></div>
-                      <div className="h-2 w-full bg-slate-100 rounded-full"></div>
-                      <div className="h-2 w-3/4 bg-slate-100 rounded-full"></div>
+                  </div>
+
+                  {/* Checklist Items */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <span className="text-sm font-medium text-slate-700">Documentação verificada</span>
                     </div>
-                    <div className={`mt-6 h-10 w-full rounded-lg ${themeClasses.btn} opacity-90`}></div>
+                    <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <span className="text-sm font-medium text-slate-700">Equipamentos OK</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                      <span className="text-sm font-medium text-slate-700">Sinalização: verificar</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                      <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <span className="text-sm font-medium text-slate-700">EPI incompleto</span>
+                    </div>
+                  </div>
+
+                  {/* Footer Progress */}
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                      <span>Progresso</span>
+                      <span className="font-semibold text-slate-700">50%</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full w-1/2 ${themeClasses.btn} rounded-full`}></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -411,55 +561,91 @@ export default function LandingPage() {
       </div>
 
       {/* --- Footer --- */}
-      <footer className="bg-white border-t border-slate-200 pt-20 pb-10">
+      <footer className="bg-slate-900 text-white pt-16 pb-8">
         <div className="container mx-auto px-6 lg:px-12">
-          <div className="grid md:grid-cols-4 gap-12 mb-16">
-            <div className="col-span-1 md:col-span-1">
-              <div className="flex items-center gap-2 mb-6">
-                <img src="/compia_logo.png" alt="Compia" className="h-7 w-auto" />
-                <span className="font-bold text-lg text-slate-900">COMPIA</span>
+          <div className="grid md:grid-cols-3 gap-12 mb-12">
+            {/* Brand */}
+            <div className="md:col-span-1">
+              <div className="flex items-center gap-3 mb-4">
+                <img src="/compia_logo.png" alt="Compia" className="h-8 w-auto brightness-0 invert" />
+                <span className="font-bold text-xl">COMPIA</span>
               </div>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Plataforma líder em gestão de conformidade e auditoria digital para empresas exigentes.
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                Gestão de conformidade e auditoria digital. Transforme inspeções em relatórios profissionais com IA.
               </p>
+
+              {/* Contact CTA */}
+              <a
+                href="https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre o Compia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-semibold transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Fale Conosco no WhatsApp
+              </a>
             </div>
 
+            {/* Navigation */}
             <div>
-              <h4 className="font-bold text-slate-900 mb-6">Produto</h4>
-              <ul className="space-y-3 text-sm text-slate-600">
-                <li><a href="#recursos" className="hover:text-blue-600 transition-colors">Recursos</a></li>
-                <li><a href="#setores" className="hover:text-blue-600 transition-colors">Setores</a></li>
-                <li><a href="#planos" className="hover:text-blue-600 transition-colors">Preços</a></li>
+              <h4 className="font-bold text-white mb-4">Navegação</h4>
+              <ul className="space-y-3 text-sm text-slate-400">
+                <li><a href="#como-funciona" className="hover:text-white transition-colors">Como Funciona</a></li>
+                <li><a href="#recursos" className="hover:text-white transition-colors">Recursos</a></li>
+                <li><a href="#setores" className="hover:text-white transition-colors">Setores</a></li>
+                <li><a href="#planos" className="hover:text-white transition-colors">Planos e Preços</a></li>
               </ul>
             </div>
 
+            {/* Contact */}
             <div>
-              <h4 className="font-bold text-slate-900 mb-6">Empresa</h4>
-              <ul className="space-y-3 text-sm text-slate-600">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Sobre</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Contato</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Blog</a></li>
+              <h4 className="font-bold text-white mb-4">Contato</h4>
+              <ul className="space-y-3 text-sm text-slate-400">
+                <li>
+                  <a href="mailto:contato@compia.tech" className="hover:text-white transition-colors">
+                    contato@compia.tech
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://wa.me/5511999999999"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    WhatsApp: (11) 99999-9999
+                  </a>
+                </li>
               </ul>
-            </div>
 
-            <div>
-              <h4 className="font-bold text-slate-900 mb-6">Legal</h4>
-              <ul className="space-y-3 text-sm text-slate-600">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Privacidade</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Termos de Uso</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Security</a></li>
-              </ul>
+              <div className="mt-6 pt-4 border-t border-slate-800">
+                <p className="text-xs text-slate-500">
+                  Seus dados estão seguros. Utilizamos criptografia de ponta a ponta e seguimos as diretrizes da LGPD.
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-slate-400 text-xs">© 2026 Compia Inc. Todos os direitos reservados.</p>
-            <div className="flex gap-4">
-              {/* Social Icons Placeholder */}
+          {/* Bottom Bar */}
+          <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-slate-500 text-xs">© 2026 Compia. Todos os direitos reservados.</p>
+            <div className="flex items-center gap-4 text-slate-500 text-xs">
+              <span>Feito com dedicação no Brasil</span>
             </div>
           </div>
         </div>
       </footer>
+
+      {/* WhatsApp Floating Button */}
+      <a
+        href="https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre o Compia"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-110"
+        title="Fale conosco no WhatsApp"
+      >
+        <MessageCircle className="w-7 h-7 text-white" />
+      </a>
 
     </div>
   );

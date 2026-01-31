@@ -202,51 +202,8 @@ app.use('*', async (c, next) => {
         console.log(`[AUTH-DEBUG] User already in context: ${(c.get('user') as any)?.email}`);
     }
 
-    // Verify User from DB (Authorization Check)
-    // ... (existing user check logic) ...
-
-    // --- RATE LIMIT GLOBAL ---
-    // Aplica rate limit após identificar o usuário
-    // Usa env.DB (d1-wrapper)
-    if (c.env.DB) {
-        // Lazy load module to save startup time? No, it's small. Direct import is better for middleware.
-        // But we are inside existing middleware. We can call the function directly.
-        // Wait, better to import at top or dynamic import. 
-        // Dynamic import to keep cold start fast!
-
-        try {
-            const { rateLimitMiddleware } = await import('./rate-limit-middleware.ts');
-            // Execute the middleware logic manually since we are already inside a middleware
-            // This is a bit tricky. Hono middleware expects (c, next).
-            // But we are already "inside" app.use('*').
-            // We can just await the logic here.
-
-            // Re-instantiate middleware function
-            const limiter = rateLimitMiddleware(60); // 60 req/min base
-
-            // Run limiter. If it returns Response (429), we must return it immediately.
-            // But standard middleware calls 'next()'.
-            // We need to capture if 'next' was called or if response was returned.
-
-            let passed = false;
-            const mockNext = async () => { passed = true; };
-
-            const response = await limiter(c, mockNext);
-
-            // If limiter returned a response (429), return it and stop chain
-            if (response instanceof Response) {
-                return response;
-            }
-
-            // If limiter threw error or something, just continue (fail open logic inside middleware)
-        } catch (rlError) {
-            console.error('[RATE-LIMIT] Failed to load/exec middleware:', rlError);
-        }
-    }
-    // -------------------------
-
-    await next();
-});
+    await next()
+})
 
 // Criar sub-app para as rotas da API
 const apiRoutes = new Hono<{ Bindings: Env }>();
@@ -325,8 +282,11 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
 // CHECKLIST ROUTING (Advanced Dispatch)
 apiRoutes.all('/checklist/*', async (c) => {
     try {
-        let executionCtx: any = undefined;
-        try { executionCtx = c.executionCtx; } catch { }
+        // Safe access to executionCtx (may not exist in Supabase Edge)
+        let executionCtx = undefined;
+        try {
+            executionCtx = c.executionCtx;
+        } catch { }
 
         if (c.req.path.includes('/checklist/folders') || c.req.path.includes('/checklist/migrate-categories') || c.req.path.includes('/checklist/tree')) {
             const { default: router } = await import('./checklist-folders-routes.ts');
@@ -335,7 +295,7 @@ apiRoutes.all('/checklist/*', async (c) => {
         const { default: router } = await import('./checklist-routes.ts');
         return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
-        console.error('[LazyLoad] Checkist Route Error:', e);
+        console.error('[LazyLoad] Checklist Route Error:', e);
         return c.json({ error: 'Lazy Load Error', details: e.message, stack: e.stack }, 500);
     }
 });
@@ -369,11 +329,15 @@ apiRoutes.all('/action-plans/*', lazy(() => import('./action-plans-routes.ts')))
 // Alias action-items -> action-plans
 apiRoutes.all('/action-items/*', async (c) => {
     try {
+        // Safe access to executionCtx
+        let executionCtx = undefined;
+        try {
+            executionCtx = c.executionCtx;
+        } catch { }
+
         const { default: router } = await import('./action-plans-routes.ts');
         const newUrl = c.req.url.replace('/action-items', '/action-plans');
         const newReq = new Request(newUrl, c.req.raw);
-        let executionCtx: any = undefined;
-        try { executionCtx = c.executionCtx; } catch { }
         return router.fetch(newReq, c.env, executionCtx);
     } catch (e: any) {
         return c.json({ error: 'Lazy Load Error', details: e.message }, 500);
