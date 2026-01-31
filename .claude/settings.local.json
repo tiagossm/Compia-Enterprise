@@ -1,11 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx supabase-mcp:*)"
+      "Bash(npx supabase-mcp:*)",
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "WebFetch(domain:github.com)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

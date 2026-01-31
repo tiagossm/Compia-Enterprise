@@ -282,14 +282,20 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
 // CHECKLIST ROUTING (Advanced Dispatch)
 apiRoutes.all('/checklist/*', async (c) => {
     try {
+        // Safe access to executionCtx (may not exist in Supabase Edge)
+        let executionCtx = undefined;
+        try {
+            executionCtx = c.executionCtx;
+        } catch { }
+
         if (c.req.path.includes('/checklist/folders') || c.req.path.includes('/checklist/migrate-categories') || c.req.path.includes('/checklist/tree')) {
             const { default: router } = await import('./checklist-folders-routes.ts');
-            return router.fetch(c.req.raw, c.env, c.executionCtx);
+            return router.fetch(c.req.raw, c.env, executionCtx);
         }
         const { default: router } = await import('./checklist-routes.ts');
-        return router.fetch(c.req.raw, c.env, c.executionCtx);
+        return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
-        console.error('[LazyLoad] Checkist Route Error:', e);
+        console.error('[LazyLoad] Checklist Route Error:', e);
         return c.json({ error: 'Lazy Load Error', details: e.message, stack: e.stack }, 500);
     }
 });
@@ -323,10 +329,16 @@ apiRoutes.all('/action-plans/*', lazy(() => import('./action-plans-routes.ts')))
 // Alias action-items -> action-plans
 apiRoutes.all('/action-items/*', async (c) => {
     try {
+        // Safe access to executionCtx
+        let executionCtx = undefined;
+        try {
+            executionCtx = c.executionCtx;
+        } catch { }
+
         const { default: router } = await import('./action-plans-routes.ts');
         const newUrl = c.req.url.replace('/action-items', '/action-plans');
         const newReq = new Request(newUrl, c.req.raw);
-        return router.fetch(newReq, c.env, c.executionCtx);
+        return router.fetch(newReq, c.env, executionCtx);
     } catch (e: any) {
         return c.json({ error: 'Lazy Load Error', details: e.message }, 500);
     }
