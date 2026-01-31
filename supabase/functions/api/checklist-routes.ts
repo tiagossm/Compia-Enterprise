@@ -13,12 +13,17 @@ type Env = {
 };
 
 // Helper to handle BigInt serialization
-const safeJson = (data: any) => {
-  return JSON.parse(JSON.stringify(data, (key, value) =>
-    typeof value === 'bigint'
-      ? value.toString()
-      : value
-  ));
+// Helper to handle BigInt serialization - ROBUST RECURSIVE
+const safeJson = (data: any): any => {
+  if (data === null || data === undefined) return data;
+  if (typeof data === 'bigint') return data.toString();
+  if (Array.isArray(data)) return data.map(safeJson);
+  if (typeof data === 'object') {
+    return Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [key, safeJson(value)])
+    );
+  }
+  return data;
 };
 
 const checklistRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/checklist');
@@ -70,12 +75,10 @@ async function handleListTemplates(c: any) {
     console.log(`[TEMPLATES] [PROD] Usuario ${user.email} role: ${userProfile?.role} org: ${userProfile?.organization_id}`);
 
     // STAGE 2: Fetch Templates
+    // SIMPLIFIED QUERY: Removed JOINs to rule out performance issues
     let query = `
-      SELECT ct.*, 
-             COUNT(cf.id) as field_count,
-             ct.is_category_folder as is_folder
+      SELECT ct.*
       FROM checklist_templates ct
-      LEFT JOIN checklist_fields cf ON ct.id = cf.template_id
     `;
     let params: any[] = [];
     let whereClause = ["(ct.is_category_folder = false OR ct.is_category_folder IS NULL)"];
@@ -112,26 +115,44 @@ async function handleListTemplates(c: any) {
       query += " WHERE " + whereClause.join(" AND ");
     }
 
-    query += " GROUP BY ct.id ORDER BY ct.display_order ASC, ct.created_at DESC";
+    query += " ORDER BY ct.display_order ASC, ct.created_at DESC";
 
     console.log(`[TEMPLATES] [DEBUG] Query: ${query}`);
     console.log(`[TEMPLATES] [DEBUG] Params: ${JSON.stringify(params)}`);
+    if (params.length > 1) {
+      console.log(`[TEMPLATES] [DEBUG] OrgID Type: ${typeof params[1]} Value: ${params[1]}`);
+    }
 
+    const startTime = Date.now();
     // Using .all() directly on the prepared statement
     const result = await env.DB.prepare(query).bind(...params).all();
+    console.log(`[TEMPLATES] [DEBUG] DB Exec Time: ${Date.now() - startTime}ms`);
+
     const templates = result.results || [];
 
-    console.log(`[TEMPLATES] [PROD] Found ${templates.length} templates for user ${user.email} (role: ${userProfile?.role})`);
+    // Manually calculate field_count (if critical, otherwise remove or fetch separately)
+    // For now returning 0 to fix stability
+    const templatesWithCounts = templates.map((t: any) => ({
+      ...t,
+      field_count: 0, // Placeholder to avoid JOIN
+      is_folder: t.is_category_folder
+    }));
 
-    // Use safeJson to handle BigInts
-    return c.json(safeJson({ templates }));
+    console.log(`[TEMPLATES] [PROD] Found ${templates.length} templates. Serializing...`);
+
+    const jsonStart = Date.now();
+    const response = c.json(safeJson({ templates: templatesWithCounts }));
+    console.log(`[TEMPLATES] [DEBUG] JSON Serialize Time: ${Date.now() - jsonStart}ms`);
+
+    return response;
+
   } catch (error) {
-    console.error('[TEMPLATES] [PROD] Error fetching templates:', error);
+    console.error('[TEMPLATES] [FATAL ERROR] Fetching templates:', error);
     return c.json({
       error: error instanceof Error ? error.message : "Failed to fetch templates",
       details: error instanceof Error ? error.stack : undefined,
-      cause: (error as any)?.cause,
-      user_id: user?.id
+      user_id: user?.id,
+      timestamp: new Date().toISOString()
     }, 500);
   }
 }

@@ -214,12 +214,17 @@ checklistFoldersRoutes.post("/migrate-categories", tenantAuthMiddleware, async (
 });
 
 // Helper to handle BigInt serialization
-const safeJson = (data: any) => {
-  return JSON.parse(JSON.stringify(data, (key, value) =>
-    typeof value === 'bigint'
-      ? value.toString()
-      : value
-  ));
+// Helper to handle BigInt serialization - ROBUST RECURSIVE
+const safeJson = (data: any): any => {
+  if (data === null || data === undefined) return data;
+  if (typeof data === 'bigint') return data.toString();
+  if (Array.isArray(data)) return data.map(safeJson);
+  if (typeof data === 'object') {
+    return Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [key, safeJson(value)])
+    );
+  }
+  return data;
 };
 
 // Listar pastas com contadores (requires checklist:folders:read scope)

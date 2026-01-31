@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Layout from '@/react-app/components/Layout';
 import { useOrganization } from '@/react-app/context/OrganizationContext';
 import NewTaskModal from '@/react-app/components/NewTaskModal';
-import GamificationWidget from '@/react-app/components/GamificationWidget';
+// import GamificationWidget from '@/react-app/components/GamificationWidget';
 import KanbanBoard from '@/react-app/components/KanbanBoard';
 import {
     Plus,
@@ -211,8 +211,8 @@ export default function ActivitiesHub() {
 
                 {/* Content Area */}
                 {!loading && (
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 hover:overflow-hidden">
-                        <div className="lg:col-span-3 flex flex-col h-full overflow-hidden">
+                    <div className="flex-1 hover:overflow-hidden">
+                        <div className="flex flex-col h-full overflow-hidden">
                             {viewMode === 'kanban' ? (
                                 <div className="flex-1 overflow-hidden h-full">
                                     <KanbanBoard
@@ -276,11 +276,6 @@ export default function ActivitiesHub() {
                                     </table>
                                 </div>
                             )}
-                        </div>
-
-                        {/* Sidebar - Gamification */}
-                        <div className="hidden lg:flex flex-col gap-4">
-                            <GamificationWidget />
                         </div>
                     </div>
                 )}

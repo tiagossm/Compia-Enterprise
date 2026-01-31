@@ -29,6 +29,7 @@ import UsageIndicator from '@/react-app/components/UsageIndicator';
 import FloatingAiAssistant from '@/react-app/components/FloatingAiAssistant';
 import { SyncStatusIndicator } from '@/react-app/components/SyncStatusIndicator';
 import { OfflinePinModal } from '@/react-app/components/OfflinePinModal';
+import HeaderGamification from '@/react-app/components/HeaderGamification';
 
 interface LayoutProps {
   children: ReactNode;
@@ -290,6 +291,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
                 <span className="text-xs font-medium text-slate-500 block leading-tight mt-0.5 capitalize">
                   {profile?.role?.replace(/_/g, ' ').replace('sys', 'System') || ''}
                 </span>
+                <HeaderGamification />
               </div>
               <ChevronDown size={14} className="text-gray-400 group-hover:text-primary transition-colors" />
             </button>
