@@ -2,7 +2,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '@/react-app/components/Layout';
 import {
-  AlertCircle, CheckCircle2, RotateCcw, X, FileCheck, FileText, Calendar, Brain
+  AlertCircle, CheckCircle2, RotateCcw, X, FileCheck, FileText, Calendar
 } from 'lucide-react';
 import InspectionSignature from '@/react-app/components/InspectionSignature';
 import InspectionSummary from '@/react-app/components/InspectionSummary';
@@ -14,7 +14,7 @@ import LoadingSpinner from '@/react-app/components/LoadingSpinner';
 import FloatingActionBar from '@/react-app/components/FloatingActionBar';
 import HeatmapViewer from '@/react-app/components/HeatmapViewer';
 import { useInspectionLogic } from '@/react-app/hooks/useInspectionLogic';
-import { AudioRecorder as InspectionAudioRecorder } from '@/react-app/components/AudioRecorder'; // Alias for clarity/avoid conflicts
+// (AudioRecorder hands-free disabled)
 
 // Sub-components
 import InspectionHeader from '@/react-app/components/inspection-detail/InspectionHeader';
@@ -44,7 +44,7 @@ export default function InspectionDetail() {
     updateItemCompliance, updateItemAnalysis, handleFormSubmit,
     handleSignatureSaved, handleFinalizeInspection, handleReopenInspection,
     handleMediaUploaded, handleMediaDeleted, handleCreateManualAction,
-    generateAIAnalysis, fetchAuditLogs, handleAutoSave, processAudioNote
+    generateAIAnalysis, fetchAuditLogs, handleAutoSave
   } = useInspectionLogic(id);
 
   // UI-only state remains here
@@ -281,36 +281,10 @@ export default function InspectionDetail() {
           onViewATA={handleViewATA}
         />
 
-        {/* AI Audio Recorder Section - Per question (existing feature) */}
-        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-xl border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white rounded-full shadow-sm text-indigo-600">
-              <Brain className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-indigo-900">Assistente IA de Voz</h3>
-              <p className="text-sm text-indigo-600">Grave notas de áudio e deixe a IA preencher a checklist para você.</p>
-            </div>
-          </div>
-          <div className="flex-shrink-0">
-            {/* Dynamic Import to avoid SSR issues if any, though standard import works */}
-            <InspectionAudioRecorder
-              onRecordingComplete={async (blob) => {
-                const result = await processAudioNote(blob);
-                if (result?.suggestions) {
-                  // Show suggestions modal
-                  // For MVP: Apply directly or alert? 
-                  // Plan says: Show Review Modal.
-                  // We need state for showing suggestions.
-                  // dispatch openSuggestions(result.suggestions)
-                  console.log('Sugestões da IA:', result.suggestions);
-                  // TODO: Open modal with suggestions
-                }
-              }}
-              isProcessing={aiAnalyzing}
-            />
-          </div>
-        </div>
+        {/* Assistente IA de Voz (Mãos Livres)
+            Desativado: estava duplicando o uso de microfone e confundindo com a gravação de ATA.
+            Se for reativar no futuro, colocar atrás de feature flag e UX separada.
+        */}
 
         {/* Inspection Info Cards */}
         <InspectionInfoCards inspection={inspection} />

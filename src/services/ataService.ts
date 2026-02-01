@@ -96,19 +96,21 @@ export const ataService = {
      * Get ATA by inspection ID (returns the most recent one)
      */
     async getByInspection(inspectionId: number): Promise<ATA | null> {
+        // Use maybeSingle() so "no rows" doesn't become a noisy 406.
         const { data, error } = await supabase
             .from('inspection_atas')
             .select('*')
             .eq('inspection_id', inspectionId)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (error) {
-            if (error.code === 'PGRST116') return null; // Not found
+            // PGRST116 is still possible in some edge cases; treat as "not found".
+            if (error.code === 'PGRST116') return null;
             throw new Error(`Failed to get ATA: ${error.message}`);
         }
-        return data;
+        return data ?? null;
     },
 
     /**

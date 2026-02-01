@@ -173,19 +173,35 @@ export function InspectionATARecorder({
                     )}
 
                     {/* Not recording state */}
-                    {!isRecording && !ata && (
+                    {!isRecording && (!ata || ata.status === 'recording') && (
                         <div className="text-center py-4">
                             <p className="text-sm text-gray-600 mb-4">
                                 Grave toda a inspeção em um único áudio contínuo.
                                 A IA irá transcrever e gerar a ATA automaticamente.
                             </p>
-                            <button
-                                onClick={startRecording}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                            >
-                                <Mic className="h-4 w-4" />
-                                Iniciar Gravação da ATA
-                            </button>
+                            {ata?.status === 'recording' && (
+                                <p className="text-xs text-yellow-700 bg-yellow-100 inline-block px-3 py-1 rounded mb-3">
+                                    Existe uma ATA em status “gravando” que não foi finalizada. Você pode continuar a gravação ou descartar.
+                                </p>
+                            )}
+                            <div className="flex items-center justify-center gap-3">
+                                <button
+                                    onClick={startRecording}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                >
+                                    <Mic className="h-4 w-4" />
+                                    {ata?.status === 'recording' ? 'Continuar Gravação da ATA' : 'Iniciar Gravação da ATA'}
+                                </button>
+                                {ata?.status === 'recording' && (
+                                    <button
+                                        onClick={() => setShowDiscardDialog(true)}
+                                        className="inline-flex items-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Descartar
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
