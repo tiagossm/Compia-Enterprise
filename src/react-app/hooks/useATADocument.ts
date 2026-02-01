@@ -3,20 +3,14 @@
 
 import { useState, useCallback } from 'react';
 import { ataService, ATA, ATAGenerateResult } from '@/services/ataService';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/react-app/hooks/useToast';
 import {
     Document,
     Packer,
     Paragraph,
     TextRun,
     HeadingLevel,
-    AlignmentType,
-    BorderStyle,
-    Table,
-    TableRow,
-    TableCell,
-    WidthType,
-    ShadingType
+    AlignmentType
 } from 'docx';
 import { saveAs } from 'file-saver';
 
@@ -44,7 +38,7 @@ interface UseATADocumentProps {
 }
 
 export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate }: UseATADocumentProps) {
-    const { toast } = useToast();
+    const toast = useToast();
 
     const [state, setState] = useState<ATADocumentState>({
         ata: null,
@@ -109,10 +103,7 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
                 isProcessing: false
             }));
 
-            toast({
-                title: 'ATA gerada com sucesso',
-                description: 'Revise a transcrição e valide a ATA.',
-            });
+            toast.success('ATA gerada com sucesso', 'Revise a transcrição e valide a ATA.');
 
             return result;
 
@@ -124,11 +115,7 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
                 error: error.message
             }));
 
-            toast({
-                title: 'Erro ao gerar ATA',
-                description: error.message || 'Tente novamente.',
-                variant: 'destructive'
-            });
+            toast.error('Erro ao gerar ATA', error.message || 'Tente novamente.');
 
             return null;
         }
@@ -144,18 +131,11 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
             const updatedATA = await ataService.update(state.ata.id, updates);
             setState(prev => ({ ...prev, ata: updatedATA }));
 
-            toast({
-                title: 'ATA atualizada',
-                description: 'As alterações foram salvas.',
-            });
+            toast.success('ATA atualizada', 'As alterações foram salvas.');
 
         } catch (error: any) {
             console.error('Failed to update ATA:', error);
-            toast({
-                title: 'Erro ao atualizar',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao atualizar', error.message);
         }
     }, [state.ata, toast]);
 
@@ -169,18 +149,11 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
             const validatedATA = await ataService.validate(state.ata.id);
             setState(prev => ({ ...prev, ata: validatedATA }));
 
-            toast({
-                title: 'ATA validada',
-                description: 'A ATA foi marcada como final.',
-            });
+            toast.success('ATA validada', 'A ATA foi marcada como final.');
 
         } catch (error: any) {
             console.error('Failed to validate ATA:', error);
-            toast({
-                title: 'Erro ao validar',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao validar', error.message);
         }
     }, [state.ata, toast]);
 
@@ -189,11 +162,7 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
      */
     const fillChecklist = useCallback(async () => {
         if (!state.ata?.identified_items || state.ata.identified_items.length === 0) {
-            toast({
-                title: 'Nenhum item identificado',
-                description: 'A ATA não possui itens para preencher o checklist.',
-                variant: 'default'
-            });
+            toast.info('Nenhum item identificado', 'A ATA não possui itens para preencher o checklist.');
             return;
         }
 
@@ -201,18 +170,11 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
             if (onChecklistUpdate) {
                 onChecklistUpdate(state.ata.identified_items);
 
-                toast({
-                    title: 'Checklist preenchido',
-                    description: `${state.ata.identified_items.length} itens foram atualizados.`,
-                });
+                toast.success('Checklist preenchido', `${state.ata.identified_items.length} itens foram atualizados.`);
             }
         } catch (error: any) {
             console.error('Failed to fill checklist:', error);
-            toast({
-                title: 'Erro ao preencher checklist',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao preencher checklist', error.message);
         }
     }, [state.ata, onChecklistUpdate, toast]);
 
@@ -240,7 +202,6 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
                     }));
 
             // Count statistics
-            const totalItems = ata.identified_items?.length || 0;
             const conformes = ata.identified_items?.filter(i => i.status === 'C').length || 0;
             const naoConformes = ata.identified_items?.filter(i => i.status === 'NC').length || 0;
 
@@ -448,18 +409,11 @@ export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate
             const fileName = `ATA_Inspecao_${inspectionId}_${new Date().toISOString().split('T')[0]}.docx`;
             saveAs(blob, fileName);
 
-            toast({
-                title: 'Documento gerado',
-                description: `${fileName} foi baixado.`,
-            });
+            toast.success('Documento gerado', `${fileName} foi baixado.`);
 
         } catch (error: any) {
             console.error('Failed to generate document:', error);
-            toast({
-                title: 'Erro ao gerar documento',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao gerar documento', error.message);
         } finally {
             setState(prev => ({ ...prev, isGeneratingDoc: false }));
         }

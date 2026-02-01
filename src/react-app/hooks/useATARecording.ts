@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ataService, ATA, ATASegment } from '@/services/ataService';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/react-app/hooks/useToast';
 
 // Auto-save interval (30 seconds)
 const AUTO_SAVE_INTERVAL = 30000;
@@ -31,7 +31,7 @@ interface UseATARecordingProps {
 }
 
 export function useATARecording({ inspectionId, organizationId }: UseATARecordingProps) {
-    const { toast } = useToast();
+    const toast = useToast();
 
     // State
     const [state, setState] = useState<ATARecordingState>({
@@ -77,19 +77,11 @@ export function useATARecording({ inspectionId, organizationId }: UseATARecordin
         const totalSeconds = state.totalDuration + state.currentSegmentDuration;
         if (totalSeconds >= DURATION_WARNING_THRESHOLD && !warningShownRef.current) {
             warningShownRef.current = true;
-            toast({
-                title: 'Aviso de duração',
-                description: 'A gravação já passou de 30 minutos. Considere finalizar em breve.',
-                variant: 'default'
-            });
+            toast.warning('Aviso de duração', 'A gravação já passou de 30 minutos. Considere finalizar em breve.');
         }
         if (totalSeconds >= MAX_DURATION && state.isRecording) {
             finalizeRecording();
-            toast({
-                title: 'Limite atingido',
-                description: 'A gravação atingiu o limite de 2 horas e foi finalizada automaticamente.',
-                variant: 'destructive'
-            });
+            toast.error('Limite atingido', 'A gravação atingiu o limite de 2 horas e foi finalizada automaticamente.');
         }
     }, [state.totalDuration, state.currentSegmentDuration, state.isRecording]);
 
@@ -183,19 +175,12 @@ export function useATARecording({ inspectionId, organizationId }: UseATARecordin
                 error: null
             }));
 
-            toast({
-                title: 'Gravação iniciada',
-                description: 'A ATA está sendo gravada. Fale naturalmente.',
-            });
+            toast.success('Gravação iniciada', 'A ATA está sendo gravada. Fale naturalmente.');
 
         } catch (error: any) {
             console.error('Failed to start recording:', error);
             setState(prev => ({ ...prev, error: error.message }));
-            toast({
-                title: 'Erro ao iniciar gravação',
-                description: error.message || 'Verifique as permissões do microfone.',
-                variant: 'destructive'
-            });
+            toast.error('Erro ao iniciar gravação', error.message || 'Verifique as permissões do microfone.');
         }
     }, [state.ata, inspectionId, organizationId, toast]);
 
@@ -223,18 +208,11 @@ export function useATARecording({ inspectionId, organizationId }: UseATARecordin
                 currentSegment: prev.currentSegment + 1
             }));
 
-            toast({
-                title: 'Gravação pausada',
-                description: 'Segmento salvo. Clique em Continuar para retomar.',
-            });
+            toast.success('Gravação pausada', 'Segmento salvo. Clique em Continuar para retomar.');
 
         } catch (error: any) {
             console.error('Failed to pause recording:', error);
-            toast({
-                title: 'Erro ao pausar',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao pausar', error.message);
         }
     }, [state.isPaused, toast]);
 
@@ -289,18 +267,11 @@ export function useATARecording({ inspectionId, organizationId }: UseATARecordin
                 error: null
             }));
 
-            toast({
-                title: 'Gravação retomada',
-                description: `Continuando no segmento ${state.currentSegment}.`,
-            });
+            toast.success('Gravação retomada', `Continuando no segmento ${state.currentSegment}.`);
 
         } catch (error: any) {
             console.error('Failed to resume recording:', error);
-            toast({
-                title: 'Erro ao retomar',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao retomar', error.message);
         }
     }, [state.isPaused, state.currentSegment, toast]);
 
@@ -348,20 +319,13 @@ export function useATARecording({ inspectionId, organizationId }: UseATARecordin
             // Reload ATA with updated data
             const updatedATA = await ataService.get(state.ata.id);
 
-            toast({
-                title: 'Gravação finalizada',
-                description: 'Pronto para processar a ATA.',
-            });
+            toast.success('Gravação finalizada', 'Pronto para processar a ATA.');
 
             return updatedATA;
 
         } catch (error: any) {
             console.error('Failed to finalize recording:', error);
-            toast({
-                title: 'Erro ao finalizar',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao finalizar', error.message);
             return null;
         }
     }, [state.ata, toast]);
@@ -402,18 +366,11 @@ export function useATARecording({ inspectionId, organizationId }: UseATARecordin
 
             warningShownRef.current = false;
 
-            toast({
-                title: 'Gravação descartada',
-                description: 'Todos os áudios foram removidos.',
-            });
+            toast.success('Gravação descartada', 'Todos os áudios foram removidos.');
 
         } catch (error: any) {
             console.error('Failed to discard recording:', error);
-            toast({
-                title: 'Erro ao descartar',
-                description: error.message,
-                variant: 'destructive'
-            });
+            toast.error('Erro ao descartar', error.message);
         }
     }, [state.ata, toast]);
 

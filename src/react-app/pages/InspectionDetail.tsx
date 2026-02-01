@@ -7,6 +7,7 @@ import {
 import InspectionSignature from '@/react-app/components/InspectionSignature';
 import InspectionSummary from '@/react-app/components/InspectionSummary';
 import { useAuth } from '@/react-app/context/AuthContext';
+import { useOrganization } from '@/react-app/context/OrganizationContext';
 import InspectionShare from '@/react-app/components/InspectionShare';
 import PDFGenerator from '@/react-app/components/PDFGenerator';
 import LoadingSpinner from '@/react-app/components/LoadingSpinner';
@@ -32,6 +33,7 @@ export default function InspectionDetail() {
   const navigate = useNavigate();
 
   const { user } = useAuth(); // Needed for PDF Generator details
+  const { selectedOrganization } = useOrganization(); // For ATA organization_id
 
   // Use the new hook for all business logic
   const {
@@ -241,13 +243,28 @@ export default function InspectionDetail() {
   };
 
   const handleChecklistUpdateFromATA = (updates: Array<{ item_id: number; status: string; observation: string }>) => {
-    // Apply updates to checklist items
+    // Apply updates to checklist items via handleAutoSave
+    // Map ATA status codes to compliance_status values
+    const complianceStatuses: Record<string, string> = {};
+    const comments: Record<string, string> = {};
+
     updates.forEach(update => {
       const item = items.find(i => i.id === update.item_id);
-      if (item) {
-        updateItemCompliance(item.id, update.status as 'C' | 'NC' | 'NA', update.observation);
+      if (item && item.id !== undefined) {
+        const complianceStatus = update.status === 'C' ? 'compliant' :
+                                 update.status === 'NC' ? 'non_compliant' :
+                                 'not_applicable';
+        complianceStatuses[String(item.id)] = complianceStatus;
+        if (update.observation) {
+          comments[String(item.id)] = update.observation;
+        }
       }
     });
+
+    // Batch update all items
+    if (Object.keys(complianceStatuses).length > 0) {
+      handleAutoSave({}, comments, complianceStatuses);
+    }
   };
 
   return (
@@ -259,7 +276,7 @@ export default function InspectionDetail() {
         {/* ATA Recorder - Continuous audio recording */}
         <InspectionATARecorder
           inspectionId={parseInt(id!)}
-          organizationId={inspection.organization_id || 0}
+          organizationId={selectedOrganization?.id || 0}
           onATAReady={handleATAReady}
           onViewATA={handleViewATA}
         />
@@ -576,14 +593,14 @@ export default function InspectionDetail() {
               setCurrentATAId(null);
             }}
             inspectionData={{
-              items: items.map(item => ({
-                id: item.id,
+              items: items.filter(item => item.id !== undefined).map(item => ({
+                id: item.id!,
                 title: item.item_description || '',
                 description: item.item_description,
                 category: item.category
               })),
               info: {
-                id: inspection.id,
+                id: parseInt(id!),
                 project_name: inspection.title,
                 location: inspection.location,
                 inspector_name: inspection.inspector_name,
