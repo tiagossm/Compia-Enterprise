@@ -6,6 +6,7 @@ const ALLOWED_ORIGINS = [
     'http://localhost',
     'https://compia.tech',
     'https://www.compia.tech',
+    'https://vjlvvmriqerfmztwtewa.supabase.co', // Supabase Functions
     window.location.origin // The current application origin
 ];
 
@@ -32,49 +33,62 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
     const isTrustedOrigin = ALLOWED_ORIGINS.some(allowed => targetOrigin.startsWith(allowed) || targetOrigin.includes('vercel.app')); // Includes preview URLs
     const isExternalSupabase = urlStr.includes('supabase.co');
 
+    // Check if body is FormData - if so, don't manipulate headers to let browser set Content-Type with boundary
+    const isFormData = options.body instanceof FormData;
+
+    // Build headers - preserve existing, add auth if needed
+    const existingHeaders = options.headers || {};
+    const headerObj: Record<string, string> = {};
+
+    // Copy existing headers
+    if (existingHeaders instanceof Headers) {
+        existingHeaders.forEach((value, key) => {
+            headerObj[key] = value;
+        });
+    } else if (Array.isArray(existingHeaders)) {
+        existingHeaders.forEach(([key, value]) => {
+            headerObj[key] = value;
+        });
+    } else {
+        Object.assign(headerObj, existingHeaders);
+    }
+
+    // Inject Supabase Auth Token if present (for Google Login/Supabase Auth)
+    // ONLY for trusted origins to avoid leaking token to external APIs (e.g. Maps, ViaCEP)
+    if (isTrustedOrigin && !headerObj['Authorization']) {
+        // Find Supabase token in localStorage
+        // Pattern: sb-<project-id>-auth-token
+        let supabaseToken = null;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                try {
+                    const item = localStorage.getItem(key);
+                    if (item) {
+                        const parsed = JSON.parse(item);
+                        if (parsed.access_token) {
+                            supabaseToken = parsed.access_token;
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing Supabase token:', e);
+                }
+            }
+        }
+
+        if (supabaseToken) {
+            headerObj['Authorization'] = `Bearer ${supabaseToken}`;
+        }
+    }
+
     const newOptions: RequestInit = {
         ...options,
         // Only force include credentials for internal API calls, not external Supabase interactions
         credentials: (isExternalSupabase ? undefined : 'include') as RequestCredentials,
-        headers: {
-            ...(options.headers || {}),
-        } as Record<string, string>,
+        // For FormData, only pass headers if we added auth - otherwise let browser handle Content-Type
+        headers: isFormData && Object.keys(headerObj).length === 0 ? undefined : headerObj,
     };
-
-    // Inject Supabase Auth Token if present (for Google Login/Supabase Auth)
-    // ONLY for trusted origins to avoid leaking token to external APIs (e.g. Maps, ViaCEP)
-    // Also allow for Supabase Edge Functions which require the Bearer token for auth
-    if (isTrustedOrigin || isExternalSupabase) {
-        // Cast headers to any/Record to avoid strict HeadersInit type issues during patch
-        const headers = newOptions.headers as Record<string, string>;
-
-        if (!headers['Authorization']) {
-            // Find Supabase token in localStorage
-            // Pattern: sb-<project-id>-auth-token
-            let supabaseToken = null;
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                    try {
-                        const item = localStorage.getItem(key);
-                        if (item) {
-                            const parsed = JSON.parse(item);
-                            if (parsed.access_token) {
-                                supabaseToken = parsed.access_token;
-                                break;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error parsing Supabase token:', e);
-                    }
-                }
-            }
-
-            if (supabaseToken) {
-                headers['Authorization'] = `Bearer ${supabaseToken}`;
-            }
-        }
-    }
 
     return originalFetch(url, newOptions);
 };

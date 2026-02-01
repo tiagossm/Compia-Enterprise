@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -50,14 +51,30 @@ serve(async (req) => {
                 }));
                 contextPrompt = `
 CONTEXTO DO CHECKLIST:
-Abaixo estão os itens que precisam ser verificados nesta inspeção. Use estes IDs para mapear suas respostas.
+Abaixo estão os itens/campos do formulário de inspeção. Use o "id" de cada item para mapear suas respostas.
 ${JSON.stringify(simplifiedItems, null, 2)}
 
-INSTRUÇÃO IMPORTANTE:
-Para cada item do checklist mencionado ou implícito no áudio, determine:
-1. Status: "C" (Conforme), "NC" (Não Conforme) ou "NA" (Não Aplicável).
-2. Observação: Transcreva a justificativa técnica dita no áudio.
-Se o áudio não mencionar um item, ignore-o (não invente).
+REGRAS OBRIGATÓRIAS:
+1. Se o áudio menciona um NOME DE PESSOA (ex: "Antônio", "Maria", "João"):
+   - Procure um item com título contendo "Nome", "Funcionário", "Responsável", "Inspetor"
+   - Retorne: { "item_id": <id_do_item>, "status": "C", "observation": "<nome_mencionado>" }
+
+2. Se o áudio menciona uma DATA ou HORÁRIO:
+   - Procure um item com título contendo "Data", "Horário", "Hora"
+   - Retorne o valor em observation
+
+3. Se o áudio menciona um LOCAL ou ENDEREÇO:
+   - Procure um item com título contendo "Local", "Endereço", "Setor", "Área"
+   - Retorne o valor em observation
+
+4. Se o áudio menciona status de itens técnicos (conforme, não conforme, ok, problema):
+   - Use status "C", "NC" ou "NA" conforme apropriado
+   - Coloque a justificativa em observation
+
+IMPORTANTE:
+- SEMPRE gere um update se conseguir identificar informação relevante no áudio
+- Use o ID numérico exato do item do checklist
+- Não deixe updates vazio se houver informação útil no áudio
 `;
             } catch (e) {
                 console.error('Error parsing items context:', e);
@@ -66,7 +83,7 @@ Se o áudio não mencionar um item, ignore-o (não invente).
 
         // Call Gemini Flash API
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
