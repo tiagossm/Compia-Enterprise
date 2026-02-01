@@ -2,7 +2,6 @@
 // Handles continuous audio recording and transcript generation
 
 import { supabase } from '@/react-app/lib/supabase';
-import { fetchWithAuth } from '@/react-app/utils/auth';
 
 export interface ATA {
     id: number;
@@ -228,23 +227,22 @@ export const ataService = {
         const ata = await this.get(ataId);
         if (!ata) throw new Error('ATA not found');
 
-        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || '/functions/v1';
-
-        const response = await fetchWithAuth(`${functionsUrl}/generate-ata`, {
-            method: 'POST',
-            body: JSON.stringify({
+        // Use supabase-js to call Edge Function so auth + CORS are handled consistently.
+        // IMPORTANT: avoid `credentials: include` when calling cross-origin functions,
+        // otherwise browsers will block wildcard CORS responses.
+        const { data, error } = await supabase.functions.invoke('generate-ata', {
+            body: {
                 ata_id: ataId,
                 inspection_id: ata.inspection_id,
                 inspection_context: inspectionContext
-            })
+            }
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Failed to generate ATA');
+        if (error) {
+            throw new Error(error.message || 'Failed to generate ATA');
         }
 
-        return await response.json();
+        return data as ATAGenerateResult;
     },
 
     /**

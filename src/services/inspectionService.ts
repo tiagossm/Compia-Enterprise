@@ -1,6 +1,7 @@
 
 import { fetchWithAuth } from '@/react-app/utils/auth';
 import { inspectionCache } from '@/lib/cache/inspection-cache';
+import { supabase } from '@/react-app/lib/supabase';
 
 import { syncService } from '@/lib/sync-service';
 
@@ -114,29 +115,22 @@ export const inspectionService = {
 
     processAudio: async (payload: { inspection_id: number, audio_url: string }) => {
         // Legacy method for URL-based processing
-        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || '/functions/v1';
-        return fetchWithAuth(`${functionsUrl}/process-audio-url`, { // Renamed or keep as fallback
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        const { data, error } = await supabase.functions.invoke('process-audio-url', {
+            body: payload
         });
+
+        if (error) throw new Error(error.message || 'Failed to process audio');
+        return data;
     },
 
     processAudioData: async (formData: FormData) => {
         // New method for direct binary upload
-        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || '/functions/v1';
-        // Note: fetchWithAuth typically sets Content-Type to application/json if not specified? 
-        // No, fetchWithAuth usually handles headers. If we pass FormData, browser sets Content-Type + Boundary automatically.
-        // We need to make sure fetchWithAuth doesn't force application/json.
-        // Let's assume fetchWithAuth is flexible or use raw fetch if needed. 
-        // Checking fetchWithAuth implementation would be safe, but let's try assuming standard behavior:
-        // If body is FormData, don't set Content-Type header manually.
-
-        return fetchWithAuth(`${functionsUrl}/process-audio`, {
-            method: 'POST',
+        const { data, error } = await supabase.functions.invoke('process-audio', {
             body: formData
-            // Headers: Authorization is added by fetchWithAuth. Content-Type is auto-set by browser for FormData.
         });
+
+        if (error) throw new Error(error.message || 'Failed to process audio');
+        return data;
     },
 
     reopen: async (id: number, justification: string) => {

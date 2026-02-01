@@ -1,4 +1,5 @@
-// Monkey-patch fetch to always include credentials
+// Monkey-patch fetch to include credentials for *our* app APIs,
+// while staying completely hands-off for Supabase (supabase-js manages its own auth).
 const originalFetch = window.fetch;
 
 // List of allowed domains for Authorization injection
@@ -6,7 +7,6 @@ const ALLOWED_ORIGINS = [
     'http://localhost',
     'https://compia.tech',
     'https://www.compia.tech',
-    'https://vjlvvmriqerfmztwtewa.supabase.co', // Supabase Functions
     window.location.origin // The current application origin
 ];
 
@@ -16,6 +16,12 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
     // Determine URL string safely
     const urlStr = url instanceof Request ? url.url : url.toString();
 
+    // If this is ANY Supabase endpoint (REST, Storage, Auth, Functions), do not modify headers/credentials.
+    // Rationale: even small header changes can break JWT parsing server-side (e.g. JWE vs JWT).
+    if (urlStr.includes('supabase.co/')) {
+        return originalFetch(url, options);
+    }
+
     // Parse origin for check
     let targetOrigin = '';
     try {
@@ -24,21 +30,14 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
         } else {
             targetOrigin = new URL(urlStr).origin;
         }
-    } catch (e) {
-        // Fallback for relative or weird URLs
+    } catch {
         targetOrigin = window.location.origin;
     }
 
     // Check if target is trusted
-    const isTrustedOrigin = ALLOWED_ORIGINS.some(allowed => targetOrigin.startsWith(allowed) || targetOrigin.includes('vercel.app')); // Includes preview URLs
-    const isExternalSupabase = urlStr.includes('supabase.co');
-
-    // Check if this is a Supabase REST API call (e.g., /rest/v1/table_name)
-    // The Supabase client already manages auth tokens, so we should NOT inject our own
-    const isSupabaseRestAPI = urlStr.includes('supabase.co/rest/v1/') || urlStr.includes('supabase.co/storage/v1/');
-
-    // Check if body is FormData - if so, don't manipulate headers to let browser set Content-Type with boundary
-    const isFormData = options.body instanceof FormData;
+    const isTrustedOrigin = ALLOWED_ORIGINS.some(
+        allowed => targetOrigin.startsWith(allowed) || targetOrigin.includes('vercel.app') // Includes preview URLs
+    );
 
     // Build headers - preserve existing, add auth if needed
     const existingHeaders = options.headers || {};
@@ -57,13 +56,16 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
         Object.assign(headerObj, existingHeaders);
     }
 
-    // Inject Supabase Auth Token if present (for Google Login/Supabase Auth)
-    // ONLY for trusted origins to avoid leaking token to external APIs (e.g. Maps, ViaCEP)
-    // SKIP for Supabase REST/Storage API calls - the Supabase client already handles auth
-    if (isTrustedOrigin && !headerObj['Authorization'] && !isSupabaseRestAPI) {
+    // Inject Supabase Auth Token for OUR trusted app endpoints only.
+    // Note: we consider both 'Authorization' and 'authorization' since headers are case-insensitive.
+    const hasAuthHeader =
+        Object.prototype.hasOwnProperty.call(headerObj, 'Authorization') ||
+        Object.prototype.hasOwnProperty.call(headerObj, 'authorization');
+
+    if (isTrustedOrigin && !hasAuthHeader) {
         // Find Supabase token in localStorage
         // Pattern: sb-<project-id>-auth-token
-        let supabaseToken = null;
+        let supabaseToken: string | null = null;
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
@@ -71,7 +73,7 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
                     const item = localStorage.getItem(key);
                     if (item) {
                         const parsed = JSON.parse(item);
-                        if (parsed.access_token) {
+                        if (parsed?.access_token && typeof parsed.access_token === 'string') {
                             supabaseToken = parsed.access_token;
                             break;
                         }
@@ -87,11 +89,12 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
         }
     }
 
+    // Check if body is FormData - if so, don't manipulate headers to let browser set Content-Type with boundary
+    const isFormData = options.body instanceof FormData;
+
     const newOptions: RequestInit = {
         ...options,
-        // Only force include credentials for internal API calls, not external Supabase interactions
-        credentials: (isExternalSupabase ? undefined : 'include') as RequestCredentials,
-        // For FormData, only pass headers if we added auth - otherwise let browser handle Content-Type
+        credentials: 'include',
         headers: isFormData && Object.keys(headerObj).length === 0 ? undefined : headerObj,
     };
 
@@ -99,3 +102,4 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
 };
 
 export { };
+
