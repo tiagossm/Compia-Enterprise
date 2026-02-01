@@ -31,6 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/react-app/context/AuthContext';
 import DynamicPricing from '@/react-app/components/landing/DynamicPricing';
+import ParticleBackground from '@/react-app/components/landing/ParticleBackground';
 
 /* --- Components --- */
 
@@ -125,12 +126,7 @@ export default function LandingPage() {
     }
   };
 
-  useEffect(() => {
-    // Redirect to dashboard if already authenticated
-    if (user) {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -217,8 +213,10 @@ export default function LandingPage() {
   }[activeSectorData.colorTheme] || { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', btn: 'bg-blue-600' };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 antialiased">
+    <div className="min-h-screen bg-transparent font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 antialiased relative">
+      <ParticleBackground />
 
+      {/* --- Navbar --- */}
       {/* --- Navbar --- */}
       <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm py-4' : 'bg-white/70 backdrop-blur-sm py-6'}`}>
         <div className="container mx-auto px-6 lg:px-12 flex justify-between items-center">
@@ -242,10 +240,10 @@ export default function LandingPage() {
 
             <div className="flex items-center gap-4 pl-4 border-l border-slate-100">
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate(user ? '/dashboard' : '/login')}
                 className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors"
               >
-                Entrar
+                {user ? 'Dashboard' : 'Entrar'}
               </button>
               <button
                 onClick={() => {
@@ -281,7 +279,7 @@ export default function LandingPage() {
               <a href="#setores" className="text-lg font-medium text-slate-700" onClick={() => setIsMenuOpen(false)}>Setores</a>
               <a href="#planos" className="text-lg font-medium text-slate-700" onClick={() => setIsMenuOpen(false)}>Planos</a>
               <hr className="border-slate-100 my-2" />
-              <button onClick={() => navigate('/login')} className="w-full py-3 text-slate-700 font-semibold border border-slate-200 rounded-lg">Entrar</button>
+              <button onClick={() => navigate(user ? '/dashboard' : '/login')} className="w-full py-3 text-slate-700 font-semibold border border-slate-200 rounded-lg">{user ? 'Dashboard' : 'Entrar'}</button>
               <button
                 onClick={() => {
                   setIsMenuOpen(false);
@@ -298,28 +296,27 @@ export default function LandingPage() {
       </nav>
 
       {/* --- Hero Section --- */}
-      <section className="relative pt-40 pb-24 lg:pt-52 lg:pb-40 overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute top-0 inset-x-0 h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50/50 via-white to-white -z-20"></div>
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[600px] h-[600px] bg-indigo-50/40 rounded-full blur-[120px] -z-10"></div>
+      <section className="relative z-10 pt-28 pb-20 lg:pt-36 lg:pb-24 overflow-hidden">
+        {/* Animated Particle Background */}
+
 
         <div className="container mx-auto px-6 lg:px-12 relative z-10 text-center">
 
           {/* Removed Badge "Nova Geração 2.0" as requested */}
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-slate-900 tracking-tight mb-8 leading-tight animate-slide-up max-w-5xl mx-auto mt-12">
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-slate-900 tracking-tight mb-8 leading-tight max-w-5xl mx-auto mt-6">
             O fim do relatório <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">digitado no escritório.</span>
           </h1>
 
           {/* Subhead - Removed "Enterprise" word */}
-          <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed animate-slide-up animation-delay-200">
+          <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed">
             Fale o que você vê na obra e deixe nossa IA escrever o relatório técnico, formatar fotos e garantir a conformidade jurídica com GPS Atômico.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up animation-delay-300">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button
               onClick={() => {
                 const element = document.getElementById('planos');
@@ -385,7 +382,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- Como Funciona --- */}
-      <section id="como-funciona" className="py-24 bg-white relative overflow-hidden">
+      <section id="como-funciona" className="py-24 bg-white/30 backdrop-blur-md relative z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-50/30 via-transparent to-transparent -z-10"></div>
 
         <div className="container mx-auto px-6 lg:px-12">
@@ -469,7 +466,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- Features Grid --- */}
-      <section id="recursos" className="py-32 bg-slate-50 relative">
+      <section id="recursos" className="py-24 bg-slate-50/40 backdrop-blur-md relative z-10">
         <div className="container mx-auto px-6 lg:px-12">
           <RevealOnScroll className="max-w-3xl mx-auto text-center mb-20">
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">O Sistema Operacional da Qualidade</h2>
@@ -500,7 +497,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- Industries Tabs --- */}
-      <section id="setores" className="py-32 bg-white overflow-hidden">
+      <section id="setores" className="py-24 bg-white/30 backdrop-blur-md relative z-10 overflow-hidden">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">Um Sistema, Múltiplos Usos</h2>
@@ -593,9 +590,9 @@ export default function LandingPage() {
                       <span>Progresso</span>
                       <span className="font-semibold text-slate-700">50%</span>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <section className="py-24 bg-blue-600 relative overflow-hidden">
                       <div className={`h-full w-1/2 ${themeClasses.btn} rounded-full`}></div>
-                    </div>
+                    </section>
                   </div>
                 </div>
               </div>
@@ -606,7 +603,9 @@ export default function LandingPage() {
       </section>
 
       {/* --- Dynamic Pricing Section --- */}
-      <DynamicPricing />
+      <section id="planos" className="py-24 bg-slate-50/40 backdrop-blur-md relative z-10">
+        <DynamicPricing />
+      </section>
 
       {/* --- Footer --- */}
       <footer className="bg-slate-900 text-white pt-16 pb-8">
