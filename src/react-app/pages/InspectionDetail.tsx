@@ -23,6 +23,10 @@ import InspectionMediaSection from '@/react-app/components/inspection-detail/Ins
 import InspectionActionItems from '@/react-app/components/inspection-detail/InspectionActionItems';
 import InspectionActionPlanLegacy from '@/react-app/components/inspection-detail/InspectionActionPlanLegacy';
 
+// ATA Components
+import InspectionATARecorder from '@/react-app/components/inspection-detail/InspectionATARecorder';
+import ATAPreview from '@/react-app/components/inspection-detail/ATAPreview';
+
 export default function InspectionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -52,6 +56,10 @@ export default function InspectionDetail() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showNewAction, setShowNewAction] = useState(false);
+
+  // ATA (continuous audio recording) state
+  const [showATAPreview, setShowATAPreview] = useState(false);
+  const [currentATAId, setCurrentATAId] = useState<number | null>(null);
 
   // Form states moved to sub-components (NewItemForm, NewActionForm)
 
@@ -221,13 +229,42 @@ export default function InspectionDetail() {
   /* Or better: In the layout, maybe as a button that expands? */
   /* For now, let's start simple: specific section at the top or bottom of the list. */
 
+  // Handlers for ATA
+  const handleATAReady = (ataId: number) => {
+    setCurrentATAId(ataId);
+    setShowATAPreview(true);
+  };
+
+  const handleViewATA = (ataId: number) => {
+    setCurrentATAId(ataId);
+    setShowATAPreview(true);
+  };
+
+  const handleChecklistUpdateFromATA = (updates: Array<{ item_id: number; status: string; observation: string }>) => {
+    // Apply updates to checklist items
+    updates.forEach(update => {
+      const item = items.find(i => i.id === update.item_id);
+      if (item) {
+        updateItemCompliance(item.id, update.status as 'C' | 'NC' | 'NA', update.observation);
+      }
+    });
+  };
+
   return (
     <Layout>
       <div className="space-y-6 pb-32 relative">
         {/* Header */}
         <InspectionHeader inspection={inspection} />
 
-        {/* AI Audio Recorder Section - Premium & Visible */}
+        {/* ATA Recorder - Continuous audio recording */}
+        <InspectionATARecorder
+          inspectionId={parseInt(id!)}
+          organizationId={inspection.organization_id || 0}
+          onATAReady={handleATAReady}
+          onViewATA={handleViewATA}
+        />
+
+        {/* AI Audio Recorder Section - Per question (existing feature) */}
         <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-xl border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white rounded-full shadow-sm text-indigo-600">
@@ -527,6 +564,35 @@ export default function InspectionDetail() {
           auditLogs={auditLogs}
 
         />
+
+        {/* ATA Preview Modal */}
+        {currentATAId && (
+          <ATAPreview
+            ataId={currentATAId}
+            inspectionId={parseInt(id!)}
+            isOpen={showATAPreview}
+            onClose={() => {
+              setShowATAPreview(false);
+              setCurrentATAId(null);
+            }}
+            inspectionData={{
+              items: items.map(item => ({
+                id: item.id,
+                title: item.item_description || '',
+                description: item.item_description,
+                category: item.category
+              })),
+              info: {
+                id: inspection.id,
+                project_name: inspection.title,
+                location: inspection.location,
+                inspector_name: inspection.inspector_name,
+                scheduled_date: inspection.scheduled_date
+              }
+            }}
+            onChecklistUpdate={handleChecklistUpdateFromATA}
+          />
+        )}
 
         {/* Floating Action Bar */}
         <FloatingActionBar
