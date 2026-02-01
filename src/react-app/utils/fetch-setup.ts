@@ -33,6 +33,10 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
     const isTrustedOrigin = ALLOWED_ORIGINS.some(allowed => targetOrigin.startsWith(allowed) || targetOrigin.includes('vercel.app')); // Includes preview URLs
     const isExternalSupabase = urlStr.includes('supabase.co');
 
+    // Check if this is a Supabase REST API call (e.g., /rest/v1/table_name)
+    // The Supabase client already manages auth tokens, so we should NOT inject our own
+    const isSupabaseRestAPI = urlStr.includes('supabase.co/rest/v1/') || urlStr.includes('supabase.co/storage/v1/');
+
     // Check if body is FormData - if so, don't manipulate headers to let browser set Content-Type with boundary
     const isFormData = options.body instanceof FormData;
 
@@ -55,7 +59,8 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
 
     // Inject Supabase Auth Token if present (for Google Login/Supabase Auth)
     // ONLY for trusted origins to avoid leaking token to external APIs (e.g. Maps, ViaCEP)
-    if (isTrustedOrigin && !headerObj['Authorization']) {
+    // SKIP for Supabase REST/Storage API calls - the Supabase client already handles auth
+    if (isTrustedOrigin && !headerObj['Authorization'] && !isSupabaseRestAPI) {
         // Find Supabase token in localStorage
         // Pattern: sb-<project-id>-auth-token
         let supabaseToken = null;
