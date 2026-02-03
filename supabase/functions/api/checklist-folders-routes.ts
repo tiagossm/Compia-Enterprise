@@ -777,9 +777,7 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, asy
 
     const isAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
       userProfile?.role === 'sys_admin' ||
-      userProfile?.role === 'admin' ||
-      userProfile?.role === USER_ROLES.ORG_ADMIN ||
-      userProfile?.role === USER_ROLES.MANAGER;
+      userProfile?.role === 'admin';
 
     // Mover templates
     if (templateIds.length > 0) {
@@ -806,47 +804,42 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, asy
       }
     }
 
-    // Mover pastas (somente admins)
+    // Mover pastas (somente system admin). Para outros, ignorar silently.
     if (folderIds.length > 0) {
-      if (!isAdmin) {
-        return c.json({
-          error: "Sem permissão para mover pastas",
-          message: "Você pode mover apenas templates no seu layout pessoal"
-        }, 403);
-      }
+      if (isAdmin) {
+        for (const folderId of folderIds) {
+          // Verificar se não está tentando mover para dentro de si mesma
+          if (finalTargetId) {
+            let currentParent = finalTargetId;
+            let isCycle = false;
 
-      for (const folderId of folderIds) {
-        // Verificar se não está tentando mover para dentro de si mesma
-        if (finalTargetId) {
-          let currentParent = finalTargetId;
-          let isCycle = false;
+            while (currentParent && !isCycle) {
+              if (currentParent === folderId) {
+                isCycle = true;
+                break;
+              }
 
-          while (currentParent && !isCycle) {
-            if (currentParent === folderId) {
-              isCycle = true;
-              break;
+              const parent = await env.DB.prepare("SELECT parent_id FROM checklist_folders WHERE id = ?")
+                .bind(currentParent).first() as any;
+              currentParent = parent?.parent_id;
             }
 
-            const parent = await env.DB.prepare("SELECT parent_id FROM checklist_folders WHERE id = ?")
-              .bind(currentParent).first() as any;
-            currentParent = parent?.parent_id;
+            if (isCycle) {
+              continue; // Pular esta pasta para evitar ciclo
+            }
           }
 
-          if (isCycle) {
-            continue; // Pular esta pasta para evitar ciclo
+          const result = await env.DB.prepare(`
+            UPDATE checklist_folders 
+            SET parent_id = ?, updated_at = NOW()
+            WHERE id = ? AND organization_id = ?
+          `).bind(finalTargetId, folderId, userProfile?.organization_id || null).run();
+
+          if (result.meta.changes && result.meta.changes > 0) {
+            // Atualizar paths em cascata
+            await updateFolderPaths(env.DB, folderId);
+            movedCount += result.meta.changes;
           }
-        }
-
-        const result = await env.DB.prepare(`
-          UPDATE checklist_folders 
-          SET parent_id = ?, updated_at = NOW()
-          WHERE id = ? AND organization_id = ?
-        `).bind(finalTargetId, folderId, userProfile?.organization_id || null).run();
-
-        if (result.meta.changes && result.meta.changes > 0) {
-          // Atualizar paths em cascata
-          await updateFolderPaths(env.DB, folderId);
-          movedCount += result.meta.changes;
         }
       }
     }
