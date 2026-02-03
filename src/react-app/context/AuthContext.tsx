@@ -35,7 +35,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const response = await fetchWithAuth('/api/auth/me');
                     if (response.ok) {
                         const userData = await response.json();
-                        const userObj = userData.user || userData;
+                        if (userData?.user === null) {
+                            setUser(null);
+                            return;
+                        }
+                        const userObj = userData?.user || userData;
+                        if (!userObj || userObj?.user === null) {
+                            setUser(null);
+                            return;
+                        }
                         setUser(userObj);
                         localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
                         return;
@@ -53,8 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const response = await fetchWithAuth('/api/auth/me');
                 if (response.ok) {
                     const userData = await response.json();
+                    if (userData?.user === null) {
+                        setUser(null);
+                        return;
+                    }
                     // Handle both direct user object and nested user.user structure
-                    const userObj = userData.user || userData;
+                    const userObj = userData?.user || userData;
+                    if (!userObj || userObj?.user === null) {
+                        setUser(null);
+                        return;
+                    }
                     setUser(userObj);
                     // Cache for offline
                     localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
