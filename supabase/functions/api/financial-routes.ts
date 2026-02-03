@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+import { requireProtectedSysAdmin } from "./rbac-middleware.ts";
 import { USER_ROLES } from "./user-types.ts";
 
 type Env = {
@@ -411,7 +412,11 @@ financialRoutes.post("/checkout", tenantAuthMiddleware, async (c) => {
 // ============================================================================
 // GET /debug-limits - DEBUG APENAS
 // ============================================================================
-financialRoutes.get("/debug-limits", tenantAuthMiddleware, async (c) => {
+financialRoutes.get("/debug-limits", tenantAuthMiddleware, requireProtectedSysAdmin(), async (c) => {
+    if (Deno.env.get('ENVIRONMENT') === 'production') {
+        return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+    }
+
     const env = c.env;
     const user = c.get("user");
     const organizationId = c.req.query("organization_id");

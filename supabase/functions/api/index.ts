@@ -113,10 +113,6 @@ app.use('*', async (c, next) => {
         '/api/health',
         '/api/',
         '/api/shared',
-        '/api/test-orgs/debug',
-        '/test-orgs/debug',
-        '/api/calendar/debug',
-        '/api/debug-usage',
         '/api/public-plans', // CORREÇÃO: Adicionada rota de planos públicos
         '/api/auth/callback' // Garantir callback
     ];

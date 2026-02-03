@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+import { requireProtectedSysAdmin } from "./rbac-middleware.ts";
 
 
 const authRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/auth');
@@ -70,7 +71,11 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 }
 
 // Debug endpoint to check permissions
-authRoutes.get("/debug-permissions", tenantAuthMiddleware, (c) => {
+authRoutes.get("/debug-permissions", tenantAuthMiddleware, requireProtectedSysAdmin(), (c) => {
+    if (Deno.env.get('ENVIRONMENT') === 'production') {
+        return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+    }
+
     const tenantContext = c.get("tenantContext");
     const user = c.get("user");
     return c.json({

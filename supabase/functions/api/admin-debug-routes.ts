@@ -7,6 +7,7 @@ type Env = {
 };
 
 const adminDebugRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
 
 // Admin bypass endpoint para verificar dados de produção (SYSTEM_ADMIN only)
 adminDebugRoutes.get("/debug/data-check", authMiddleware, async (c) => {
@@ -15,6 +16,10 @@ adminDebugRoutes.get("/debug/data-check", authMiddleware, async (c) => {
 
   if (!user) {
     return c.json({ error: "User not found" }, 401);
+  }
+
+  if (isProduction) {
+    return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
   }
 
   try {
@@ -88,6 +93,10 @@ adminDebugRoutes.post("/debug/force-resync", authMiddleware, async (c) => {
     return c.json({ error: "User not found" }, 401);
   }
 
+  if (isProduction) {
+    return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+  }
+
   try {
     const userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
 
@@ -151,6 +160,10 @@ adminDebugRoutes.post("/import-all-data", authMiddleware, async (c) => {
 
   if (!user) {
     return c.json({ error: "User not found" }, 401);
+  }
+
+  if (isProduction) {
+    return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
   }
 
   try {

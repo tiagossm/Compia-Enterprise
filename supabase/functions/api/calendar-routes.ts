@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+import { requireProtectedSysAdmin } from "./rbac-middleware.ts";
 import { ExtendedMochaUser, USER_ROLES } from "./user-types.ts";
 
 type Env = {
@@ -778,7 +779,11 @@ app.delete('/:id', tenantAuthMiddleware, async (c) => {
 });
 
 // Debug route to diagnose 500 errors
-app.get('/debug', async (c) => {
+app.get('/debug', tenantAuthMiddleware, requireProtectedSysAdmin(), async (c) => {
+    if (Deno.env.get('ENVIRONMENT') === 'production') {
+        return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+    }
+
     try {
         const db = getDatabase(c.env);
         let orgId = c.req.query('org_id');
@@ -822,7 +827,10 @@ app.get('/debug', async (c) => {
         return c.json(report);
 
     } catch (error: any) {
-        return c.json({ error: error.message, stack: error.stack });
+        return c.json({
+            error: error.message,
+            ...(Deno.env.get('ENVIRONMENT') === 'production' ? {} : { stack: error.stack })
+        });
     }
 });
 

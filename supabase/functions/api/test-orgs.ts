@@ -1,5 +1,7 @@
 
 import { Hono } from "hono";
+import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+import { requireProtectedSysAdmin } from "./rbac-middleware.ts";
 
 type Env = {
     DB: any;
@@ -11,7 +13,11 @@ app.get('/', (c) => c.json({ message: 'Test connection successful' }));
 app.get('/:id', (c) => c.json({ message: `Test ID: ${c.req.param('id')}` }));
 
 // Debug endpoint to check organization address data
-app.get('/debug/addresses', async (c) => {
+app.get('/debug/addresses', tenantAuthMiddleware, requireProtectedSysAdmin(), async (c) => {
+    if (Deno.env.get('ENVIRONMENT') === 'production') {
+        return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+    }
+
     try {
         const result = await c.env.DB.prepare(`
       SELECT id, name, nome_fantasia, address, contact_email 
