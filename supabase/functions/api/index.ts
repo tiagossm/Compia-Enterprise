@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { createLogger } from './shared/logger.ts'
 // Imports removidos para Lazy Loading (d1-wrapper, supabase-js)
 
 
@@ -14,10 +15,11 @@ type Env = {
 };
 
 const app = new Hono<{ Bindings: Env }>()
+const log = createLogger('api')
 
 // GLOBAL ERROR HANDLER (Sentinela Security Pattern)
 app.onError((err, c) => {
-    console.error('[GLOBAL-ERROR] Uncaught exception:', err);
+    log.error('GLOBAL-ERROR Uncaught exception', err);
 
     // Fail Secure: Não vazar stack trace em produção
     const isDev = Deno.env.get('ENVIRONMENT') === 'development';
@@ -83,10 +85,10 @@ app.use('*', async (c, next) => {
             c.env.DB = createD1Wrapper(dbUrl)
             // console.log('[DB-DEBUG] DB Wrapper initialized');
         } catch (dbErr: any) {
-            console.error('[DB-DEBUG] Failed to lazy load DB wrapper:', dbErr);
+            log.error('DB-DEBUG Failed to lazy load DB wrapper', dbErr);
         }
     } else {
-        console.warn('[DB-DEBUG] No SUPABASE_DB_URL found');
+        log.warn('DB-DEBUG No SUPABASE_DB_URL found');
     }
 
     // Inject keys from Deno.env
@@ -106,7 +108,7 @@ app.use('*', async (c, next) => {
     const rawPath = url.pathname;
     const path = rawPath.replace('/functions/v1', ''); // Remove prefixo padrão do Supabase se existir
 
-    console.log(`[AUTH-DEBUG] ===== Request: ${c.req.method} ${path} (raw: ${rawPath}) =====`);
+    log.debug(`AUTH-DEBUG Request: ${c.req.method} ${path} (raw: ${rawPath})`);
 
     // Rotas públicas que não precisam de autenticação
     const publicPaths = [
@@ -140,13 +142,13 @@ app.use('*', async (c, next) => {
                 return response;
             }
         } catch (rlError) {
-            console.error('[RATE-LIMIT] Failed to load/exec middleware:', rlError);
+            log.error('RATE-LIMIT Failed to load/exec middleware', rlError);
         }
     }
     // -------------------------
 
     if (isPublicRoute) {
-        console.log(`[AUTH-DEBUG] Public route, skipping auth: ${path}`);
+        log.debug(`AUTH-DEBUG Public route, skipping auth: ${path}`);
         await next();
         return;
     }
@@ -157,14 +159,14 @@ app.use('*', async (c, next) => {
 
         // 1. Primeiro, tentar via Supabase Auth (para Google login)
         const authHeader = c.req.header('Authorization');
-        console.log(`[AUTH-DEBUG] Authorization header: ${authHeader ? 'present (' + authHeader.substring(0, 30) + '...)' : 'absent'}`);
+        log.debug(`AUTH-DEBUG Authorization header: ${authHeader ? 'present (' + authHeader.substring(0, 30) + '...)' : 'absent'}`);
 
         if (authHeader) {
-            console.log('[AUTH-DEBUG] Lazy loading Supabase Client...');
+            log.debug('AUTH-DEBUG Lazy loading Supabase Client...');
             try {
                 // Lazy load Supabase Client to reduce boot time
                 const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-                console.log('[AUTH-DEBUG] Supabase Client loaded');
+                log.debug('AUTH-DEBUG Supabase Client loaded');
 
                 const supabaseClient = createClient(
                     Deno.env.get('SUPABASE_URL') ?? '',
@@ -173,9 +175,9 @@ app.use('*', async (c, next) => {
                 )
                 const { data, error } = await supabaseClient.auth.getUser()
                 user = data?.user;
-                console.log(`[AUTH-DEBUG] Supabase Auth: ${user ? 'found user ' + user.email : 'no user'}, error: ${error?.message || 'none'}`);
+                log.debug(`AUTH-DEBUG Supabase Auth: ${user ? 'found user ' + user.email : 'no user'}, error: ${error?.message || 'none'}`);
             } catch (err: any) {
-                console.error('[AUTH-DEBUG] Error loading/using Supabase Client:', err);
+                log.error('AUTH-DEBUG Error loading/using Supabase Client', err);
             }
 
             // AUTO-SYNC: If user from Supabase Auth doesn't exist in DB, create them
@@ -183,15 +185,15 @@ app.use('*', async (c, next) => {
                 const existingDbUser = await c.env.DB.prepare("SELECT id, role FROM users WHERE id = ? OR email = ?").bind(user.id, user.email).first();
                 if (!existingDbUser) {
                     const userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
-                    console.log(`[AUTH-DEBUG] Creating new user in DB for Google user: ${user.email}`);
+                    log.info(`AUTH-DEBUG Creating new user in DB for Google user: ${user.email}`);
                     try {
                         await c.env.DB.prepare(`
                             INSERT INTO users (id, email, name, role, is_active, approval_status, created_at, updated_at)
                             VALUES (?, ?, ?, 'inspector', true, 'pending', NOW(), NOW())
                         `).bind(user.id, user.email, userName).run();
-                        console.log(`[AUTH-DEBUG] Created new user: ${user.email} with pending approval`);
+                        log.info(`AUTH-DEBUG Created new user: ${user.email} with pending approval`);
                     } catch (insertError) {
-                        console.error('[AUTH-DEBUG] Error creating user:', insertError);
+                        log.error('AUTH-DEBUG Error creating user', insertError);
                     }
                 } else {
                     // Enrich user object with DB role
@@ -204,7 +206,7 @@ app.use('*', async (c, next) => {
         if (!user) {
             const cookies = c.req.header('Cookie') || '';
             const sessionMatch = cookies.match(/mocha-session-token=([^;]+)/);
-            console.log(`[AUTH-DEBUG] Cookie session: ${sessionMatch ? 'found token' : 'no token'}`);
+            log.debug(`AUTH-DEBUG Cookie session: ${sessionMatch ? 'found token' : 'no token'}`);
             if (sessionMatch) {
                 const sessionToken = sessionMatch[1];
                 const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development';
@@ -213,7 +215,7 @@ app.use('*', async (c, next) => {
                     // Buscar usuário no DB
                     if (c.env?.DB) {
                         const dbUser = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).first();
-                        console.log(`[AUTH-DEBUG] Cookie user lookup: ${dbUser ? 'found ' + (dbUser as any).email : 'not found'}`);
+                        log.debug(`AUTH-DEBUG Cookie user lookup: ${dbUser ? 'found ' + (dbUser as any).email : 'not found'}`);
                         if (dbUser) {
                             user = {
                                 id: (dbUser as any).id,
@@ -224,15 +226,15 @@ app.use('*', async (c, next) => {
                         }
                     }
                 } else if (sessionToken && sessionToken.startsWith('dev-session-') && !isDevelopment) {
-                    console.warn('[AUTH-DEBUG] BLOQUEADO: Tentativa de usar dev-session em produção');
+                    log.warn('AUTH-DEBUG BLOQUEADO: Tentativa de usar dev-session em produção');
                 }
             }
         }
 
-        console.log(`[AUTH-DEBUG] Final user: ${user ? (user as any).email + ' (role: ' + (user as any).role + ')' : 'NONE'}`);
+        log.debug(`[AUTH-DEBUG] Final user: ${user ? (user as any).email + ' (role: ' + (user as any).role + ')' : 'NONE'}`);
         c.set('user', user)
     } else {
-        console.log(`[AUTH-DEBUG] User already in context: ${(c.get('user') as any)?.email}`);
+        log.debug(`[AUTH-DEBUG] User already in context: ${(c.get('user') as any)?.email}`);
     }
 
     await next()
@@ -245,7 +247,7 @@ const apiRoutes = new Hono<{ Bindings: Env }>();
 apiRoutes.use('*', async (c, next) => {
     // O contexto já foi preenchido pelo middleware do app principal
     // Mas precisamos garantir que o user está acessível
-    console.log(`[SUBROUTES] Path: ${c.req.path}, User in context: ${c.get('user') ? (c.get('user') as any).email : 'NONE'}`);
+    log.debug(`[SUBROUTES] Path: ${c.req.path}, User in context: ${c.get('user') ? (c.get('user') as any).email : 'NONE'}`);
     await next();
 });
 
@@ -302,7 +304,7 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
 
         return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
-        console.error(`Lazy Load Error (${c.req.path}):`, e);
+        log.error(`Lazy Load Error (${c.req.path})`, e);
         return c.json({
             error: 'Lazy Load Crash',
             details: e.message,
@@ -328,7 +330,7 @@ apiRoutes.all('/checklist/*', async (c) => {
         const { default: router } = await import('./checklist-routes.ts');
         return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
-        console.error('[LazyLoad] Checklist Route Error:', e);
+        log.error('LazyLoad Checklist Route Error', e);
         return c.json({ error: 'Lazy Load Error', details: e.message, ...(isDev ? { stack: e.stack } : {}) }, 500);
     }
 });
