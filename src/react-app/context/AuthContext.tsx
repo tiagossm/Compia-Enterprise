@@ -13,7 +13,7 @@ interface AuthContextType {
     isPending: boolean;
     fetchUser: () => Promise<void>;
     signOut: () => Promise<void>;
-    signInWithGoogle: () => Promise<void>;
+    signInWithGoogle: (redirectToPath?: string) => Promise<void>;
     exchangeCodeForSessionToken: () => Promise<void>;
     redirectToLogin: () => void;
 }
@@ -29,7 +29,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const activeSession = currentSession !== undefined ? currentSession : session;
 
+            // If no Supabase session, try cookie-based session (/api/auth/me)
             if (!activeSession?.user) {
+                try {
+                    const response = await fetchWithAuth('/api/auth/me');
+                    if (response.ok) {
+                        const userData = await response.json();
+                        const userObj = userData.user || userData;
+                        setUser(userObj);
+                        localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Error fetching user profile without session:', err);
+                }
+
                 setUser(null);
                 return;
             }
@@ -45,13 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // Cache for offline
                     localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
                 } else if (response.status === 401) {
-                    console.warn('[AuthContext] API returned 401. Session locally active but API rejected.');
-                    // WARNING: Do NOT sign out immediately here. It causes loops if the token is just refreshing.
-                    // The API might be rejecting due to a momentary issue or RLS (even though we disabled it).
-                    // Let the flow continue - if the user is truly invalid, subsequent calls will fail or AuthGuard will catch it.
-                    // setUser(null); 
-                    // setSession(null);
-                    // await supabase.auth.signOut();
+                    console.warn('[AuthContext] API returned 401. Session invalid. Signing out.');
+                    // Forces complete cleanup of stale session
+                    await signOut();
                     return;
                 } else if (response.status === 403) {
                     // User exists but pending approval or rejected
@@ -147,6 +157,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.warn('[AuthContext] Server logout failed, forcing local cleanup:', error);
         }
 
+        // Also clear backend session cookie
+        try {
+            await fetchWithAuth('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.warn('[AuthContext] Backend logout failed:', error);
+        }
+
         // CRITICAL: Force remove Supabase session from localStorage
         // This is necessary because signOut() may fail but session remains cached
         const supabaseLocalStorageKeys = Object.keys(localStorage).filter(key =>
@@ -161,14 +178,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Clear React state
         setUser(null);
         setSession(null);
+
+        // Redirect to login
+        window.location.href = '/login';
     };
 
     // Google OAuth login
-    const signInWithGoogle = async () => {
+    // Ensures we always return the user to where they started (or a sane default).
+    const signInWithGoogle = async (redirectToPath?: string) => {
+        // If we are already on /login, try to use ?redirect=...; otherwise use the current path.
+        const sp = new URLSearchParams(window.location.search);
+        const redirectParam = sp.get('redirect');
+
+        const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        const defaultRedirect = '/dashboard';
+
+        // Priority:
+        // 1) explicit param passed by caller (e.g., Login page knows `from`)
+        // 2) ?redirect=... in the URL
+        // 3) current path (when user started login from a protected route)
+        // 4) dashboard
+        const intendedRedirect =
+            (redirectToPath && redirectToPath.startsWith('/'))
+                ? redirectToPath
+                : ((redirectParam && redirectParam.startsWith('/'))
+                    ? redirectParam
+                    : (!window.location.pathname.includes('/login') ? currentPath : defaultRedirect));
+
+        // Persist in case the provider strips query params or the SPA reloads.
+        try {
+            localStorage.setItem('auth_redirect_after_login', intendedRedirect);
+        } catch { }
+
+        // IMPORTANT: keep callback URL EXACT (no querystring). Supabase redirect allowlist can be strict,
+        // and querystrings may fail matching depending on configuration.
+        // We persist the intended redirect in localStorage and AuthCallback will read it.
+        const callbackUrl = `${window.location.origin}/auth/callback`;
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
+                redirectTo: callbackUrl,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',

@@ -10,7 +10,8 @@ export default function Login() {
   const {
     user,
     isPending,
-    signInWithGoogle
+    signInWithGoogle,
+    fetchUser
   } = useAuth();
 
   const location = useLocation();
@@ -34,7 +35,7 @@ export default function Login() {
     try {
       setIsLoading(true);
       setError('');
-      await signInWithGoogle();
+      await signInWithGoogle(from);
       // Note: Page will redirect to Google OAuth, so no need to setIsLoading(false)
     } catch (err: any) {
       console.error('Login error:', err);
@@ -63,8 +64,9 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // Login bem sucedido, recarregar página para auth context pegar o cookie
-        window.location.reload();
+        // Login bem sucedido, carregar usuário via cookie e redirecionar
+        await fetchUser();
+        navigate(from, { replace: true });
       } else {
         if (data.code === 'APPROVAL_PENDING') {
           setError('Sua conta aguarda aprovação do administrador.');
