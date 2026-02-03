@@ -1,10 +1,22 @@
 import { Hono } from "hono";
+import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
+import { requireProtectedSysAdmin } from "./rbac-middleware.ts";
 
 const debugChecklistRoutes = new Hono().basePath('/api/debug');
+const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
 
-// Endpoint de debug para verificar se tabelas existem (SEM AUTH - apenas para debug)
-debugChecklistRoutes.get("/checklist-tables", async (c) => {
+// Endpoint de debug para verificar se tabelas existem (PROTEGIDO)
+debugChecklistRoutes.get("/checklist-tables", tenantAuthMiddleware, requireProtectedSysAdmin(), async (c) => {
+    if (isProduction) {
+        return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+    }
+
     const env = c.env;
+    const user = c.get("user");
+
+    if (!user) {
+        return c.json({ error: "User not found" }, 401);
+    }
 
     try {
         const results: any = {
@@ -63,13 +75,17 @@ debugChecklistRoutes.get("/checklist-tables", async (c) => {
         return c.json({
             error: "Debug endpoint failed",
             message: error.message,
-            stack: error.stack
+            ...(isProduction ? {} : { stack: error.stack })
         }, 500);
     }
 });
 
 // Teste direto da query que está falhando
-debugChecklistRoutes.get("/test-folders-query", tenantAuthMiddleware, async (c) => {
+debugChecklistRoutes.get("/test-folders-query", tenantAuthMiddleware, requireProtectedSysAdmin(), async (c) => {
+    if (isProduction) {
+        return c.json({ error: "Debug endpoints desabilitados em produção" }, 403);
+    }
+
     const env = c.env;
     const user = c.get("user");
 
@@ -127,8 +143,7 @@ debugChecklistRoutes.get("/test-folders-query", tenantAuthMiddleware, async (c) 
         return c.json({
             error: "Query test failed",
             message: error.message,
-            stack: error.stack,
-            cause: error.cause
+            ...(isProduction ? {} : { stack: error.stack, cause: error.cause })
         }, 500);
     }
 });

@@ -1,5 +1,6 @@
 import { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
+import { verify } from "https://deno.land/x/djwt@v2.9/mod.ts";
 import { USER_ROLES } from "./user-types.ts";
 
 type Env = {
@@ -40,6 +41,18 @@ export interface AuthenticatedUser {
     is_active: boolean;
 }
 
+async function verifyJwtToken(token: string, secret: string) {
+    const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"]
+    );
+
+    return await verify(token, key, "HS256");
+}
+
 /**
  * Middleware principal de autenticação e contexto de tenant
  * 
@@ -61,20 +74,37 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
 
     // 1. Extrair token de autenticação (Cookie) se não encontrado no contexto
     if (!userId) {
-        if (!userId) {
-            const sessionToken = getCookie(c, "mocha-session-token") || getCookie(c, "mocha_session_token");
+        const sessionToken = getCookie(c, "mocha-session-token") || getCookie(c, "mocha_session_token");
 
-            // 2. Validar sessão via cookie
-            // SEGURANÇA: dev-session só é aceito em ambiente de desenvolvimento
-            // Fail Secure: Assume produção (false) a menos que explicitamente 'development'
-            const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development';
+        // 2. Validar sessão via cookie
+        // SEGURANÇA: dev-session só é aceito em ambiente de desenvolvimento
+        // Fail Secure: Assume produção (false) a menos que explicitamente 'development'
+        const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development';
 
-            if (sessionToken && sessionToken.startsWith("dev-session-") && isDevelopment) {
-                userId = sessionToken.replace("dev-session-", "");
-                console.log('[TENANT-AUTH] DEV SESSION aceito (ambiente desenvolvimento)');
-            } else if (sessionToken && sessionToken.startsWith("dev-session-") && !isDevelopment) {
-                console.warn('[TENANT-AUTH] BLOQUEADO: Tentativa de usar dev-session em produção');
-                // Não aceitar dev-session em produção - segurança crítica
+        if (sessionToken && sessionToken.startsWith("dev-session-") && isDevelopment) {
+            userId = sessionToken.replace("dev-session-", "");
+            console.log('[TENANT-AUTH] DEV SESSION aceito (ambiente desenvolvimento)');
+        } else if (sessionToken && sessionToken.startsWith("dev-session-") && !isDevelopment) {
+            console.warn('[TENANT-AUTH] BLOQUEADO: Tentativa de usar dev-session em produção');
+            // Não aceitar dev-session em produção - segurança crítica
+        } else if (sessionToken) {
+            if (!env.DB) {
+                console.warn('[TENANT-AUTH] Database não disponível para validar sessão.');
+            } else {
+                try {
+                    const session = await env.DB.prepare(
+                        "SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > NOW()"
+                    ).bind(sessionToken).first();
+
+                    if (session?.user_id) {
+                        userId = session.user_id as string;
+                        console.log('[TENANT-AUTH] Sessão validada via cookie.');
+                    } else {
+                        console.warn('[TENANT-AUTH] Sessão inválida ou expirada.');
+                    }
+                } catch (e) {
+                    console.error('[TENANT-AUTH] Erro ao validar sessão:', e);
+                }
             }
         }
     }
@@ -82,20 +112,21 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
     // 3. Validar JWT (Authorization Header)
     const authHeader = c.req.header("Authorization");
     if (!userId && authHeader?.startsWith("Bearer ")) {
-        try {
-            const token = authHeader.substring(7);
-            // Decode JWT payload (Part 2) without verification for now (relying on Supabase Auth context or simple extraction)
-            // Note: In production with --no-verify-jwt, this trusts the client. Ensure JWT_SECRET verification is added if public access.
-            const parts = token.split('.');
-            if (parts.length === 3) {
-                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                if (payload.sub) {
+        const token = authHeader.substring(7);
+        const jwtSecret = env.JWT_SECRET || Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
+
+        if (!jwtSecret) {
+            console.warn('[TENANT-AUTH] JWT_SECRET ausente. Token ignorado por segurança.');
+        } else {
+            try {
+                const payload: any = await verifyJwtToken(token, jwtSecret);
+                if (payload?.sub) {
                     userId = payload.sub;
-                    console.log('[TENANT-AUTH] JWT Token aceito, user:', userId);
+                    console.log('[TENANT-AUTH] JWT Token validado, user:', userId);
                 }
+            } catch (e) {
+                console.error('[TENANT-AUTH] JWT inválido:', e);
             }
-        } catch (e) {
-            console.error('[TENANT-AUTH] Erro ao decodificar JWT:', e);
         }
     }
 

@@ -22,17 +22,21 @@ app.onError((err, c) => {
     // Fail Secure: Não vazar stack trace em produção
     const isDev = Deno.env.get('ENVIRONMENT') === 'development';
 
-    return c.json({
+    const response: Record<string, unknown> = {
         error: "Internal Server Error",
-        // DEBUG: Force stack trace exposure even in production
-        message: err.message || "Ocorreu um erro interno (DEBUG MODE).",
+        message: isDev ? (err.message || "Ocorreu um erro interno (DEBUG MODE).") : "Internal Server Error",
         code: "INTERNAL_ERROR",
-        stack: err.stack, // ALWAYS show stack for debugging 500
         env_check: {
             is_dev: isDev,
             has_db: !!c.env?.DB
         }
-    }, 500);
+    };
+
+    if (isDev) {
+        response.stack = err.stack;
+    }
+
+    return c.json(response, 500);
 });
 
 app.use('/*', cors({
@@ -44,8 +48,13 @@ app.use('/*', cors({
             'http://localhost:5173',
             'https://compia-06092520-aqb5140o0-tiagossms-projects.vercel.app'
         ];
-        // Allow Vercel preview URLs dynamically
-        if (origin && (allowed.includes(origin) || origin.endsWith('.vercel.app'))) {
+        const allowedFromEnv = (Deno.env.get('ALLOWED_ORIGINS') || '')
+            .split(',')
+            .map((o) => o.trim())
+            .filter(Boolean);
+        const allowedOrigins = [...allowed, ...allowedFromEnv];
+
+        if (origin && allowedOrigins.includes(origin)) {
             return origin;
         }
         // SEGURANÇA: Não permitir origens desconhecidas (retorna null = bloqueio CORS)
@@ -202,7 +211,8 @@ app.use('*', async (c, next) => {
             console.log(`[AUTH-DEBUG] Cookie session: ${sessionMatch ? 'found token' : 'no token'}`);
             if (sessionMatch) {
                 const sessionToken = sessionMatch[1];
-                if (sessionToken && sessionToken.startsWith('dev-session-')) {
+                const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development';
+                if (sessionToken && sessionToken.startsWith('dev-session-') && isDevelopment) {
                     const userId = sessionToken.replace('dev-session-', '');
                     // Buscar usuário no DB
                     if (c.env?.DB) {
@@ -217,6 +227,8 @@ app.use('*', async (c, next) => {
                             };
                         }
                     }
+                } else if (sessionToken && sessionToken.startsWith('dev-session-') && !isDevelopment) {
+                    console.warn('[AUTH-DEBUG] BLOQUEADO: Tentativa de usar dev-session em produção');
                 }
             }
         }
@@ -298,8 +310,8 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
         return c.json({
             error: 'Lazy Load Crash',
             details: e.message,
-            stack: e.stack,
-            path: c.req.path
+            path: c.req.path,
+            ...(isDev ? { stack: e.stack } : {})
         }, 500);
     }
 };
@@ -321,12 +333,16 @@ apiRoutes.all('/checklist/*', async (c) => {
         return router.fetch(c.req.raw, c.env, executionCtx);
     } catch (e: any) {
         console.error('[LazyLoad] Checklist Route Error:', e);
-        return c.json({ error: 'Lazy Load Error', details: e.message, stack: e.stack }, 500);
+        return c.json({ error: 'Lazy Load Error', details: e.message, ...(isDev ? { stack: e.stack } : {}) }, 500);
     }
 });
 
+const isDev = Deno.env.get('ENVIRONMENT') === 'development';
+
 // DEBUG ROUTES (temporary for troubleshooting)
-apiRoutes.all('/debug/*', lazy(() => import('./debug-checklist.ts')));
+if (isDev) {
+    apiRoutes.all('/debug/*', lazy(() => import('./debug-checklist.ts')));
+}
 
 // Explicit Lazy Routes
 apiRoutes.all('/users', lazy(() => import('./users-routes.ts')));
@@ -409,16 +425,18 @@ apiRoutes.get('/public-plans', async (c) => {
 
 
 // TEMPORARY DEBUG ROUTE
-apiRoutes.get('/debug-usage/:orgId', async (c) => {
-    const orgId = c.req.param('orgId');
-    try {
-        // @ts-ignore
-        const result = await c.env.DB.prepare('SELECT id, name, ai_usage_count FROM organizations WHERE id = ?').bind(orgId).first();
-        return c.json(result || { error: 'Not found' });
-    } catch (e: any) {
-        return c.json({ error: e.message }, 500);
-    }
-});
+if (isDev) {
+    apiRoutes.get('/debug-usage/:orgId', async (c) => {
+        const orgId = c.req.param('orgId');
+        try {
+            // @ts-ignore
+            const result = await c.env.DB.prepare('SELECT id, name, ai_usage_count FROM organizations WHERE id = ?').bind(orgId).first();
+            return c.json(result || { error: 'Not found' });
+        } catch (e: any) {
+            return c.json({ error: e.message }, 500);
+        }
+    });
+}
 
 // App principal monta o sub-app em dois lugares:
 app.route('/', apiRoutes);
