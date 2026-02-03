@@ -3,11 +3,18 @@
 const originalFetch = window.fetch;
 
 // List of allowed domains for Authorization injection
-const ALLOWED_ORIGINS = [
+const ALLOWED_API_ORIGINS = [
     'http://localhost',
+    'http://localhost:3000',
+    'http://localhost:5173',
     'https://compia.tech',
     'https://www.compia.tech',
     window.location.origin // The current application origin
+];
+
+const API_PREFIXES = [
+    '/api/',
+    '/functions/v1/api/'
 ];
 
 window.fetch = function (...args: Parameters<typeof fetch>) {
@@ -35,9 +42,22 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
     }
 
     // Check if target is trusted
-    const isTrustedOrigin = ALLOWED_ORIGINS.some(
-        allowed => targetOrigin.startsWith(allowed) || targetOrigin.includes('vercel.app') // Includes preview URLs
+    const isTrustedOrigin = ALLOWED_API_ORIGINS.some(
+        allowed => targetOrigin.startsWith(allowed)
     );
+
+    const urlPath = (() => {
+        try {
+            if (urlStr.startsWith('/') || !urlStr.startsWith('http')) {
+                return urlStr;
+            }
+            return new URL(urlStr).pathname;
+        } catch {
+            return '';
+        }
+    })();
+
+    const isApiRequest = API_PREFIXES.some(prefix => urlPath.startsWith(prefix));
 
     // Build headers - preserve existing, add auth if needed
     const existingHeaders = options.headers || {};
@@ -62,7 +82,7 @@ window.fetch = function (...args: Parameters<typeof fetch>) {
         Object.prototype.hasOwnProperty.call(headerObj, 'Authorization') ||
         Object.prototype.hasOwnProperty.call(headerObj, 'authorization');
 
-    if (isTrustedOrigin && !hasAuthHeader) {
+    if (isTrustedOrigin && isApiRequest && !hasAuthHeader) {
         // Find Supabase token in localStorage
         // Pattern: sb-<project-id>-auth-token
         let supabaseToken: string | null = null;
