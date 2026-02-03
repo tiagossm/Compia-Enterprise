@@ -21,7 +21,7 @@ const Reports = lazy(() => import("@/react-app/pages/Reports"));
 const Settings = lazy(() => import("@/react-app/pages/Settings"));
 const ChecklistTemplates = lazy(() => import("@/react-app/pages/ChecklistTemplates"));
 const NewChecklistTemplate = lazy(() => import("@/react-app/pages/NewChecklistTemplate"));
-const AIChecklistGenerator = lazy(() => import("@/react-app/pages/AIChecklistGenerator"));
+const UniversalImporter = lazy(() => import("@/react-app/pages/UniversalImporter"));
 const CSVImport = lazy(() => import("@/react-app/pages/CSVImport"));
 const ChecklistDetail = lazy(() => import("@/react-app/pages/ChecklistDetail"));
 const ChecklistTemplateEdit = lazy(() => import("@/react-app/pages/ChecklistTemplateEdit"));
@@ -64,7 +64,10 @@ export default function App() {
               }>
                 <Routes>
                   {/* Public routes */}
-                  <Route path="/" element={<LandingPage />} />
+                  {/* Root route: decide between app vs marketing without flashing landing during OAuth */}
+                  <Route path="/" element={<HomePage />} />
+                  {/* Keep landing accessible explicitly */}
+                  <Route path="/landing" element={<LandingPage />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
@@ -89,7 +92,7 @@ export default function App() {
 
                   <Route path="/checklists" element={<AuthGuard><ChecklistTemplates /></AuthGuard>} />
                   <Route path="/checklists/new" element={<AuthGuard><NewChecklistTemplate /></AuthGuard>} />
-                  <Route path="/checklists/ai-generate" element={<AuthGuard><AIChecklistGenerator /></AuthGuard>} />
+                  <Route path="/checklists/ai-generate" element={<AuthGuard><UniversalImporter /></AuthGuard>} />
                   <Route path="/checklists/import" element={<AuthGuard><CSVImport /></AuthGuard>} />
                   <Route path="/checklists/:id" element={<AuthGuard><ChecklistDetail /></AuthGuard>} />
                   <Route path="/checklists/:id/edit" element={<AuthGuard><ChecklistTemplateEdit /></AuthGuard>} />
