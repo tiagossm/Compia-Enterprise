@@ -77,10 +77,14 @@ async function handleListTemplates(c: any) {
     // STAGE 2: Fetch Templates
     // SIMPLIFIED QUERY: Removed JOINs to rule out performance issues
     let query = `
-      SELECT ct.*
+      SELECT ct.*,
+        COALESCE(ul.folder_id, ct.folder_id) as effective_folder_id,
+        COALESCE(ul.display_order, ct.display_order) as effective_display_order
       FROM checklist_templates ct
+      LEFT JOIN user_checklist_layout ul
+        ON ul.checklist_template_id = ct.id AND ul.user_id = ?
     `;
-    let params: any[] = [];
+    let params: any[] = [user.id];
     let whereClause = ["(ct.is_category_folder = false OR ct.is_category_folder IS NULL)"];
 
     // ADMIN SYSTEM TEM ACESSO IRRESTRITO A TUDO
@@ -105,17 +109,17 @@ async function handleListTemplates(c: any) {
     const folderId = (rawFolderId === undefined || rawFolderId === null || rawFolderId === '' || rawFolderId === 'null' || rawFolderId === 'undefined') ? null : rawFolderId;
 
     if (folderId && folderId !== null) {
-      whereClause.push("ct.folder_id = ?");
+      whereClause.push("COALESCE(ul.folder_id, ct.folder_id) = ?");
       params.push(folderId);
     } else if (folderId === null) {
-      whereClause.push("ct.folder_id IS NULL");
+      whereClause.push("COALESCE(ul.folder_id, ct.folder_id) IS NULL");
     }
 
     if (whereClause.length > 0) {
       query += " WHERE " + whereClause.join(" AND ");
     }
 
-    query += " ORDER BY ct.display_order ASC, ct.created_at DESC";
+    query += " ORDER BY COALESCE(ul.display_order, ct.display_order) ASC, ct.created_at DESC";
 
     console.log(`[TEMPLATES] [DEBUG] Query: ${query}`);
     console.log(`[TEMPLATES] [DEBUG] Params: ${JSON.stringify(params)}`);
@@ -134,6 +138,8 @@ async function handleListTemplates(c: any) {
     // For now returning 0 to fix stability
     const templatesWithCounts = templates.map((t: any) => ({
       ...t,
+      folder_id: t.effective_folder_id ?? t.folder_id,
+      display_order: t.effective_display_order ?? t.display_order,
       field_count: 0, // Placeholder to avoid JOIN
       is_folder: t.is_category_folder
     }));
@@ -919,6 +925,116 @@ IMPORTANTE:
   }
 });
 
+// Generate AI CSV - Universal Importer Route
+checklistRoutes.post("/checklist-templates/generate-ai-csv", tenantAuthMiddleware, aiRateLimitMiddleware('analysis'), async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+
+  console.log('[AI-CSV] CSV Generation Route Hit');
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { text, images, context } = body;
+
+    // Check API keys
+    const openAiKey = env?.OPENAI_API_KEY || Deno.env.get('OPENAI_API_KEY');
+    const geminiKey = env?.GEMINI_API_KEY || Deno.env.get('GEMINI_API_KEY');
+
+    if (!openAiKey && !geminiKey) {
+      return c.json({
+        success: false,
+        error: "IA não configurada no sistema."
+      }, 500);
+    }
+
+    // SYSTEM PROMPT FOR CSV
+    const systemPrompt = \`Você é um especialista em Segurança do Trabalho e estruturação de dados.
+SUA TAREFA: Analisar o input (texto, imagem ou planilha) e converter para um CHECKLIST no formato CSV padrão do sistema.
+
+FORMATO CSV OBRIGATÓRIO (Cabeçalho + Dados):
+campo,tipo,obrigatorio,opcoes
+"Nome do Item","text","true",
+"Condição","select","true","Conforme|Não Conforme|N/A"
+
+REGRAS DE TIPOS DE CAMPO:
+- "text": Para nomes, localizações, identificadores.
+- "textarea": Para observações ou descrições (use para campos abertos).
+- "boolean": Para perguntas de Sim/Não ou Conforme/Não Conforme simples.
+- "select": Para listas. AS OPÇÕES DEVEM SER SEPARADAS POR PIPE (|). Ex: "Bom|Ruim".
+- "rating": Para avaliações de 1 a 5.
+- "date": Para datas.
+- "file": Para evidências (fotos/arquivos).
+
+DIRETRIZES:
+1. Se o input for uma imagem de um checklist físico, transcreva fielmente.
+2. Se o input for um texto descrevendo um processo, crie perguntas lógicas de segurança.
+3. Se for um PDF/Planilha convertido em texto, tente manter a estrutura original.
+4. "obrigatorio" deve ser "true" ou "false".
+5. REMOVA qualquer texto introdutório. RETORNE APENAS O CSV BRUTO.
+6. Use aspas duplas nos valores para evitar erros com vírgulas.
+\`;
+
+    // User Prompt Construction
+    let userPrompt = \`Contexto: \${context || 'Geral'}\n\n\`;
+    
+    if (text) {
+      userPrompt += \`Conteúdo para processar:\n\${text}\n\n\`;
+    }
+
+    if (images && images.length > 0) {
+      userPrompt += \`[O input contem \${images.length} imagens para análise visual]\n\`;
+    }
+
+    userPrompt += "Gere o CSV agora.";
+
+    // Fetch Settings
+    let preferredProvider: 'gemini' | 'openai' = 'gemini';
+    let fallbackEnabled = true;
+
+    try {
+        const settings = await env.DB.prepare("SELECT ai_primary_provider, ai_fallback_enabled FROM system_settings WHERE id = 'global'").first() as any;
+        if (settings) {
+            if (settings.ai_primary_provider === 'openai') preferredProvider = 'openai';
+            if (settings.ai_fallback_enabled === false || settings.ai_fallback_enabled === 0) fallbackEnabled = false;
+        }
+    } catch (e) { console.warn('Failed to fetch settings', e); }
+
+    // Call AI Service
+    const aiResult = await generateAICompletion(geminiKey, openAiKey, {
+      systemPrompt,
+      userPrompt,
+      images: images, // Pass images to updated service
+      maxTokens: 3000, 
+      temperature: 0.2
+    }, { preferredProvider, fallbackEnabled });
+
+    if (!aiResult.success) {
+      return c.json({ success: false, error: aiResult.error }, 500);
+    }
+
+    // Clean up result (remove markdown code blocks if present)
+    let csvContent = aiResult.content;
+    const codeBlockRegex = /\`\`\`csv([\s\S]*?)\`\`\`|\`\`\`([\s\S]*?)\`\`\`/i;
+    const match = csvContent.match(codeBlockRegex);
+    if (match) {
+        csvContent = match[1] || match[2];
+    }
+    
+    return c.json({
+      success: true,
+      csv: csvContent.trim()
+    });
+
+  } catch (error) {
+    console.error('[AI-CSV] Error:', error);
+    return c.json({ success: false, error: "Internal Server Error" }, 500);
+  }
+});
+
 // Save generated checklist
 checklistRoutes.post("/checklist-templates/save-generated", tenantAuthMiddleware, async (c) => {
   const env = c.env;
@@ -965,12 +1081,12 @@ checklistRoutes.post("/checklist-templates/save-generated", tenantAuthMiddleware
     });
 
     const templateResult = await env.DB.prepare(`
-      INSERT INTO checklist_templates (
-        name, description, category, created_by, created_by_user_id, 
-        organization_id, is_public, folder_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      INSERT INTO checklist_templates(
+      name, description, category, created_by, created_by_user_id,
+      organization_id, is_public, folder_id, created_at, updated_at
+    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       RETURNING id
-    `).bind(
+      `).bind(
       template.name || 'Checklist sem nome',
       template.description || null,
       template.category || 'Geral',
@@ -1053,10 +1169,10 @@ checklistRoutes.post("/checklist-templates/save-generated", tenantAuthMiddleware
       console.log('[SAVE-GENERATED] Inserting field:', { fieldName, fieldType, isRequired, orderIndex });
 
       await env.DB.prepare(`
-        INSERT INTO checklist_fields (
-          template_id, field_name, field_type, is_required, options, order_index,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO checklist_fields(
+        template_id, field_name, field_type, is_required, options, order_index,
+        created_at, updated_at
+      ) VALUES(?, ?, ?, ?, ?, ?, NOW(), NOW())
       `).bind(
         templateId,
         fieldName,
@@ -1176,7 +1292,7 @@ checklistRoutes.post("/checklist-fields", tenantAuthMiddleware, async (c) => {
       // Se ainda não há opções, retornar erro
       if (validOptions.length === 0) {
         return c.json({
-          error: `Campo do tipo "${field_type}" requer pelo menos uma opção válida. Por favor, forneça as opções necessárias.`,
+          error: `Campo do tipo "${field_type}" requer pelo menos uma opção válida.Por favor, forneça as opções necessárias.`,
           field_type,
           suggested_options: ['Conforme', 'Não Conforme', 'Não Aplicável']
         }, 400);
@@ -1209,11 +1325,11 @@ checklistRoutes.post("/checklist-fields", tenantAuthMiddleware, async (c) => {
 
     // Create field
     await env.DB.prepare(`
-      INSERT INTO checklist_fields (
+      INSERT INTO checklist_fields(
         template_id, field_name, field_type, is_required, options, order_index,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-    `).bind(
+      ) VALUES(?, ?, ?, ?, ?, ?, NOW(), NOW())
+        `).bind(
       template_id,
       field_name,
       field_type,
@@ -1246,12 +1362,12 @@ checklistRoutes.post("/checklist-templates/create-folder", tenantAuthMiddleware,
 
     // Create folder
     const result = await env.DB.prepare(`
-      INSERT INTO checklist_templates (
-        name, description, category, is_category_folder, folder_color, folder_icon,
-        parent_category_id, created_by, created_by_user_id, organization_id, is_public,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-    `).bind(
+      INSERT INTO checklist_templates(
+          name, description, category, is_category_folder, folder_color, folder_icon,
+          parent_category_id, created_by, created_by_user_id, organization_id, is_public,
+          created_at, updated_at
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          `).bind(
       name,
       description || null,
       category,
@@ -1299,7 +1415,7 @@ checklistRoutes.post("/inspection-items/:itemId/pre-analysis", tenantAuthMiddlew
       FROM inspection_items ii
       JOIN inspections i ON ii.inspection_id = i.id
       WHERE ii.id = ?
-    `).bind(itemId).first() as any;
+      `).bind(itemId).first() as any;
 
     if (!item) {
       return c.json({ error: "Item de inspeção não encontrado" }, 404);
@@ -1316,48 +1432,48 @@ checklistRoutes.post("/inspection-items/:itemId/pre-analysis", tenantAuthMiddlew
         return acc;
       }, {});
 
-      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: ${mediaTypes.image || 0} foto(s), ${mediaTypes.audio || 0} áudio(s), ${mediaTypes.video || 0} vídeo(s) foram analisados.`;
+      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: ${ mediaTypes.image || 0 } foto(s), ${ mediaTypes.audio || 0 } áudio(s), ${ mediaTypes.video || 0 } vídeo(s) foram analisados.`;
     } else {
-      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: Nenhuma mídia (foto, áudio ou vídeo) foi anexada. Análise baseada apenas na resposta do inspetor.`;
+      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: Nenhuma mídia(foto, áudio ou vídeo) foi anexada.Análise baseada apenas na resposta do inspetor.`;
     }
 
     // Create comprehensive and detailed prompt for deeper analysis
     const prompt = `Você é um especialista sênior em segurança do trabalho e saúde ocupacional, com vasta experiência em análise de conformidade regulatória e gestão de riscos.
 
 CONTEXTO DETALHADO DA INSPEÇÃO:
-- Local da Inspeção: ${item.location}
-- Empresa Inspecionada: ${item.company_name}
-- Título da Inspeção: ${item.inspection_title}
+    - Local da Inspeção: ${ item.location }
+    - Empresa Inspecionada: ${ item.company_name }
+    - Título da Inspeção: ${ item.inspection_title }
 
 ITEM ESPECÍFICO EM ANÁLISE:
-- Campo Inspecionado: ${field_name}
-- Categoria do Item: ${item.category}
-- Descrição Completa do Item: ${item.item_description}
-- Resposta Fornecida pelo Inspetor: ${response_value !== null && response_value !== undefined ? response_value : 'Não respondido'}
-- Observações Adicionais do Inspetor: ${item.observations || 'Nenhuma observação prévia'}
+    - Campo Inspecionado: ${ field_name }
+    - Categoria do Item: ${ item.category }
+      - Descrição Completa do Item: ${ item.item_description }
+        - Resposta Fornecida pelo Inspetor: ${ response_value !== null && response_value !== undefined ? response_value : 'Não respondido' }
+    - Observações Adicionais do Inspetor: ${ item.observations || 'Nenhuma observação prévia' }
 
-${mediaContext}
+${ mediaContext }
 
-${user_prompt ? `FOCO PRINCIPAL FORNECIDO PELO USUÁRIO: ${user_prompt}. Priorize esta informação em sua análise detalhada.` : ''}
+${ user_prompt ? `FOCO PRINCIPAL FORNECIDO PELO USUÁRIO: ${user_prompt}. Priorize esta informação em sua análise detalhada.` : '' }
 
 SUA TAREFA:
-Realize uma **análise técnica aprofundada e abrangente** deste item inspecionado considerando:
+Realize uma ** análise técnica aprofundada e abrangente ** deste item inspecionado considerando:
 
-1. **Observações Detalhadas**: Descreva minuciosamente o que foi observado e como se relaciona com as evidências disponíveis
-2. **Análise de Conformidade**: Avalie claramente se o item está conforme ou não conforme com as normas de segurança aplicáveis (cite NRs específicas quando relevante)
-3. **Identificação de Riscos**: Detalhe os riscos potenciais associados à condição atual do item, incluindo consequências de curto e longo prazo
-4. **Causa Raiz**: Identifique possíveis causas fundamentais da não conformidade (se aplicável)
-5. **Implicações Regulatórias**: Mencione possíveis implicações com órgãos fiscalizadores se relevante
-6. **Urgência e Prioridade**: Indique claramente a urgência de uma ação corretiva (Baixa, Média, Alta, Crítica) e justifique
-7. **Recomendação Específica**: Sugira claramente se uma ação corretiva é necessária e qual a natureza geral dessa ação
+    1. ** Observações Detalhadas **: Descreva minuciosamente o que foi observado e como se relaciona com as evidências disponíveis
+    2. ** Análise de Conformidade **: Avalie claramente se o item está conforme ou não conforme com as normas de segurança aplicáveis(cite NRs específicas quando relevante)
+    3. ** Identificação de Riscos **: Detalhe os riscos potenciais associados à condição atual do item, incluindo consequências de curto e longo prazo
+    4. ** Causa Raiz **: Identifique possíveis causas fundamentais da não conformidade(se aplicável)
+    5. ** Implicações Regulatórias **: Mencione possíveis implicações com órgãos fiscalizadores se relevante
+    6. ** Urgência e Prioridade **: Indique claramente a urgência de uma ação corretiva(Baixa, Média, Alta, Crítica) e justifique
+    7. ** Recomendação Específica **: Sugira claramente se uma ação corretiva é necessária e qual a natureza geral dessa ação
 
-Forneça uma análise estruturada e técnica (máximo 600 caracteres) em texto corrido simples. NÃO use markdown, asteriscos, negrito, itálico, listas ou qualquer formatação especial. Seja direto, objetivo e tecnicamente preciso.`;
+Forneça uma análise estruturada e técnica(máximo 600 caracteres) em texto corrido simples.NÃO use markdown, asteriscos, negrito, itálico, listas ou qualquer formatação especial.Seja direto, objetivo e tecnicamente preciso.`;
 
     // Call OpenAI API
     const openaiResponse = await globalThis.fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${ env.OPENAI_API_KEY } `,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -1380,7 +1496,7 @@ Forneça uma análise estruturada e técnica (máximo 600 caracteres) em texto c
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text();
       console.error('OpenAI API Error:', openaiResponse.status, errorText);
-      throw new Error(`Erro na API da OpenAI: ${openaiResponse.status}`);
+      throw new Error(`Erro na API da OpenAI: ${ openaiResponse.status } `);
     }
 
     // Robust JSON parsing with HTML error handling
@@ -1411,34 +1527,34 @@ Forneça uma análise estruturada e técnica (máximo 600 caracteres) em texto c
       .replace(/\*\*/g, '')
       .replace(/\*/g, '')
       .replace(/#{1,6}\s/g, '')
-      .replace(/`/g, '')
-      .replace(/^\s*-\s*/gm, '• ')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+      .replace(/`/ g, '')
+  .replace(/^\s*-\s*/gm, '• ')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
 
-    // Update the inspection item with the analysis
-    await env.DB.prepare(`
+// Update the inspection item with the analysis
+await env.DB.prepare(`
       UPDATE inspection_items 
       SET ai_pre_analysis = ?, updated_at = NOW()
       WHERE id = ?
     `).bind(cleanAnalysis, itemId).run();
 
-    return c.json({
-      success: true,
-      analysis: cleanAnalysis,
-      pre_analysis: cleanAnalysis,
-      media_analyzed: hasMedia ? media_data.length : 0,
-      item_id: itemId,
-      timestamp: new Date().toISOString()
-    });
+return c.json({
+  success: true,
+  analysis: cleanAnalysis,
+  pre_analysis: cleanAnalysis,
+  media_analyzed: hasMedia ? media_data.length : 0,
+  item_id: itemId,
+  timestamp: new Date().toISOString()
+});
 
   } catch (error) {
-    console.error('Error in pre-analysis:', error);
-    return c.json({
-      error: "Erro ao fazer pré-análise",
-      details: error instanceof Error ? error.message : "Erro desconhecido"
-    }, 500);
-  }
+  console.error('Error in pre-analysis:', error);
+  return c.json({
+    error: "Erro ao fazer pré-análise",
+    details: error instanceof Error ? error.message : "Erro desconhecido"
+  }, 500);
+}
 });
 
 // Generate field response with AI multimodal analysis

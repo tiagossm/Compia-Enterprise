@@ -739,7 +739,7 @@ async function deleteFolder(db: any, folderId: string) {
 }
 
 // Mover itens em lote (requires checklist:folders:write scope)
-checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, requireScopes(SCOPES.CHECKLIST_FOLDERS_WRITE), async (c) => {
+checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, async (c) => {
   const env = c.env;
   const user = c.get("user");
   const targetFolderId = c.req.param("id");
@@ -759,35 +759,62 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, req
     }
 
     // Verificar se pasta destino existe (pode ser null para raiz)
-    if (targetFolderId && targetFolderId !== 'null') {
+    if (targetFolderId && targetFolderId !== 'null' && targetFolderId !== 'undefined') {
       const targetFolder = await env.DB.prepare(`
         SELECT id FROM checklist_folders 
-        WHERE id = ? AND organization_id = ?
+        WHERE id = ? AND (organization_id = ? OR organization_id IS NULL)
       `).bind(targetFolderId, userProfile?.organization_id || null).first();
 
       if (!targetFolder) {
-        return c.json({ error: "Pasta destino não encontrada" }, 404);
+        return c.json({
+          error: `Pasta destino não encontrada. ID: ${targetFolderId}, Org: ${userProfile?.organization_id}`
+        }, 404);
       }
     }
 
     const finalTargetId = (targetFolderId === 'null') ? null : targetFolderId;
     let movedCount = 0;
 
+    const isAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
+      userProfile?.role === 'sys_admin' ||
+      userProfile?.role === 'admin' ||
+      userProfile?.role === USER_ROLES.ORG_ADMIN ||
+      userProfile?.role === USER_ROLES.MANAGER;
+
     // Mover templates
     if (templateIds.length > 0) {
       for (const templateId of templateIds) {
-        const result = await env.DB.prepare(`
-          UPDATE checklist_templates 
-          SET folder_id = ?, updated_at = NOW()
-          WHERE id = ? AND organization_id = ?
-        `).bind(finalTargetId, templateId, userProfile?.organization_id || null).run();
+        if (isAdmin) {
+          const result = await env.DB.prepare(`
+            UPDATE checklist_templates 
+            SET folder_id = ?, updated_at = NOW()
+            WHERE id = ? AND organization_id = ?
+          `).bind(finalTargetId, templateId, userProfile?.organization_id || null).run();
 
-        movedCount += result.meta.changes || 0;
+          movedCount += result.meta.changes || 0;
+        } else {
+          const result = await env.DB.prepare(`
+            INSERT INTO user_checklist_layout (
+              user_id, checklist_template_id, folder_id, display_order, created_at, updated_at
+            ) VALUES (?, ?, ?, 0, NOW(), NOW())
+            ON CONFLICT (user_id, checklist_template_id)
+            DO UPDATE SET folder_id = EXCLUDED.folder_id, updated_at = NOW()
+          `).bind(user.id, templateId, finalTargetId).run();
+
+          movedCount += result.meta.changes || 0;
+        }
       }
     }
 
-    // Mover pastas
+    // Mover pastas (somente admins)
     if (folderIds.length > 0) {
+      if (!isAdmin) {
+        return c.json({
+          error: "Sem permissão para mover pastas",
+          message: "Você pode mover apenas templates no seu layout pessoal"
+        }, 403);
+      }
+
       for (const folderId of folderIds) {
         // Verificar se não está tentando mover para dentro de si mesma
         if (finalTargetId) {
@@ -826,7 +853,8 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, req
 
     return c.json({
       message: `${movedCount} itens movidos com sucesso`,
-      moved_count: movedCount
+      moved_count: movedCount,
+      mode: isAdmin ? 'global' : 'user_layout'
     });
 
   } catch (error) {
