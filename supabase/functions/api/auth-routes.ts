@@ -117,7 +117,20 @@ authRoutes.get("/me", tenantAuthMiddleware, async (c) => {
 
     try {
         // Fetch full user details from DB to get role/name
-        const dbUser = await env.DB.prepare("SELECT * FROM users WHERE id = ? OR email = ?").bind(user.id, user.email).first();
+        let dbUser = await env.DB.prepare("SELECT * FROM users WHERE id = ? OR email = ?").bind(user.id, user.email).first();
+
+        if (!dbUser && user?.email) {
+            const userName = (user as any).user_metadata?.full_name || (user as any).user_metadata?.name || user.email?.split('@')[0] || 'User';
+            try {
+                await env.DB.prepare(`
+                    INSERT INTO users (id, email, name, role, is_active, approval_status, created_at, updated_at, avatar_url)
+                    VALUES (?, ?, ?, 'inspector', true, 'pending', NOW(), NOW(), ?)
+                `).bind(user.id, user.email, userName, (user as any).user_metadata?.avatar_url || (user as any).user_metadata?.picture || null).run();
+                dbUser = await env.DB.prepare("SELECT * FROM users WHERE id = ? OR email = ?").bind(user.id, user.email).first();
+            } catch (insertError) {
+                console.error('[AUTH-ME] Auto-create user failed:', insertError);
+            }
+        }
 
         if (!dbUser) {
             return c.json({ user: null });
