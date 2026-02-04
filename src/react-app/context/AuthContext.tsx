@@ -229,7 +229,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // IMPORTANT: keep callback URL EXACT (no querystring). Supabase redirect allowlist can be strict,
         // and querystrings may fail matching depending on configuration.
         // We persist the intended redirect in localStorage and AuthCallback will read it.
-        const callbackUrl = `${window.location.origin}/auth/callback`;
+        const canonicalOrigin = window.location.hostname === 'compia.tech'
+            ? 'https://www.compia.tech'
+            : window.location.origin;
+        const callbackUrl = `${canonicalOrigin}/auth/callback`;
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',

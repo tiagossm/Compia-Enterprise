@@ -5,7 +5,7 @@ import { OrganizationProvider } from "@/react-app/context/OrganizationContext";
 import { ToastProvider } from "@/react-app/hooks/useToast";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import LoadingSpinner from "@/react-app/components/LoadingSpinner";
 import AuthGuard from "@/react-app/components/AuthGuard";
 import { ErrorBoundary } from '@/react-app/components/ErrorBoundary';
@@ -21,7 +21,7 @@ const Reports = lazy(() => import("@/react-app/pages/Reports"));
 const Settings = lazy(() => import("@/react-app/pages/Settings"));
 const ChecklistTemplates = lazy(() => import("@/react-app/pages/ChecklistTemplates"));
 const NewChecklistTemplate = lazy(() => import("@/react-app/pages/NewChecklistTemplate"));
-const UniversalImporter = lazy(() => import("@/react-app/pages/UniversalImporter"));
+const AIChecklistGenerator = lazy(() => import("@/react-app/pages/AIChecklistGenerator"));
 const CSVImport = lazy(() => import("@/react-app/pages/CSVImport"));
 const ChecklistDetail = lazy(() => import("@/react-app/pages/ChecklistDetail"));
 const ChecklistTemplateEdit = lazy(() => import("@/react-app/pages/ChecklistTemplateEdit"));
@@ -51,6 +51,13 @@ const Checkout = lazy(() => import("@/react-app/pages/Checkout"));
 
 
 export default function App() {
+  useEffect(() => {
+    if (window.location.hostname === 'compia.tech') {
+      const target = `https://www.compia.tech${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.replace(target);
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -92,7 +99,7 @@ export default function App() {
 
                   <Route path="/checklists" element={<AuthGuard><ChecklistTemplates /></AuthGuard>} />
                   <Route path="/checklists/new" element={<AuthGuard><NewChecklistTemplate /></AuthGuard>} />
-                  <Route path="/checklists/ai-generate" element={<AuthGuard><UniversalImporter /></AuthGuard>} />
+                  <Route path="/checklists/ai-generate" element={<AuthGuard><AIChecklistGenerator /></AuthGuard>} />
                   <Route path="/checklists/import" element={<AuthGuard><CSVImport /></AuthGuard>} />
                   <Route path="/checklists/:id" element={<AuthGuard><ChecklistDetail /></AuthGuard>} />
                   <Route path="/checklists/:id/edit" element={<AuthGuard><ChecklistTemplateEdit /></AuthGuard>} />
