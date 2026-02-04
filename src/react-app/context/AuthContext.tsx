@@ -7,6 +7,16 @@ import { fetchWithAuth } from '../utils/auth';
 // Re-export supabase for components that need direct access
 export { supabase };
 
+const buildAuthHeader = async (): Promise<Record<string, string>> => {
+    try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+        return {};
+    }
+};
+
 interface AuthContextType {
     user: ExtendedMochaUser | null;
     session: Session | null;
@@ -32,7 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // If no Supabase session, try cookie-based session (/api/auth/me)
             if (!activeSession?.user) {
                 try {
-                    const response = await fetchWithAuth('/api/auth/me');
+                    const response = await fetchWithAuth('/api/auth/me', {
+                        headers: await buildAuthHeader(),
+                    });
                     if (response.ok) {
                         const userData = await response.json();
                         if (userData?.user === null) {
@@ -58,7 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Try to get extended profile from API
             try {
-                const response = await fetchWithAuth('/api/auth/me');
+                const response = await fetchWithAuth('/api/auth/me', {
+                    headers: await buildAuthHeader(),
+                });
                 if (response.ok) {
                     const userData = await response.json();
                     if (userData?.user === null) {
