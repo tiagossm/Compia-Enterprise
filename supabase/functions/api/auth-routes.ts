@@ -3,6 +3,13 @@ import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { tenantAuthMiddleware } from "./tenant-auth-middleware.ts";
 import { requireProtectedSysAdmin } from "./rbac-middleware.ts";
 
+type Env = {
+    DB: any;
+    SUPABASE_URL?: string;
+    SUPABASE_ANON_KEY?: string;
+    ENVIRONMENT?: string;
+};
+
 
 const authRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>().basePath('/api/auth');
 console.log('[AUTH-ROUTES] Auth routes module loaded, typeof:', typeof authRoutes);
@@ -359,15 +366,18 @@ authRoutes.post("/register", async (c) => {
             const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
             if (supabaseUrl && supabaseAnonKey) {
-                fetch(`${supabaseUrl}/functions/v1/send-email`, {
+                // Fix: Use email-worker/send instead of send-email (which is deprecated/empty)
+                // Fix: Change type to 'welcome' and payload to data
+                fetch(`${supabaseUrl}/functions/v1/email-worker/send`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${supabaseAnonKey}`
                     },
                     body: JSON.stringify({
-                        type: 'welcome_pending',
-                        payload: { email, name }
+                        to: email, // Changed from implicit in payload to explicit 'to' field if needed, likely email-worker expects 'to' at top level
+                        type: 'welcome',
+                        data: { email, name }
                     })
                 }).catch(err => console.error("Failed to trigger welcome email:", err));
             }
@@ -513,6 +523,119 @@ authRoutes.post("/login", async (c) => {
 authRoutes.post("/logout", async (c) => {
     deleteCookie(c, "mocha-session-token");
     return c.json({ success: true });
+});
+
+// Forgot Password - Gera token e envia email
+authRoutes.post("/forgot-password", async (c) => {
+    const env = c.env;
+    try {
+        console.log('[AUTH-RESET] Iniciando solicitação de forgot-password');
+        const { email } = await c.req.json();
+        if (!email) {
+            return c.json({ error: "Email é obrigatório" }, 400);
+        }
+
+        // 1. Verificar se usuário existe
+        const user = await env.DB.prepare("SELECT id, name, email FROM users WHERE email = ?").bind(email).first();
+
+        // Segurança: Retornar sucesso mesmo se não existir para evitar enumeração de usuários
+        // Mas logar internamente para debug
+        if (!user) {
+            console.log(`[AUTH-RESET] Solicitação de reset para email inexistente: ${email}`);
+            return c.json({ success: true, message: "Se o email estiver cadastrado, você receberá um link de recuperação." });
+        }
+
+        // 2. Gerar Token único e Hash
+        const token = crypto.randomUUID();
+        // Não precisamos de hash complexo aqui, pois o token é curto vida (1h) e random
+        // Mas se quisessemos mais segurança, poderiamos hashear. Por simplicidade e performance, guardamos direto.
+        // O token é o "segredo" enviado por email.
+
+        // 3. Salvar token no banco
+        // 3. Salvar token no banco
+        // Definir validade de 1 hora explicitamente
+        await env.DB.prepare(`
+            INSERT INTO password_reset_tokens (user_id, token, expires_at)
+            VALUES (?, ?, NOW() + INTERVAL '1 hour')
+        `).bind(user.id, token).run();
+
+
+        // 4. Enviar Email
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+        const resetUrl = `https://compia.tech/reset-password?token=${token}`;
+
+        if (supabaseUrl && supabaseAnonKey) {
+            // Fire-and-forget: não bloquear resposta esperando email
+            // Fix: Append /send to URL
+            fetch(`${supabaseUrl}/functions/v1/email-worker/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseAnonKey}`
+                },
+                body: JSON.stringify({
+                    to: user.email,
+                    type: 'reset_password',
+                    data: {
+                        name: user.name,
+                        resetUrl: resetUrl
+                    }
+                })
+            }).then(res => {
+                if (!res.ok) console.error("[AUTH-RESET] Falha ao enviar email do worker:", res.status);
+            }).catch(err => console.error("[AUTH-RESET] Erro ao chamar email-worker:", err));
+        }
+
+        return c.json({ success: true, message: "Se o email estiver cadastrado, você receberá um link de recuperação." });
+
+    } catch (error) {
+        console.error('Erro em forgot-password:', error);
+        return c.json({ error: "Erro interno ao processar solicitação" }, 500);
+    }
+});
+
+// Reset Password - Valida token e atualiza senha
+authRoutes.post("/reset-password", async (c) => {
+    const env = c.env;
+    try {
+        const { token, newPassword } = await c.req.json();
+
+        if (!token || !newPassword) {
+            return c.json({ error: "Token e nova senha são obrigatórios" }, 400);
+        }
+
+        // 1. Validar Token
+        const tokenRecord = await env.DB.prepare(`
+            SELECT * FROM password_reset_tokens 
+            WHERE token = ? AND used = FALSE AND expires_at > NOW()
+        `).bind(token).first();
+
+        if (!tokenRecord) {
+            return c.json({ error: "Token inválido ou expirado" }, 400);
+        }
+
+        // 2. Hash da nova senha
+        const newPasswordHash = await hashPassword(newPassword);
+
+        // 3. Atualizar Credenciais
+        await env.DB.prepare("UPDATE user_credentials SET password_hash = ?, updated_at = NOW() WHERE user_id = ?")
+            .bind(newPasswordHash, tokenRecord.user_id).run();
+
+        // 4. Marcar token como usado
+        await env.DB.prepare("UPDATE password_reset_tokens SET used = TRUE WHERE id = ?")
+            .bind(tokenRecord.id).run();
+
+        // 5. Opcional: Invalidar sessões antigas?
+        // Por segurança, seria bom, mas pode ser agressivo. Vamos manter logado quem está logado, 
+        // mas quem esqueceu a senha provavelmente não está logado.
+
+        return c.json({ success: true, message: "Senha atualizada com sucesso" });
+
+    } catch (error) {
+        console.error('Erro em reset-password:', error);
+        return c.json({ error: "Erro ao redefinir senha" }, 500);
+    }
 });
 
 export default authRoutes;

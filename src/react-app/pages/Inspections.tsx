@@ -22,6 +22,8 @@ import {
 import { syncService } from '@/lib/sync-service';
 import { InspectionType } from '@/shared/types';
 import InspectionStatusBadge from '@/react-app/components/InspectionStatusBadge';
+import SkeletonLoader from '@/react-app/components/ui/SkeletonLoader';
+import EmptyState from '@/react-app/components/ui/EmptyState';
 
 // Simple debounce implementation if lodash not available/installed
 function useDebounce<T>(value: T, delay: number): T {
@@ -376,22 +378,38 @@ export default function Inspections() {
         {/* Inspections List */}
         <div className="space-y-4">
           {loading ? (
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                <span className="text-slate-500 text-sm">Carregando inspeções...</span>
-              </div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex gap-3 mb-2">
+                      <SkeletonLoader className="h-6 w-1/3" />
+                      <SkeletonLoader className="h-6 w-20 rounded-full" />
+                    </div>
+                    <SkeletonLoader className="h-4 w-3/4" />
+                    <div className="flex gap-4">
+                      <SkeletonLoader className="h-4 w-24" />
+                      <SkeletonLoader className="h-4 w-24" />
+                      <SkeletonLoader className="h-4 w-24" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : inspections.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-              <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500 font-medium">
-                Nenhuma inspeção encontrada
-              </p>
-              <p className="text-slate-400 text-sm mt-1">
-                Tente ajustar os filtros ou termo de busca
-              </p>
-            </div>
+            <EmptyState
+              icon={AlertCircle}
+              title="Nenhuma inspeção encontrada"
+              description="Tente ajustar os filtros ou criar uma nova inspeção."
+              action={
+                <Link
+                  to="/inspections/new"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Criar Nova Inspeção
+                </Link>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {inspections.map((inspection) => (

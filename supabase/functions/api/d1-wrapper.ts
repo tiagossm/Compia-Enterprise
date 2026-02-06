@@ -13,6 +13,7 @@ export function createD1Wrapper(connectionString: string) {
             connect_timeout: 10,       // Fast connection timeout
             max_lifetime: 30,          // Max connection lifetime 30 seconds
             fetch_types: false,        // Disable type fetching for speed
+            prepare: false,            // Disable prepared statements for Transaction Pooler compatibility
         })
     }
     const sql = sqlInstance;

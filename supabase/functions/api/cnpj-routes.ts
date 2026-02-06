@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
-const cnpjRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+const cnpjRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+    .basePath('/api/cnpj');
 
 // Helper function to perform CNPJ lookup with proper error handling
 const performCnpjLookup = async (cnpjInput: string) => {
@@ -25,12 +26,13 @@ const performCnpjLookup = async (cnpjInput: string) => {
             };
         }
 
-        // Call external CNPJ API (using ReceitaWS - API gratuita)
-        const apiUrl = `https://receitaws.com.br/v1/cnpj/${cleanCnpj}`;
+        // Call BrasilAPI (more reliable than ReceitaWS)
+        const apiUrl = `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`;
+        console.log(`[CNPJ-ROUTES] Fetching CNPJ from: ${apiUrl}`);
 
         const response = await globalThis.fetch(apiUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; InspectionApp/1.0)',
+                'User-Agent': 'Mozilla/5.0 (compatible; CompiaApp/1.0)',
                 'Accept': 'application/json'
             }
         });
@@ -39,8 +41,15 @@ const performCnpjLookup = async (cnpjInput: string) => {
             if (response.status === 429) {
                 return {
                     success: false,
-                    error: "Muitas consultas. Tente novamente em alguns minutos. (Limite da API gratuita: 3/minuto)",
+                    error: "Muitas consultas. Tente novamente em alguns minutos.",
                     status: 429
+                };
+            }
+            if (response.status === 404) {
+                return {
+                    success: false,
+                    error: "CNPJ não encontrado",
+                    status: 404
                 };
             }
             return {
@@ -52,32 +61,27 @@ const performCnpjLookup = async (cnpjInput: string) => {
 
         const cnpjData = await response.json() as any;
 
-        if (cnpjData.status === 'ERROR') {
-            return {
-                success: false,
-                error: cnpjData.message || "CNPJ não encontrado",
-                status: 404
-            };
-        }
+        // BrasilAPI returns direct object, no 'status' field like ReceitaWS
+        // If we got here (200 OK), data is valid.
 
         // Transform data to match our organization format
         const companyData = {
             cnpj: cnpjData.cnpj,
-            razao_social: cnpjData.nome,
-            nome_fantasia: cnpjData.fantasia || cnpjData.nome,
-            nome: cnpjData.fantasia || cnpjData.nome,
-            cnae_principal: cnpjData.atividade_principal?.[0]?.code || '',
-            cnae_descricao: cnpjData.atividade_principal?.[0]?.text || '',
+            razao_social: cnpjData.razao_social,
+            nome_fantasia: cnpjData.nome_fantasia || cnpjData.razao_social,
+            nome: cnpjData.nome_fantasia || cnpjData.razao_social,
+            cnae_principal: cnpjData.cnae_fiscal || '',
+            cnae_descricao: cnpjData.cnae_fiscal_descricao || '',
             natureza_juridica: cnpjData.natureza_juridica || '',
-            data_abertura: cnpjData.abertura || '',
-            capital_social: parseFloat(cnpjData.capital_social?.replace(/[. ]/g, '').replace(',', '.')) || 0,
+            data_abertura: cnpjData.data_inicio_atividade || '',
+            capital_social: cnpjData.capital_social || 0,
             porte_empresa: cnpjData.porte || '',
-            situacao_cadastral: cnpjData.situacao || '',
+            situacao_cadastral: cnpjData.situacao_cadastral || '', // BrasilAPI normally returns code, need verification if description is available
             address: cnpjData.logradouro
                 ? `${cnpjData.logradouro}, ${cnpjData.numero}${cnpjData.complemento ? ' - ' + cnpjData.complemento : ''}, ${cnpjData.bairro}, ${cnpjData.municipio}/${cnpjData.uf}, CEP: ${cnpjData.cep}`
                 : '',
             contact_email: cnpjData.email || '',
-            contact_phone: cnpjData.telefone || '',
+            contact_phone: cnpjData.ddd_telefone_1 ? `(${cnpjData.ddd_telefone_1.substring(0, 2)}) ${cnpjData.ddd_telefone_1.substring(2)}` : '',
             website: '',
             // Additional fields for reference
             logradouro: cnpjData.logradouro,
@@ -87,7 +91,7 @@ const performCnpjLookup = async (cnpjInput: string) => {
             municipio: cnpjData.municipio,
             uf: cnpjData.uf,
             cep: cnpjData.cep,
-            atividades_secundarias: cnpjData.atividades_secundarias || [],
+            atividades_secundarias: cnpjData.cnaes_secundarios || [], // BrasilAPI returns array of objects usually
             qsa: cnpjData.qsa || [] // Quadro de sócios
         };
 

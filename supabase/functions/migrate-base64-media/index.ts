@@ -2,7 +2,7 @@
 // Run this via: supabase functions deploy migrate-base64-media --project-ref vjlvvmriqerfmztwtewa
 // Then call: POST https://vjlvvmriqerfmztwtewa.supabase.co/functions/v1/migrate-base64-media
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req: Request) => {
     // Only allow POST

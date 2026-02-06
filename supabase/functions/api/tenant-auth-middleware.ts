@@ -171,17 +171,65 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
     if (!user) {
         console.warn(`[TENANT-AUTH] Falha crítica de autenticação - DB Error: ${dbError}`);
 
-        // Tentar auto-cadastro se falhou por não encontrar
-        if (existingUser && (existingUser as any).email && (!dbError || dbError.includes('not found'))) {
-            // Lógica de auto-cadastro simplificada para não poluir
-            // (Mantendo apenas o warning aqui, pois o bloco original era muito grande e complexo para substituir inline perfeitamente sem riscos)
-            // Se o usuário não existir, vamos retornar erro no contexto
+        // AUTO-CADASTRO (Just-in-Time Provisioning)
+        // Se temos um userId válido do JWT, mas ele não está no banco, criamos agora.
+        if (userId && (!dbError || dbError.includes('not found') || dbError.includes('no such table'))) {
+            try {
+                console.log(`[TENANT-AUTH] Tentando auto-cadastro JIT para: ${userId}`);
+
+                // Precisamos dos dados do payload do JWT para preencher o cadastro
+                // Vamos re-verificar o token para extrair metadados
+                // (Otimização: poderíamos ter passado o payload para cá, mas vamos extrair de novo por simplicidade local)
+                const authHeader = c.req.header("Authorization");
+                let jwtPayload: any = null;
+
+                if (authHeader?.startsWith("Bearer ")) {
+                    const token = authHeader.substring(7);
+                    const jwtSecret = env.JWT_SECRET || Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
+                    if (jwtSecret) {
+                        const payload: any = await verifyJwtToken(token, jwtSecret);
+                        jwtPayload = payload;
+                    }
+                }
+
+                if (jwtPayload && jwtPayload.email) {
+                    const email = jwtPayload.email;
+                    const meta = jwtPayload.user_metadata || {};
+                    const name = meta.full_name || meta.name || email.split('@')[0];
+                    const avatarUrl = meta.picture || meta.avatar_url;
+
+                    console.log(`[TENANT-AUTH] Criando usuário JIT: ${email}, ${name}`);
+
+                    // Inserir na tabela users
+                    await env.DB.prepare(`
+                        INSERT INTO users (id, email, name, role, approval_status, avatar_url, created_at, updated_at, is_active)
+                        VALUES (?, ?, ?, 'inspector', 'pending', ?, NOW(), NOW(), true)
+                    `).bind(userId, email, name, avatarUrl || null).run();
+
+                    // Buscar o usuário recém-criado
+                    user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).first();
+                    if (user) {
+                        // Type conversions if needed
+                        if (user.organization_id) user.organization_id = Number(user.organization_id);
+                        if (user.managed_organization_id) user.managed_organization_id = Number(user.managed_organization_id);
+
+                        console.log(`[TENANT-AUTH] Auto-cadastro realizado com sucesso! User role: ${user.role}`);
+
+                        // NOTIFICAR ADMINS (Opcional, mas recomendado)
+                        // ...
+                    }
+                }
+            } catch (jitError) {
+                console.error(`[TENANT-AUTH] Erro no auto-cadastro JIT:`, jitError);
+            }
         }
 
-        c.set("tenantAuthError", dbError || "User search failed");
-        // Permitir continuar, mas inspection-routes vai bloquear
-        await next();
-        return;
+        if (!user) {
+            c.set("tenantAuthError", dbError || "User search failed");
+            // Permitir continuar, mas inspection-routes vai bloquear
+            await next();
+            return;
+        }
     }
 
     // Update last_active_at if null or > 5 min old

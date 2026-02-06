@@ -11,9 +11,10 @@ import AuthGuard from "@/react-app/components/AuthGuard";
 import { ErrorBoundary } from '@/react-app/components/ErrorBoundary';
 
 // Lazy Load Pages
-const HomePage = lazy(() => import("@/react-app/pages/Home"));
+const Dashboard = lazy(() => import("@/react-app/pages/Dashboard"));
 const Inspections = lazy(() => import("@/react-app/pages/Inspections"));
 const NewInspection = lazy(() => import("@/react-app/pages/NewInspection"));
+
 
 
 const InspectionDetail = lazy(() => import("@/react-app/pages/InspectionDetail"));
@@ -37,6 +38,8 @@ const Organizations = lazy(() => import("@/react-app/pages/Organizations"));
 const OrganizationProfile = lazy(() => import("@/react-app/pages/OrganizationProfile"));
 const SharedInspection = lazy(() => import("@/react-app/pages/SharedInspection"));
 const AcceptInvitation = lazy(() => import("@/react-app/pages/AcceptInvitation"));
+const ForgotPassword = lazy(() => import("@/react-app/pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/react-app/pages/ResetPassword"));
 const RolePermissions = lazy(() => import("@/react-app/pages/RolePermissions"));
 const AdminDataSync = lazy(() => import("@/react-app/pages/AdminDataSync"));
 const AuditLogs = lazy(() => import("@/react-app/pages/AuditLogs"));
@@ -48,6 +51,8 @@ const SystemAdminCRMPage = lazy(() => import("@/react-app/components/dashboard/S
 const SystemPlans = lazy(() => import("@/react-app/pages/SystemPlans"));
 const Billing = lazy(() => import("@/react-app/pages/Billing"));
 const Checkout = lazy(() => import("@/react-app/pages/Checkout"));
+const TermsOfUse = lazy(() => import("@/react-app/pages/legal/TermsOfUse"));
+const PrivacyPolicy = lazy(() => import("@/react-app/pages/legal/PrivacyPolicy"));
 
 
 export default function App() {
@@ -71,21 +76,25 @@ export default function App() {
               }>
                 <Routes>
                   {/* Public routes */}
-                  {/* Root route: decide between app vs marketing without flashing landing during OAuth */}
-                  <Route path="/" element={<HomePage />} />
+                  {/* Root route: ALWAYS Landing Page. User can click 'Dashboard' to go to app. */}
+                  <Route path="/" element={<LandingPage />} />
                   {/* Keep landing accessible explicitly */}
                   <Route path="/landing" element={<LandingPage />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/auth/signup" element={<Register />} />
                   <Route path="/shared/:token" element={<SharedInspection />} />
                   <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
+                  <Route path="/terms" element={<TermsOfUse />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
 
                   {/* Protected routes */}
                   <Route path="/app" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<AuthGuard><HomePage /></AuthGuard>} />
+                  <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
                   <Route path="/inspections" element={<AuthGuard><Inspections /></AuthGuard>} />
                   <Route path="/inspections/new" element={<AuthGuard><NewInspection /></AuthGuard>} />
                   <Route path="/inspections/:id/edit" element={<AuthGuard><NewInspection /></AuthGuard>} />

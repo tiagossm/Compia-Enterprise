@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -26,8 +26,12 @@ interface ATAResult {
     summary: string;
     identified_items: Array<{
         item_id: number;
+        /** Optional: helps validate mapping */
+        item_title?: string;
         status: 'C' | 'NC' | 'NA';
         observation: string;
+        /** Optional: model confidence (0-1) */
+        confidence?: number;
     }>;
     non_conformities: Array<{
         title: string;
@@ -157,9 +161,11 @@ INSTRUÇÕES:
    - Número de conformidades e não conformidades identificadas
 
 3. **ITENS IDENTIFICADOS**: Para cada item do checklist mencionado no áudio:
-   - Associe ao item_id correto
+   - Associe ao **item_id correto, escolhendo SOMENTE entre os IDs presentes em ITENS DO CHECKLIST**
+   - Inclua também o **item_title** exatamente como no checklist (para auditoria)
    - Determine o status: "C" (Conforme), "NC" (Não Conforme), "NA" (Não Aplicável)
    - Inclua a observação do inspetor
+   - Inclua confidence (0 a 1). Se confidence < 0.75, evite marcar como NC sem deixar claro na observação
 
 4. **NÃO CONFORMIDADES**: Liste cada não conformidade com:
    - Título descritivo
@@ -172,7 +178,7 @@ FORMATO DE SAÍDA (JSON):
   "transcript": "[00:00] Início da inspeção...\n[00:45] Verificando extintor...\n...",
   "summary": "Resumo executivo da inspeção...",
   "identified_items": [
-    { "item_id": 123, "status": "NC", "observation": "Extintor vencido" }
+    { "item_id": 123, "item_title": "<título do item no checklist>", "status": "NC", "observation": "Extintor vencido", "confidence": 0.9 }
   ],
   "non_conformities": [
     {
@@ -240,6 +246,55 @@ Retorne APENAS o JSON válido, sem texto adicional.
             }
         }
 
+        // Validate + sanitize identified items so we never store invalid ids.
+        const allowedItems = checklistItems;
+        const allowedIdSet = new Set<number>(allowedItems.map(i => i.id));
+        const allowedTitleById = new Map<number, string>(allowedItems.map(i => [i.id, i.title]));
+
+        const normalize = (s: string) =>
+            (s || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const findBestIdByTitle = (title?: string): number | null => {
+            if (!title) return null;
+            const t = normalize(title);
+            if (!t) return null;
+
+            // exact match
+            for (const item of allowedItems) {
+                if (normalize(item.title) === t) return item.id;
+            }
+            // contains match (best-effort)
+            for (const item of allowedItems) {
+                const it = normalize(item.title);
+                if (it && (it.includes(t) || t.includes(it))) return item.id;
+            }
+            return null;
+        };
+
+        const sanitizedIdentified = (ataResult.identified_items || [])
+            .map((it) => {
+                let item_id = Number(it.item_id);
+                if (!allowedIdSet.has(item_id)) {
+                    const mapped = findBestIdByTitle(it.item_title);
+                    if (mapped !== null) item_id = mapped;
+                }
+                if (!allowedIdSet.has(item_id)) return null;
+
+                return {
+                    item_id,
+                    status: it.status,
+                    observation: it.observation,
+                    item_title: it.item_title || allowedTitleById.get(item_id) || undefined,
+                    confidence: typeof it.confidence === 'number' ? it.confidence : undefined
+                };
+            })
+            .filter(Boolean);
+
         // Update ATA in database
         const { error: updateError } = await supabase
             .from('inspection_atas')
@@ -247,7 +302,7 @@ Retorne APENAS o JSON válido, sem texto adicional.
                 status: 'draft',
                 transcript: ataResult.transcript,
                 summary: ataResult.summary,
-                identified_items: ataResult.identified_items,
+                identified_items: sanitizedIdentified,
                 total_duration_seconds: totalDuration,
                 updated_at: new Date().toISOString()
             })

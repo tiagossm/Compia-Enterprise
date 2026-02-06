@@ -1,0 +1,278 @@
+﻿[
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\action-plans-routes.ts",
+        "Length":  16916
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\admin-approval-routes.ts",
+        "Length":  8364
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\admin-debug-routes.ts",
+        "Length":  20029
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-assistant-routes.ts",
+        "Length":  6627
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-assistants-routes.ts",
+        "Length":  9938
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-prompts.ts",
+        "Length":  3683
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-rate-limit.ts",
+        "Length":  12605
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-service.ts",
+        "Length":  11337
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-usage-routes.ts",
+        "Length":  4006
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\ai-usage-tracker.ts",
+        "Length":  2229
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\asaas-service.ts",
+        "Length":  5718
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\asaas-webhook.ts",
+        "Length":  10210
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\audit-logger.ts",
+        "Length":  2065
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\audit-routes.ts",
+        "Length":  15162
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\auth-routes.ts",
+        "Length":  20486
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\auto-organize-folders.ts",
+        "Length":  9352
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\autosuggest-routes.ts",
+        "Length":  16166
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\calendar-routes.ts",
+        "Length":  40275
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\calendar-settings-routes.ts",
+        "Length":  5191
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\calendar-upload-routes.ts",
+        "Length":  3501
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\cep-routes.ts",
+        "Length":  3038
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\checklist-folders-routes.ts",
+        "Length":  30633
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\checklist-routes.ts",
+        "Length":  94067
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\checkout-flow-v2.ts",
+        "Length":  26003
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\cnpj-routes.ts",
+        "Length":  4713
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\crm-routes.ts",
+        "Length":  17230
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\d1-wrapper.ts",
+        "Length":  6867
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\dashboard-routes.ts",
+        "Length":  16174
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\database-debug-routes.ts",
+        "Length":  4168
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\debug-checklist.ts",
+        "Length":  5122
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\deno.json",
+        "Length":  550
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\financial-routes.ts",
+        "Length":  18960
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\gamification-routes.ts",
+        "Length":  6181
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\index.ts",
+        "Length":  18981
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\inspection-item-routes.ts",
+        "Length":  48053
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\inspection-routes.ts",
+        "Length":  110991
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\integrations-routes.ts",
+        "Length":  5429
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\kanban-routes.ts",
+        "Length":  6067
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\lead-capture.ts",
+        "Length":  5926
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\media-routes.ts",
+        "Length":  13471
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\multi-tenant-routes.ts",
+        "Length":  29971
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\notifications-routes.ts",
+        "Length":  2376
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\openai-assistants-service.ts",
+        "Length":  15302
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\organizations-routes.ts",
+        "Length":  28786
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\rate-limit-middleware.ts",
+        "Length":  3505
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\rbac-middleware.ts",
+        "Length":  9646
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\reset-project.ts",
+        "Length":  6309
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\role-permissions-routes.ts",
+        "Length":  5735
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\secure-query-helper.ts",
+        "Length":  7433
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\security-endpoints.ts",
+        "Length":  10183
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\security-protection.ts",
+        "Length":  12838
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\session-management.ts",
+        "Length":  5787
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\share-routes.ts",
+        "Length":  16104
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\system-admin-protection.ts",
+        "Length":  7701
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\system-admin-routes.ts",
+        "Length":  18946
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\system-plans-routes.ts",
+        "Length":  9756
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\tenant-auth-middleware.ts",
+        "Length":  16660
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\test-checklist.ts",
+        "Length":  1114
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\test-orgs.ts",
+        "Length":  1272
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\test-rls-routes.ts",
+        "Length":  9726
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\user-assignment-routes.ts",
+        "Length":  17551
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\user-types.ts",
+        "Length":  4201
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\users-routes.ts",
+        "Length":  33273
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\verify-logs.ts",
+        "Length":  1429
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\shared\\checklist-types.ts",
+        "Length":  4499
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\shared\\folder-types.ts",
+        "Length":  4301
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\shared\\logger.ts",
+        "Length":  1286
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\shared\\types.ts",
+        "Length":  4039
+    },
+    {
+        "FullName":  "C:\\Users\\engti\\Downloads\\COMPIA 06092520\\supabase\\functions\\api\\shared\\user-types.ts",
+        "Length":  3786
+    }
+]

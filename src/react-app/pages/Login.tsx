@@ -111,9 +111,9 @@ export default function Login() {
               {/* Header: Logo */}
               <div>
                 <img
-                  src="/compia_logo.png"
+                  src="/COMPIA_BRAND_KIT/png/2x/compia-logo-mono-white.png"
                   alt="Compia Logo"
-                  className="w-48 md:w-64 h-auto object-contain mb-2 filter brightness-0 invert opacity-90 text-left md:ml-0 mx-auto"
+                  className="w-48 md:w-64 h-auto object-contain mb-2 opacity-90 text-left md:ml-0 mx-auto"
                 />
               </div>
 
@@ -198,7 +198,7 @@ export default function Login() {
                 />
                 <span className="text-slate-600 font-medium group-hover:text-primary transition-colors">Lembrar de mim</span>
               </label>
-              <a className="text-primary hover:text-primary-hover font-semibold transition-colors hover:underline" href="#">Esqueceu a senha?</a>
+              <Link className="text-primary hover:text-primary-hover font-semibold transition-colors hover:underline" to="/forgot-password">Esqueceu a senha?</Link>
             </div>
 
             {/* BOTÃO PRIMÁRIO (EMAIL) - Agora em cima */}

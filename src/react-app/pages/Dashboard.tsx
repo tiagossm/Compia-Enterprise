@@ -23,6 +23,7 @@ import OrgAdminDashboard from '@/react-app/components/dashboard/OrgAdminDashboar
 import SystemAdminDashboard from '@/react-app/components/dashboard/SystemAdminDashboard';
 import InspectorStatsWidget from '@/react-app/components/dashboard/InspectorStatsWidget';
 import GamificationCard from '@/react-app/components/gamification/GamificationCard';
+import SkeletonLoader from '@/react-app/components/ui/SkeletonLoader';
 
 
 interface DashboardStats {
@@ -60,7 +61,7 @@ export default function Dashboard() {
       let statsUrl = '/api/dashboard/stats';
       let actionUrl = '/api/dashboard/action-plan-summary';
 
-      if (selectedOrganization) {
+      if (selectedOrganization && selectedOrganization.id !== 0) {
         statsUrl += `?organization_id=${selectedOrganization.id}`;
         actionUrl += `?organization_id=${selectedOrganization.id}`;
       }
@@ -100,10 +101,12 @@ export default function Dashboard() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-slate-600">Carregando insights...</p>
+        <div className="space-y-6">
+          <SkeletonLoader className="h-48 w-full rounded-xl" />
+          <SkeletonLoader className="h-64 w-full rounded-xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <SkeletonLoader className="h-64 w-full rounded-xl" />
+            <SkeletonLoader className="h-64 w-full rounded-xl col-span-2" />
           </div>
         </div>
       </Layout>

@@ -209,8 +209,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setSession(null);
 
-        // Redirect to login
-        window.location.href = '/login';
+        // Redirect to login only if NOT on a public route
+        const publicRoutes = [
+            '/',
+            '/landing',
+            '/checkout',
+            '/login',
+            '/register',
+            '/forgot-password',
+            '/reset-password',
+            '/terms',
+            '/privacy'
+        ];
+
+        const currentPath = window.location.pathname;
+        const isPublicRoute = publicRoutes.some(route =>
+            currentPath === route || currentPath.startsWith('/shared/') || currentPath.startsWith('/accept-invitation/')
+        );
+
+        if (!isPublicRoute) {
+            window.location.href = '/login';
+        }
     };
 
     // Google OAuth login

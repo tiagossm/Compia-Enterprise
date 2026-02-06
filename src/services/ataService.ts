@@ -14,8 +14,10 @@ export interface ATA {
     summary: string | null;
     identified_items: Array<{
         item_id: number;
+        item_title?: string;
         status: 'C' | 'NC' | 'NA';
         observation: string;
+        confidence?: number;
     }>;
     doc_url: string | null;
     created_at: string;
@@ -42,8 +44,10 @@ export interface ATAGenerateResult {
     summary: string;
     identified_items: Array<{
         item_id: number;
+        item_title?: string;
         status: 'C' | 'NC' | 'NA';
         observation: string;
+        confidence?: number;
     }>;
     non_conformities: Array<{
         title: string;

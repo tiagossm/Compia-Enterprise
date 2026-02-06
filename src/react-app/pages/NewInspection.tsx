@@ -460,7 +460,7 @@ export default function NewInspection() {
                   value={formData.title}
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 ${formData.title ? 'border-green-300 bg-green-50/30' : 'border-slate-200'}`}
-                  placeholder="Ex: Inspeção de Equipamentos de Proteção"
+                  placeholder="Ex: Auditoria de Operações da Loja SP-01"
                 />
                 <SuggestionTags
                   label="Sugestões de Títulos"
@@ -588,7 +588,7 @@ export default function NewInspection() {
                       }
                     }}
                     className="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500 transition-all"
-                    placeholder="Digite um setor e pressione Enter (Ex: Galpão A, Produção, Almoxarifado)"
+                    placeholder="Digite um setor e pressione Enter (Ex: Galpão A, Cozinha, Recepção)"
                   />
                   <button
                     type="button"

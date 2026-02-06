@@ -189,9 +189,9 @@ export default function Register() {
                             {/* Header: Logo */}
                             <div>
                                 <img
-                                    src="/compia_logo.png"
+                                    src="/COMPIA_BRAND_KIT/png/2x/compia-logo-mono-white.png"
                                     alt="Compia Logo"
-                                    className="w-48 md:w-64 h-auto object-contain mb-2 filter brightness-0 invert opacity-90 text-left md:ml-0 mx-auto"
+                                    className="w-48 md:w-64 h-auto object-contain mb-2 opacity-90 text-left md:ml-0 mx-auto"
                                 />
                             </div>
 
@@ -207,7 +207,7 @@ export default function Register() {
                             </div>
 
                             {/* Plan Badge */}
-                            {selectedPlan === 'pro' && (
+                            {(selectedPlan.includes('pro') || selectedPlan.includes('business')) && (
                                 <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 p-3 rounded-xl mx-auto md:mx-0">
                                     <div className="w-3 h-3 rounded-full bg-indigo-400 animate-pulse" />
                                     <span className="text-white font-medium text-sm">Plano Selecionado: <strong>Inteligente</strong></span>

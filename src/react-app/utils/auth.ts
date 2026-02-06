@@ -97,6 +97,32 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       headers,
       credentials: 'include', // Include cookies in requests
     });
+
+    // Global 401 Interceptor
+    // If we get a 401 Unathorized from any API (except login/register itself), 
+    // it means our session token is dead. We must force logout to prevent loops.
+    if (response.status === 401) {
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+      const isMeCheck = url.includes('/auth/me'); // Check if likely just verifying session
+      const isPublicPage = ['/login', '/landing', '/', '/register'].includes(window.location.pathname);
+
+      if (!isAuthEndpoint && !(isMeCheck && isPublicPage)) {
+        console.warn('[Global Auth] 401 Unauthorized detected. Forcing logout.');
+
+        // Clear Supabase tokens to prevent immediate re-login attempts
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('supabase')) {
+            localStorage.removeItem(key);
+          }
+        });
+
+        // Redirect to login (unless already there)
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+    }
+
     return response;
   } catch (error) {
     if (isMutation) {

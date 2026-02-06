@@ -8,7 +8,7 @@
  * - Resetar contador mensalmente
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import type { Context, Next } from 'hono';
 
 interface AIUsageResult {

@@ -7,7 +7,7 @@
  * - Detectar tentativas de login simultâneo
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import type { Context, Next } from 'hono';
 import { v4 as uuidv4 } from 'https://esm.sh/uuid@10.0.0';
 

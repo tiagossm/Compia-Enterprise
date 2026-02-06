@@ -3,6 +3,7 @@ import { useAuth } from '@/react-app/context/AuthContext';
 import Layout from '@/react-app/components/Layout';
 import CSVExportImport from '@/react-app/components/CSVExportImport';
 import UserEditModal from '@/react-app/components/UserEditModal';
+import InviteUsersModal from '@/react-app/components/InviteUsersModal';
 import {
   Search,
   Filter,
@@ -68,6 +69,7 @@ export default function Users() {
   const [activeTab, setActiveTab] = useState('users');
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState<User | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
 
   useEffect(() => {
@@ -414,7 +416,7 @@ export default function Users() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold text-slate-900">
               Gerenciar Usuários
@@ -423,8 +425,14 @@ export default function Users() {
               Controle de acesso e permissões dos usuários do sistema
             </p>
           </div>
-          <div className="text-sm text-slate-500">
-            Usuários são criados automaticamente no primeiro login
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-sm shadow-blue-200"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Convidar Membros
+            </button>
           </div>
         </div>
 
@@ -903,6 +911,17 @@ export default function Users() {
             organizations={organizations}
           />
         )}
+
+        {/* Invite Modal */}
+        <InviteUsersModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          onSuccess={() => {
+            fetchPendingInvitations();
+            fetchUsers();
+            setActiveTab('invitations');
+          }}
+        />
       </div>
     </Layout >
   );

@@ -13,6 +13,10 @@ interface AICompletionOptions {
     maxTokens?: number;
     temperature?: number;
     timeoutMs?: number;
+    images?: Array<{
+        data: string; // Base64
+        mimeType: string;
+    }>;
 }
 
 interface AICompletionResult {
@@ -32,12 +36,25 @@ async function callGemini(
     apiKey: string,
     options: AICompletionOptions
 ): Promise<{ success: boolean; content?: string; error?: string; totalTokens?: number }> {
-    const { systemPrompt, userPrompt, maxTokens = 1500, temperature = 0.3, timeoutMs = 60000 } = options;
+    const { systemPrompt, userPrompt, maxTokens = 1500, temperature = 0.3, timeoutMs = 60000, images } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+        const parts: any[] = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
+
+        if (images && images.length > 0) {
+            images.forEach(img => {
+                parts.push({
+                    inlineData: {
+                        mimeType: img.mimeType,
+                        data: img.data
+                    }
+                });
+            });
+        }
+
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
             {
@@ -49,9 +66,7 @@ async function callGemini(
                     contents: [
                         {
                             role: 'user',
-                            parts: [
-                                { text: `${systemPrompt}\n\n${userPrompt}` }
-                            ]
+                            parts: parts
                         }
                     ],
                     generationConfig: {
@@ -112,12 +127,33 @@ async function callOpenAI(
     apiKey: string,
     options: AICompletionOptions
 ): Promise<{ success: boolean; content?: string; error?: string; totalTokens?: number }> {
-    const { systemPrompt, userPrompt, maxTokens = 1500, temperature = 0.3, timeoutMs = 60000 } = options;
+    const { systemPrompt, userPrompt, maxTokens = 1500, temperature = 0.3, timeoutMs = 60000, images } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+        const messages: any[] = [
+            { role: 'system', content: systemPrompt }
+        ];
+
+        if (images && images.length > 0) {
+            const contentParts: any[] = [{ type: 'text', text: userPrompt }];
+
+            images.forEach(img => {
+                contentParts.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: `data:${img.mimeType};base64,${img.data}`
+                    }
+                });
+            });
+
+            messages.push({ role: 'user', content: contentParts });
+        } else {
+            messages.push({ role: 'user', content: userPrompt });
+        }
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -126,10 +162,7 @@ async function callOpenAI(
             },
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
+                messages: messages,
                 max_tokens: maxTokens,
                 temperature: temperature
             }),

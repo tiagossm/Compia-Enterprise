@@ -133,16 +133,16 @@ adminApprovalRoutes.post("/users/:id/approve", async (c) => {
             const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
             if (targetUser && supabaseUrl && supabaseAnonKey) {
-                fetch(`${supabaseUrl}/functions/v1/send-email`, {
+                fetch(`${supabaseUrl}/functions/v1/email-worker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${supabaseAnonKey}`
                     },
                     body: JSON.stringify({
-                        type: 'account_approved',
-                        payload: {
-                            email: targetUser.email,
+                        to: targetUser.email,
+                        type: 'approval',
+                        data: {
                             name: targetUser.name
                         }
                     })

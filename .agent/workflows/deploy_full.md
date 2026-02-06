@@ -9,7 +9,8 @@ description: Deploy Full Stack (Supabase Edge Functions + Web App)
 
 2.  **Deploy Edge Functions**:
     ```powershell
-    supabase functions deploy api --no-verify-jwt
+    # ⚠️ USE APENAS O BINÁRIO LOCAL (v2.74.0). NÃO USE NPX!
+    supabase functions deploy api --project-ref vjlvvmriqerfmztwtewa --no-verify-jwt --debug
     ```
 
 3.  **Deploy to Vercel**:

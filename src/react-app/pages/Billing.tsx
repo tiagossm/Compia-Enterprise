@@ -3,13 +3,11 @@ import Layout from '@/react-app/components/Layout';
 import {
     CreditCard,
     Package,
-    TrendingUp,
-    Users,
-    FileText,
     Calendar,
     CheckCircle,
     AlertTriangle,
-    ExternalLink
+    ExternalLink,
+    Check
 } from 'lucide-react';
 import { useOrganization } from '@/react-app/context/OrganizationContext';
 import { fetchWithAuth } from '@/react-app/utils/auth';
@@ -22,12 +20,14 @@ interface Plan {
     price_cents: number;
     price_display: string;
     billing_period: string;
+    slug?: string; // Add slug optional
     limits: {
         users: number;
         storage_gb: number;
         inspections_monthly: number;
     };
     features: Record<string, boolean>;
+    description?: string; // Add description optional
 }
 
 interface BillingInfo {
@@ -88,11 +88,13 @@ const SuccessModal = ({ onClose }: { onClose: () => void }) => (
 const ConfirmationModal = ({
     plan,
     onConfirm,
-    onCancel
+    onCancel,
+    cycle
 }: {
     plan: Plan;
     onConfirm: (method: 'CREDIT_CARD' | 'PIX') => void;
     onCancel: () => void;
+    cycle: 'monthly' | 'yearly';
 }) => {
     const [selectedMethod, setSelectedMethod] = useState<'CREDIT_CARD' | 'PIX' | null>(null);
 
@@ -104,7 +106,19 @@ const ConfirmationModal = ({
                 <div className="bg-slate-50 p-4 rounded-lg mb-6">
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-slate-500 text-sm">Plano Selecionado:</span>
-                        <span className="font-bold text-blue-600">{plan.display_name}</span>
+                        <div className="text-right">
+                            <span className="block font-bold text-blue-600">{plan.display_name}</span>
+                            <span className="text-xs text-slate-500 uppercase">{cycle === 'monthly' ? 'Mensal' : 'Anual'}</span>
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+                        <span className="text-slate-900 font-medium">Total:</span>
+                        <span className="text-lg font-bold text-slate-900">
+                            {(plan.price_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            <span className="text-xs font-normal text-slate-500 ml-1">
+                                /{cycle === 'monthly' ? 'mês' : 'ano'}
+                            </span>
+                        </span>
                     </div>
                 </div>
 
@@ -159,11 +173,14 @@ const ConfirmationModal = ({
 export default function Billing() {
     const { selectedOrganization } = useOrganization();
 
-    const [plans, setPlans] = useState<Plan[]>([]);
+    const [allPlans, setAllPlans] = useState<Plan[]>([]);
     const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
     const [usageData, setUsageData] = useState<UsageData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Toggle State
+    const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly');
 
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
@@ -191,15 +208,22 @@ export default function Billing() {
             const plansRes = await fetchWithAuth('/api/financial/plans');
             if (plansRes.ok) {
                 const data = await plansRes.json();
-                // Map display names and filter out enterprise
-                const mappedPlans = (data.plans || [])
-                    .filter((p: Plan) => p.name !== 'enterprise' && p.price_cents > 0)
-                    .map((p: Plan) => ({
+                let fetchedPlans = (data.plans || [])
+                    .filter((p: Plan) => p.name !== 'enterprise' && p.price_cents > 0);
+
+                // --- WORKAROUND: CORRIGIR PLANO "ANAL" (ANUAL) ---
+                fetchedPlans = fetchedPlans.map((p: Plan) => {
+                    const slug = p.name || ''; // In backend 'name' is often slug
+                    const isYearly = slug.includes('anual') || slug.includes('yearly') || p.display_name.includes('Anual');
+
+                    return {
                         ...p,
-                        display_name: p.name === 'basic' ? 'Essencial' :
-                            p.name === 'pro' ? 'Inteligente' : p.display_name
-                    }));
-                setPlans(mappedPlans);
+                        display_name: p.name.includes('basic') || p.name.includes('starter') ? 'Essencial' :
+                            p.name.includes('pro') || p.name.includes('business') ? 'Inteligente' : p.display_name,
+                        billing_period: isYearly ? 'yearly' : (p.billing_period || 'monthly')
+                    };
+                });
+                setAllPlans(fetchedPlans);
             }
 
             // Load billing info
@@ -211,8 +235,8 @@ export default function Billing() {
                 // Force display names
                 if (data.subscription) {
                     const pName = data.subscription.plan_name;
-                    if (pName === 'basic') data.subscription.plan_display_name = 'Essencial';
-                    if (pName === 'pro') data.subscription.plan_display_name = 'Inteligente';
+                    if (pName.includes('basic') || pName.includes('starter')) data.subscription.plan_display_name = 'Essencial';
+                    if (pName.includes('pro') || pName.includes('business')) data.subscription.plan_display_name = 'Inteligente';
                 }
 
                 setBillingInfo(data);
@@ -320,44 +344,48 @@ export default function Billing() {
         setPendingPlan(plan);
     };
 
-    if (loading) {
+    // Filter plans logic
+    const getPlanByTier = (tier: 'starter' | 'pro') => {
+        return allPlans.find(p => {
+            // Check cycle
+            const matchCycle = p.billing_period === cycle;
+            // Check Tier Name logic
+            const matchName = tier === 'starter'
+                ? (p.name.includes('starter') || p.name.includes('basic') || p.display_name.includes('Essencial'))
+                : (p.name.includes('pro') || p.name.includes('business') || p.display_name.includes('Inteligente'));
+            return matchCycle && matchName;
+        });
+    };
+
+    const starterPlan = getPlanByTier('starter');
+    const proPlan = getPlanByTier('pro');
+
+    const displayPlans = [
+        {
+            key: 'starter',
+            plan: starterPlan,
+            title: 'Essencial',
+            description: 'Para quem está começando.',
+            features: ['Até 5 Usuários', 'Checklists Ilimitados', 'Fotos e GPS', 'Relatórios em PDF'],
+            highlight: false
+        },
+        {
+            key: 'pro',
+            plan: proPlan,
+            title: 'Inteligente',
+            description: 'Automação total com IA.',
+            features: ['Usuários Ilimitados', 'IA Generativa (Voz)', 'Dashboards', 'Gestor de Conta', 'Integração API'],
+            highlight: true
+        }
+    ];
+
+    if (loading && !billingInfo) {
         return (
             <Layout>
                 <div className="space-y-8 animate-pulse">
                     <div className="space-y-2">
                         <Skeleton className="h-8 w-48" />
                         <Skeleton className="h-4 w-96" />
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                            <div className="space-y-4">
-                                <div className="flex justify-between">
-                                    <Skeleton className="h-6 w-32" />
-                                    <Skeleton className="h-6 w-20 rounded-full" />
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                    <Skeleton className="h-12 w-12 rounded" />
-                                    <div className="space-y-2">
-                                        <Skeleton className="h-8 w-48" />
-                                        <Skeleton className="h-4 w-24" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                            <Skeleton className="h-6 w-32 mb-6" />
-                            <div className="space-y-6">
-                                <Skeleton className="h-12 w-full" count={3} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <Skeleton className="h-6 w-48 mb-6" />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <Skeleton className="h-64 w-full rounded-xl" count={3} />
-                        </div>
                     </div>
                 </div>
             </Layout>
@@ -369,9 +397,9 @@ export default function Billing() {
             <div className="space-y-6">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="font-heading text-2xl font-bold text-slate-900">Faturamento</h1>
+                    <h1 className="font-heading text-2xl font-bold text-slate-900">Faturamento e Planos</h1>
                     <p className="text-slate-600 text-sm mt-1">
-                        Gerencie seu plano, uso e histórico de faturas
+                        Gerencie seu plano, uso e altere sua assinatura.
                     </p>
                 </div>
 
@@ -400,7 +428,7 @@ export default function Billing() {
                                             {billingInfo.subscription.plan_display_name}
                                         </h3>
                                         <p className="text-slate-500">
-                                            {billingInfo.subscription.price_display}/mês
+                                            {billingInfo.subscription.price_display}
                                         </p>
                                     </div>
                                 </div>
@@ -408,7 +436,7 @@ export default function Billing() {
                                 {billingInfo.subscription.current_period_end && (
                                     <div className="flex items-center text-sm text-slate-600">
                                         <Calendar className="w-4 h-4 mr-2" />
-                                        Próxima cobrança: {new Date(billingInfo.subscription.current_period_end).toLocaleDateString('pt-BR')}
+                                        Renova em: {new Date(billingInfo.subscription.current_period_end).toLocaleDateString('pt-BR')}
                                     </div>
                                 )}
                             </div>
@@ -416,7 +444,7 @@ export default function Billing() {
                             <div className="text-center py-8">
                                 <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-slate-700 mb-2">Sem plano ativo</h3>
-                                <p className="text-slate-500 mb-4">Escolha um plano abaixo para começar</p>
+                                <p className="text-slate-500 mb-4">Selecione uma opção abaixo.</p>
                             </div>
                         )}
                     </div>
@@ -424,7 +452,7 @@ export default function Billing() {
                     {/* Usage Summary */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <h2 className="font-heading text-lg font-semibold text-slate-900 mb-6">
-                            Uso do Plano
+                            Uso Atual
                         </h2>
 
                         {usageData?.usage ? (
@@ -436,16 +464,10 @@ export default function Billing() {
                                     percentage={usageData.usage.users.percentage}
                                 />
                                 <UsageProgressBar
-                                    label="Inspeções (mês)"
+                                    label="Inspeções"
                                     current={usageData.usage.inspections.current}
                                     limit={usageData.usage.inspections.limit}
                                     percentage={usageData.usage.inspections.percentage}
-                                />
-                                <UsageProgressBar
-                                    label="Armazenamento (GB)"
-                                    current={usageData.usage.storage.current}
-                                    limit={usageData.usage.storage.limit}
-                                    percentage={usageData.usage.storage.percentage}
                                 />
                             </div>
                         ) : (
@@ -454,72 +476,100 @@ export default function Billing() {
                     </div>
                 </div>
 
-                {/* Available Plans */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h2 className="font-heading text-xl font-semibold text-slate-900 mb-6">
-                        Planos Disponíveis
-                    </h2>
+                {/* Available Plans (Refactored) */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                    <div className="text-center mb-10">
+                        <h2 className="font-heading text-2xl font-bold text-slate-900 mb-4">
+                            Mude seu plano
+                        </h2>
+                        {/* CYCLE TOGGLE */}
+                        <div className="flex items-center justify-center">
+                            <div className="bg-slate-100 p-1 rounded-full border border-slate-200 inline-flex relative">
+                                <button
+                                    onClick={() => setCycle('monthly')}
+                                    className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${cycle === 'monthly'
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-900'
+                                        }`}
+                                >
+                                    Mensal
+                                </button>
+                                <button
+                                    onClick={() => setCycle('yearly')}
+                                    className={`px-6 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${cycle === 'yearly'
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-900'
+                                        }`}
+                                >
+                                    Anual
+                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                                        -20%
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {plans.map((plan) => {
-                            const isCurrentPlan = billingInfo?.subscription?.plan_name === plan.name;
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                        {displayPlans.map((item) => {
+                            const isCurrentPlan = billingInfo?.subscription &&
+                                (billingInfo.subscription.plan_name.includes(item.key === 'starter' ? 'basic' : 'pro') ||
+                                    billingInfo.subscription.plan_display_name === item.title) &&
+                                // Very rough check for cycle
+                                (cycle === 'monthly' ? !billingInfo.subscription.plan_name.includes('year') : true);
+
+                            const price = item.plan ? (item.plan.price_cents / 100) : 0;
+                            const formattedPrice = price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
                             return (
                                 <div
-                                    key={plan.id}
-                                    className={`rounded-xl border-2 p-6 transition-all ${isCurrentPlan
-                                        ? 'border-blue-500 bg-blue-50'
+                                    key={item.key}
+                                    className={`relative rounded-2xl p-6 transition-all border-2 flex flex-col ${item.highlight
+                                        ? 'border-blue-500 bg-blue-50/10'
                                         : 'border-slate-200 hover:border-blue-300'
-                                        }`}
+                                        } ${isCurrentPlan ? 'opacity-70 grayscale' : ''}`}
                                 >
-                                    {isCurrentPlan && (
-                                        <span className="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded-full mb-4">
-                                            Plano Atual
-                                        </span>
+                                    {item.highlight && (
+                                        <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
+                                            RECOMENDADO
+                                        </div>
                                     )}
 
-                                    <h3 className="text-xl font-bold text-slate-900">{plan.display_name}</h3>
-                                    <p className="text-3xl font-bold text-slate-900 mt-2">
-                                        {plan.price_display}
-                                        <span className="text-sm font-normal text-slate-500">/mês</span>
-                                    </p>
+                                    <div className="mb-4">
+                                        <h3 className="text-xl font-bold text-slate-900">{item.title}</h3>
+                                        <p className="text-sm text-slate-500">{item.description}</p>
+                                    </div>
 
-                                    <ul className="mt-6 space-y-3">
-                                        <li className="flex items-center text-sm text-slate-600">
-                                            <Users className="w-4 h-4 mr-2 text-green-500" />
-                                            {plan.limits.users === 9999 ? 'Usuários ilimitados' : `Até ${plan.limits.users} usuários`}
-                                        </li>
-                                        <li className="flex items-center text-sm text-slate-600">
-                                            <FileText className="w-4 h-4 mr-2 text-green-500" />
-                                            {plan.limits.inspections_monthly === 99999 ? 'Inspeções ilimitadas' : `${plan.limits.inspections_monthly} inspeções/mês`}
-                                        </li>
-                                        <li className="flex items-center text-sm text-slate-600">
-                                            <TrendingUp className="w-4 h-4 mr-2 text-green-500" />
-                                            {plan.limits.storage_gb} GB de armazenamento
-                                        </li>
-                                        {plan.features.ai_multimodal && (
-                                            <li className="flex items-center text-sm text-slate-600">
-                                                <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                                IA Multimodal
-                                            </li>
+                                    <div className="mb-6 flex items-baseline gap-1">
+                                        {item.plan ? (
+                                            <>
+                                                <span className="text-4xl font-extrabold text-slate-900 tracking-tight">{formattedPrice}</span>
+                                                <span className="text-slate-500">/{cycle === 'monthly' ? 'mês' : 'ano'}</span>
+                                            </>
+                                        ) : (
+                                            <span className="text-lg text-slate-400 italic">Indisponível</span>
                                         )}
-                                        {plan.features.dashboard && (
-                                            <li className="flex items-center text-sm text-slate-600">
-                                                <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                                Dashboard Gerencial
+                                    </div>
+
+                                    <ul className="space-y-3 mb-8 flex-1">
+                                        {item.features.map((feat, i) => (
+                                            <li key={i} className="flex items-center gap-2 text-sm text-slate-700">
+                                                <Check className={`w-4 h-4 flex-shrink-0 ${item.highlight ? 'text-blue-600' : 'text-slate-400'}`} />
+                                                {feat}
                                             </li>
-                                        )}
+                                        ))}
                                     </ul>
 
-                                    {!isCurrentPlan && (
-                                        <button
-                                            onClick={() => handleSelectPlan(plan)}
-                                            disabled={loading}
-                                            className="w-full mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {loading ? 'Processando...' : (plan.price_cents === 0 ? 'Fale Conosco' : 'Selecionar Plano')}
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => item.plan && handleSelectPlan(item.plan)}
+                                        disabled={loading || !item.plan || !!isCurrentPlan}
+                                        className={`w-full py-3 rounded-lg font-bold transition-all ${item.highlight
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                                            : 'bg-slate-900 text-white hover:bg-slate-800'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        {isCurrentPlan ? 'Plano Atual' : (loading ? 'Carregando...' : 'Selecionar Plano')}
+                                    </button>
                                 </div>
                             );
                         })}
@@ -588,6 +638,7 @@ export default function Billing() {
             {pendingPlan && (
                 <ConfirmationModal
                     plan={pendingPlan}
+                    cycle={cycle}
                     onConfirm={(method) => initiateCheckout(pendingPlan, method)}
                     onCancel={() => setPendingPlan(null)}
                 />

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { AsaasService } from "./asaas-service.ts";
 import { cors } from 'hono/cors';
 
@@ -425,7 +425,20 @@ commerceRoutes.post("/initiate", async (c) => {
             .from('organizations')
             .insert({
                 name: company?.name || user.name + "'s Company",
+                razao_social: company?.legal_name,
+                nome_fantasia: company?.name,
                 cnpj: company?.cnpj,
+                // Structured Address
+                address_street: company?.address?.street,
+                address_number: company?.address?.number,
+                address_complement: company?.address?.complement,
+                address_neighborhood: company?.address?.neighborhood,
+                address_city: company?.address?.city,
+                address_state: company?.address?.state,
+                address_zip_code: company?.address?.zip_code,
+                // Legacy address field (concatenate for fallback)
+                address: company?.address ? `${company.address.street}, ${company.address.number} - ${company.address.city}/${company.address.state}` : null,
+
                 document: company?.document,
                 slug: company?.slug,
                 subscription_status: 'pending_payment',
@@ -479,7 +492,13 @@ commerceRoutes.post("/initiate", async (c) => {
             email: user.email,
             cpfCnpj: company?.cnpj || undefined,
             phone: user.phone,
-            mobilePhone: user.phone
+            mobilePhone: user.phone,
+            // Address for Anti-Fraud
+            address: company?.address?.street,
+            addressNumber: company?.address?.number,
+            complement: company?.address?.complement,
+            province: company?.address?.neighborhood,
+            postalCode: company?.address?.zip_code
         });
 
         asaasCustomerId = asaasCustomer.id;

@@ -602,7 +602,7 @@ export const generatePDFHTML = ({
 
   <div class="footer">
     <div class="footer-content">
-       <div style="margin-bottom: 8px;"><img class="footer-logo" src="${compiaLogoB64 || '/compia_logo.png'}" alt="Compia" onerror="this.style.display='none'" /></div>
+       <div style="margin-bottom: 8px;"><img class="footer-logo" src="${compiaLogoB64 || '/COMPIA_BRAND_KIT/png/1x/compia-logo-main.png'}" alt="Compia" onerror="this.style.display='none'" /></div>
        <div class="footer-brand">Compia.tech</div>
        <div class="footer-legal">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
     </div>

@@ -91,7 +91,7 @@ export default function PDFGenerator({
   useEffect(() => {
     if (isOpen) {
       // Load Compia logo
-      urlToBase64('/compia_logo.png')
+      urlToBase64('/COMPIA_BRAND_KIT/png/1x/compia-logo-main.png')
         .then(base64 => {
           if (base64) setCompiaLogoB64(base64);
         });

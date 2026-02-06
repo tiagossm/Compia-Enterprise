@@ -23,6 +23,7 @@ import {
   Lock,
   Users,
   ChevronRight,
+  Home,
   Share2,
   ArrowRightLeft,
   Plus,
@@ -38,6 +39,8 @@ import { ChecklistFolderWithCounts } from '@/shared/folder-types';
 import { cn } from '@/react-app/utils/cn';
 import { Card } from '@/react-app/components/premium/Card';
 import { Button } from '@/react-app/components/premium/Button';
+import SkeletonLoader from '@/react-app/components/ui/SkeletonLoader';
+import EmptyState from '@/react-app/components/ui/EmptyState';
 
 export default function ChecklistTemplates() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -64,7 +67,7 @@ export default function ChecklistTemplates() {
   // Update breadcrumb when folder changes
   useEffect(() => {
     const fetchBreadcrumb = async () => {
-      if (!currentFolderId) {
+      if (!currentFolderId || currentFolderId === 'undefined') {
         setBreadcrumb([]);
         return;
       }
@@ -646,21 +649,43 @@ export default function ChecklistTemplates() {
             <div>
               {/* Breadcrumb - visível sempre */}
               {/* Breadcrumb - Always visible */}
-              <nav className="flex items-center gap-1.5 text-sm text-slate-500 mt-1">
-                <Link to="/checklists" className="hover:text-blue-600 transition-colors font-medium">
-                  Raiz
+              {/* Breadcrumb - Windows Explorer Style */}
+              <nav className="flex items-center gap-0.5 text-sm bg-white border border-slate-300 rounded-md px-2 py-1.5 shadow-sm max-w-full overflow-hidden">
+                <Link
+                  to="/checklists"
+                  className="flex items-center justify-center p-1.5 text-slate-500 hover:bg-slate-100/50 hover:text-blue-600 rounded transition-colors"
+                  title="Início"
+                >
+                  <Home className="w-4 h-4" />
                 </Link>
-                {breadcrumb.map((f) => (
-                  <React.Fragment key={f.id}>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                    <button
-                      onClick={() => handleFolderSelect(f.id!)}
-                      className="hover:text-blue-600 transition-colors"
-                    >
-                      {f.name}
-                    </button>
-                  </React.Fragment>
-                ))}
+
+                {breadcrumb.length > 0 && (
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 mx-1 flex-shrink-0" />
+                )}
+
+                <div className="flex items-center overflow-x-auto no-scrollbar mask-linear-fade">
+                  {breadcrumb.map((f, index) => {
+                    const isLast = index === breadcrumb.length - 1;
+                    return (
+                      <div key={f.id} className="flex items-center flex-shrink-0">
+                        <button
+                          onClick={() => handleFolderSelect(f.id!)}
+                          className={cn(
+                            "px-2 py-1 rounded-sm transition-colors whitespace-nowrap border border-transparent hover:border-slate-200 hover:bg-slate-50 text-slate-700 text-sm",
+                            isLast && "font-semibold text-black cursor-default hover:bg-transparent hover:border-transparent"
+                          )}
+                          disabled={isLast}
+                          title={f.name}
+                        >
+                          {f.name}
+                        </button>
+                        {!isLast && (
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 mx-0.5" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </nav>
             </div>
 
@@ -791,190 +816,266 @@ export default function ChecklistTemplates() {
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto py-4">
             {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-sm border border-slate-200 p-0 overflow-hidden h-48">
+                    <SkeletonLoader className="h-1.5 w-full bg-slate-200" />
+                    <div className="p-5 space-y-4">
+                      <div className="flex justify-between">
+                        <SkeletonLoader className="h-10 w-10 rounded-xl" />
+                        <SkeletonLoader className="h-4 w-6 rounded" />
+                      </div>
+                      <SkeletonLoader className="h-6 w-3/4" />
+                      <SkeletonLoader className="h-4 w-1/2" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredFolders.length === 0 && filteredTemplates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                  <FolderOpen className="w-8 h-8 text-slate-400" />
-                </div>
-                <p className="text-lg font-medium text-slate-900">Esta pasta está vazia</p>
-                <p className="text-sm mt-1">Crie uma nova pasta ou template para começar</p>
-              </div>
+              <EmptyState
+                icon={FolderOpen}
+                title="Esta pasta está vazia"
+                description="Crie uma nova pasta ou template para começar"
+                action={
+                  <div className="flex gap-2 mt-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowNewCategoryModal(true)}>
+                      Nova Pasta
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={() => setShowNewChecklistModal(true)}>
+                      Novo Checklist
+                    </Button>
+                  </div>
+                }
+              />
             ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
-                {/* Folders */}
-                {filteredFolders.map((folder) => (
-                  <Card
-                    key={folder.id}
-                    variant="default"
-                    hoverEffect={true}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'folder', folder.id!, folder.name)}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, folder.id!)}
-                    className="p-5 cursor-pointer group relative min-w-0 border-l-4 border-l-blue-500/50 hover:border-l-blue-600 transition-all"
-                    onClick={() => enterFolder(folder)}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        {isSelectionMode && (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selectedFolders.has(folder.id!)}
-                              onChange={() => toggleFolderSelection(folder.id!)}
-                              className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                          </div>
-                        )}
-                        <div className="p-3 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-                          <Folder className="w-6 h-6" />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ActionMenu
-                          items={[
-                            {
-                              label: 'Abrir',
-                              icon: <FolderOpen className="w-4 h-4" />,
-                              onClick: () => enterFolder(folder)
-                            },
-                            {
-                              label: 'Renomear',
-                              icon: <FileEdit className="w-4 h-4" />,
-                              onClick: (e) => { e.stopPropagation(); openRenameModal(folder, 'folder'); }
-                            },
-                            {
-                              label: 'Mover',
-                              icon: <ArrowRightLeft className="w-4 h-4" />,
-                              onClick: (e) => openMoveModal(e, 'folder', folder.id!, folder.name)
-                            },
-                            {
-                              label: 'Excluir',
-                              icon: <Trash2 className="w-4 h-4 text-red-500" />,
-                              className: "text-red-600 hover:bg-red-50",
-                              onClick: (e) => { e.stopPropagation(); deleteFolder(folder); }
-                            }
-                          ]}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800 truncate mb-1 text-lg tracking-tight" title={folder.name}>{folder.name}</h3>
-                      <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded-full">
-                          {(folder.subfolder_count || 0) + (folder.template_count || 0)} itens
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+              <div className="space-y-8">
+                {/* Folders Section */}
+                {filteredFolders.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 px-1">
+                      <Folder className="w-5 h-5 text-blue-500" />
+                      Pastas
+                      <span className="text-xs font-normal text-slate-400 ml-1 px-2 py-0.5 bg-slate-100 rounded-full">
+                        {filteredFolders.length}
+                      </span>
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {filteredFolders.map((folder) => (
+                        <Card
+                          key={folder.id}
+                          variant="default"
+                          hoverEffect={true}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'folder', folder.id!, folder.name)}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, folder.id!)}
+                          className="p-0 cursor-pointer group relative min-w-0 transition-all border-none shadow-sm hover:shadow-md overflow-hidden bg-white"
+                          onClick={() => enterFolder(folder)}
+                        >
+                          {/* Colored Top Bar for Folder Metaphor */}
+                          <div className={`h-1.5 w-full bg-blue-500 transition-colors ${folder.color ? '' : ''}`} style={{ backgroundColor: folder.color || '#3B82F6' }}></div>
 
-                {/* Templates */}
-                {filteredTemplates.map((template) => (
-                  <Card
-                    key={template.id}
-                    variant="default"
-                    hoverEffect={true}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'template', template.id!, template.name)}
-                    className="p-5 flex flex-col relative min-w-0"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        {isSelectionMode && (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selectedTemplates.has(template.id!)}
-                              onChange={() => toggleTemplateSelection(template.id!)}
-                              className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                          </div>
-                        )}
-                        <div className="p-2.5 rounded-xl bg-slate-50 text-slate-600 ring-1 ring-slate-100">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {template.is_public ? (
-                          <div title="Público" className="bg-green-50 p-1 rounded-md">
-                            <Users className="w-3.5 h-3.5 text-green-600" />
-                          </div>
-                        ) : (
-                          <div title="Privado" className="bg-slate-50 p-1 rounded-md">
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                        )}
-                        <ActionMenu
-                          items={[
-                            {
-                              label: 'Visualizar',
-                              icon: <Eye className="w-4 h-4" />,
-                              onClick: () => handlePreviewTemplate(template)
-                            },
-                            {
-                              label: 'Editar',
-                              icon: <Edit className="w-4 h-4" />,
-                              onClick: () => navigate(`/checklists/${template.id}/edit`)
-                            },
-                            {
-                              label: 'Renomear',
-                              icon: <FileEdit className="w-4 h-4" />,
-                              onClick: (e) => { e.stopPropagation(); openRenameModal(template, 'template'); }
-                            },
-                            {
-                              label: 'Duplicar',
-                              icon: <Copy className="w-4 h-4" />,
-                              onClick: () => duplicateTemplate(template)
-                            },
-                            {
-                              label: 'Mover',
-                              icon: <ArrowRightLeft className="w-4 h-4" />,
-                              onClick: (e) => openMoveModal(e, 'template', template.id!, template.name)
-                            },
-                            {
+                          <div className="p-5">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                {isSelectionMode && (
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedFolders.has(folder.id!)}
+                                      onChange={() => toggleFolderSelection(folder.id!)}
+                                      className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                  </div>
+                                )}
+                                <div
+                                  className="p-3.5 rounded-2xl transition-all shadow-sm flex items-center justify-center"
+                                  style={{ backgroundColor: `${folder.color || '#3B82F6'}15`, color: folder.color || '#3B82F6' }}
+                                >
 
-                              label: 'Compartilhar',
-                              icon: <Share2 className="w-4 h-4" />,
-                              onClick: () => setShareModal({
-                                isOpen: true,
-                                templateId: template.id!,
-                                templateName: template.name,
-                                visibility: (template as any).visibility || 'private',
-                                sharedWith: (template as any).shared_with ? JSON.parse((template as any).shared_with) : []
-                              })
-                            },
-                            {
-                              label: 'Excluir',
-                              icon: <Trash2 className="w-4 h-4 text-red-500" />,
-                              className: "text-red-600 hover:bg-red-50",
-                              onClick: () => deleteTemplate(template)
-                            }
-                          ]}
-                        />
-                      </div>
+                                  <Folder className="w-7 h-7 fill-current" />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <ActionMenu
+                                  items={[
+                                    {
+                                      label: 'Abrir',
+                                      icon: <FolderOpen className="w-4 h-4" />,
+                                      onClick: () => enterFolder(folder)
+                                    },
+                                    {
+                                      label: 'Renomear',
+                                      icon: <FileEdit className="w-4 h-4" />,
+                                      onClick: (e) => { e.stopPropagation(); openRenameModal(folder, 'folder'); }
+                                    },
+                                    {
+                                      label: 'Mover',
+                                      icon: <ArrowRightLeft className="w-4 h-4" />,
+                                      onClick: (e) => openMoveModal(e, 'folder', folder.id!, folder.name)
+                                    },
+                                    {
+                                      label: 'Excluir',
+                                      icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                                      className: "text-red-600 hover:bg-red-50",
+                                      onClick: (e) => { e.stopPropagation(); deleteFolder(folder); }
+                                    }
+                                  ]}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <h3 className="font-bold text-slate-800 truncate mb-1.5 text-lg tracking-tight group-hover:text-blue-600 transition-colors" title={folder.name}>
+                                {folder.name}
+                              </h3>
+                              <div className="flex items-center gap-3 text-xs font-medium text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <FolderOpen className="w-3 h-3 text-slate-400" />
+                                  {folder.subfolder_count || 0} pastas
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <FileText className="w-3 h-3 text-slate-400" />
+                                  {folder.template_count || 0} files
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
                     </div>
-                    <h3 className="font-semibold text-slate-900 truncate mb-2 text-base" title={template.name}>
-                      {template.name}
-                    </h3>
+                  </div>
+                )}
 
-                    <div className="mt-auto pt-4 border-t border-slate-100/60 flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-600 font-medium"
-                        onClick={() => handlePreviewTemplate(template)}
-                      >
-                        Visualizar
-                      </Button>
+                {/* Templates Section */}
+                {filteredTemplates.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 px-1">
+                      <ListIcon className="w-5 h-5 text-slate-500" />
+                      Checklists
+                      <span className="text-xs font-normal text-slate-400 ml-1 px-2 py-0.5 bg-slate-100 rounded-full">
+                        {filteredTemplates.length}
+                      </span>
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {filteredTemplates.map((template) => (
+                        <Card
+                          key={template.id}
+                          variant="default"
+                          hoverEffect={true}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'template', template.id!, template.name)}
+                          className="flex flex-col relative min-w-0 border border-slate-200 shadow-sm hover:shadow-lg transition-all group"
+                        >
+                          <div className="p-5 flex-1">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                {isSelectionMode && (
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedTemplates.has(template.id!)}
+                                      onChange={() => toggleTemplateSelection(template.id!)}
+                                      className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                  </div>
+                                )}
+                                <div className="p-2.5 rounded-xl bg-slate-50 text-slate-500 ring-1 ring-slate-100 group-hover:bg-slate-100 transition-colors">
+                                  <FileText className="w-6 h-6" />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {template.is_public ? (
+                                  <div title="Público - Visível para toda organização" className="bg-green-50 p-1.5 rounded-lg">
+                                    <Users className="w-3.5 h-3.5 text-green-600" />
+                                  </div>
+                                ) : (
+                                  <div title="Privado - Visível apenas para você" className="bg-slate-50 p-1.5 rounded-lg">
+                                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                                  </div>
+                                )}
+
+                                <div className="">
+                                  <ActionMenu
+                                    items={[
+                                      {
+                                        label: 'Visualizar',
+                                        icon: <Eye className="w-4 h-4" />,
+                                        onClick: () => handlePreviewTemplate(template)
+                                      },
+                                      {
+                                        label: 'Editar',
+                                        icon: <Edit className="w-4 h-4" />,
+                                        onClick: () => navigate(`/checklists/${template.id}/edit`)
+                                      },
+                                      {
+                                        label: 'Renomear',
+                                        icon: <FileEdit className="w-4 h-4" />,
+                                        onClick: (e) => { e.stopPropagation(); openRenameModal(template, 'template'); }
+                                      },
+                                      {
+                                        label: 'Duplicar',
+                                        icon: <Copy className="w-4 h-4" />,
+                                        onClick: () => duplicateTemplate(template)
+                                      },
+                                      {
+                                        label: 'Mover',
+                                        icon: <ArrowRightLeft className="w-4 h-4" />,
+                                        onClick: (e) => openMoveModal(e, 'template', template.id!, template.name)
+                                      },
+                                      {
+                                        label: 'Compartilhar',
+                                        icon: <Share2 className="w-4 h-4" />,
+                                        onClick: () => setShareModal({
+                                          isOpen: true,
+                                          templateId: template.id!,
+                                          templateName: template.name,
+                                          visibility: (template as any).visibility || 'private',
+                                          sharedWith: (template as any).shared_with ? JSON.parse((template as any).shared_with) : []
+                                        })
+                                      },
+                                      {
+                                        label: 'Excluir',
+                                        icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                                        className: "text-red-600 hover:bg-red-50",
+                                        onClick: () => deleteTemplate(template)
+                                      }
+                                    ]}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <h3 className="font-semibold text-slate-900 truncate mb-1 text-base leading-tight" title={template.name}>
+                              {template.name}
+                            </h3>
+                            <p className="text-xs text-slate-500 truncate mb-3 min-h-[1rem]">
+                              {template.description || 'Sem descrição'}
+                            </p>
+
+                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-2">
+                              <span>{new Date(template.created_at!).toLocaleDateString('pt-BR')}</span>
+                              <span>•</span>
+                              <span>ID: {template.id}</span>
+                            </div>
+                          </div>
+
+                          <div className="px-5 py-3 border-t border-slate-50 flex items-center gap-2 bg-slate-50/50 group-hover:bg-slate-50 transition-colors">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-center bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-blue-600 hover:border-blue-200 hover:shadow-md transition-all font-medium"
+                              onClick={() => handlePreviewTemplate(template)}
+                            >
+                              Visualizar
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
                     </div>
-                  </Card>
-                ))}
-
+                  </div>
+                )}
               </div >
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
@@ -1026,7 +1127,7 @@ export default function ChecklistTemplates() {
                           {new Date(folder.created_at!).toLocaleDateString('pt-BR')}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={(e) => openMoveModal(e, 'folder', folder.id!, folder.name)}
                               className="p-1.5 text-slate-600 hover:bg-slate-100 rounded"
@@ -1067,7 +1168,7 @@ export default function ChecklistTemplates() {
                           {new Date(template.created_at!).toLocaleDateString('pt-BR')}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handlePreviewTemplate(template)}
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"

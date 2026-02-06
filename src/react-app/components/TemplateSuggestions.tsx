@@ -33,159 +33,63 @@ export default function TemplateSuggestions({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Sugestões padronizadas para nomes de templates
+  // Sugestões diversificadas para nomes de templates (Enterprise Vision)
   const nameSuggestions: SuggestionItem[] = [
-    // Segurança do Trabalho
-    { value: "Checklist de EPIs", category: "Segurança", description: "Verificação de equipamentos de proteção individual" },
-    { value: "Inspeção de Segurança no Trabalho", category: "Segurança", description: "Avaliação geral das condições de segurança" },
-    { value: "Checklist de Equipamentos de Emergência", category: "Segurança", description: "Verificação de extintores, saídas de emergência, etc." },
-    { value: "Inspeção de CIPA", category: "Segurança", description: "Verificação das atividades da Comissão Interna de Prevenção de Acidentes" },
-    { value: "Checklist de Segurança em Máquinas", category: "Segurança", description: "Verificação de dispositivos de segurança em máquinas" },
-    { value: "Inspeção de Sinalização de Segurança", category: "Segurança", description: "Verificação da sinalização de segurança do trabalho" },
-    { value: "Checklist de Proteções Coletivas", category: "Segurança", description: "Verificação de equipamentos de proteção coletiva" },
-    { value: "Inspeção de Brigada de Incêndio", category: "Segurança", description: "Avaliação da prontidão da brigada de incêndio" },
-    { value: "Checklist de Investigação de Acidentes", category: "Segurança", description: "Procedimentos para investigação de acidentes de trabalho" },
-    { value: "Inspeção de Segurança Patrimonial", category: "Segurança", description: "Verificação de sistemas de segurança patrimonial" },
+    // --- Manutenção & Facilities ---
+    { value: "Manutenção Preventiva de Ar Condicionado", category: "Manutenção", description: "Verificação periódica de sistemas HVAC" },
+    { value: "Ronda de Manutenção Predial", category: "Facilities", description: "Inspeção geral de infraestrutura e instalações" },
+    { value: "Checklist de Manutenção de Frota", category: "Logística", description: "Verificação de condições dos veículos da empresa" },
+    { value: "Inspeção de Geradores e Elétrica", category: "Manutenção", description: "Verificação de sistemas de energia e backup" },
+    { value: "Checklist de Limpeza e Conservação", category: "Facilities", description: "Auditoria de qualidade da limpeza dos ambientes" },
 
-    // Higiene Ocupacional
-    { value: "Checklist de Higiene e Limpeza", category: "Higiene", description: "Avaliação das condições de higiene do ambiente" },
-    { value: "Inspeção de Higiene Alimentar", category: "Higiene", description: "Verificação das condições de higiene em cozinhas e refeitórios" },
-    { value: "Checklist de Sanitários e Vestiários", category: "Higiene", description: "Verificação das condições de sanitários e vestiários" },
-    { value: "Inspeção de Higiene Industrial", category: "Higiene", description: "Avaliação de riscos químicos, físicos e biológicos" },
-    { value: "Checklist de Controle de Pragas", category: "Higiene", description: "Verificação do controle de pragas e vetores" },
-    { value: "Inspeção de Qualidade do Ar", category: "Higiene", description: "Monitoramento da qualidade do ar interno" },
+    // --- Qualidade & Processos ---
+    { value: "Controle de Qualidade em Linha de Produção", category: "Qualidade", description: "Verificação de conformidade de produtos" },
+    { value: "Auditoria de Recebimento de Materiais", category: "Logística", description: "Conferência de mercadorias no recebimento" },
+    { value: "Checklist de Boas Práticas de Fabricação (BPF)", category: "Qualidade", description: "Para indústrias alimentícias e farmacêuticas" },
+    { value: "Inspeção de Padrão Visual (Merchandising)", category: "Varejo", description: "Verificação de layout e exposição de produtos em loja" },
+    { value: "Auditoria de Processos ISO 9001", category: "Qualidade", description: "Verificação de conformidade com sistema de gestão" },
 
-    // Meio Ambiente
-    { value: "Checklist de Gestão Ambiental", category: "Meio Ambiente", description: "Avaliação do sistema de gestão ambiental" },
-    { value: "Inspeção de Resíduos Sólidos", category: "Meio Ambiente", description: "Verificação do gerenciamento de resíduos" },
-    { value: "Checklist de Efluentes Líquidos", category: "Meio Ambiente", description: "Monitoramento de efluentes e águas residuárias" },
-    { value: "Inspeção de Emissões Atmosféricas", category: "Meio Ambiente", description: "Verificação do controle de emissões gasosas" },
-    { value: "Checklist de Licenciamento Ambiental", category: "Meio Ambiente", description: "Verificação da conformidade com licenças ambientais" },
-    { value: "Inspeção de Áreas de Preservação", category: "Meio Ambiente", description: "Verificação de áreas de preservação permanente" },
-    { value: "Checklist de Sustentabilidade", category: "Meio Ambiente", description: "Avaliação de práticas sustentáveis" },
-    { value: "Inspeção de Recursos Hídricos", category: "Meio Ambiente", description: "Monitoramento do uso de recursos hídricos" },
+    // --- Varejo & Operações ---
+    { value: "Checklist de Abertura de Loja", category: "Varejo", description: "Procedimentos diários antes da abertura ao público" },
+    { value: "Inspeção de Prevenção de Perdas", category: "Varejo", description: "Verificação de segurança e procedimentos de caixa" },
+    { value: "Auditoria de Estoque e Validade", category: "Varejo", description: "Controle de produtos vencidos ou avariados" },
+    { value: "Checklist de Fechamento de Turno", category: "Operações", description: "Procedimentos de encerramento de atividades" },
+    { value: "Avaliação de Atendimento ao Cliente", category: "Qualidade", description: "Monitoramento da qualidade do serviço prestado" },
 
-    // Aspectos Psicossociais
-    { value: "Checklist de Clima Organizacional", category: "Psicossocial", description: "Avaliação do clima e ambiente de trabalho" },
-    { value: "Inspeção de Ergonomia Cognitiva", category: "Psicossocial", description: "Verificação da carga mental de trabalho" },
-    { value: "Checklist de Prevenção ao Assédio", category: "Psicossocial", description: "Verificação de medidas preventivas contra assédio" },
-    { value: "Inspeção de Bem-Estar no Trabalho", category: "Psicossocial", description: "Avaliação do bem-estar dos colaboradores" },
-    { value: "Checklist de Gestão do Estresse", category: "Psicossocial", description: "Verificação de fatores de estresse ocupacional" },
-    { value: "Inspeção de Comunicação Interna", category: "Psicossocial", description: "Avaliação da comunicação organizacional" },
-    { value: "Checklist de Motivação e Engajamento", category: "Psicossocial", description: "Verificação de fatores motivacionais" },
+    // --- Segurança do Trabalho (Mantido mas não exclusivo) ---
+    { value: "Inspeção de EPIs e Segurança", category: "Segurança", description: "Verificação de equipamentos de proteção" },
+    { value: "Checklist de Prevenção de Incêndios", category: "Segurança", description: "Verificação de extintores e saídas de emergência" },
+    { value: "Inspeção de Segurança em Obras", category: "Segurança", description: "Verificação de canteiros de obras e riscos" },
+    { value: "Ronda de Segurança Patrimonial", category: "Segurança", description: "Controle de acesso e perímetro" },
+    { value: "Checklist NR-12 Máquinas e Equipamentos", category: "Segurança", description: "Conformidade de proteção de máquinas" },
 
-    // Organização do Trabalho e 5S
-    { value: "Checklist 5S - Seiri (Utilização)", category: "5S", description: "Verificação da organização e descarte de itens desnecessários" },
-    { value: "Checklist 5S - Seiton (Organização)", category: "5S", description: "Verificação da arrumação e ordenação dos itens" },
-    { value: "Checklist 5S - Seiso (Limpeza)", category: "5S", description: "Verificação da limpeza do ambiente de trabalho" },
-    { value: "Checklist 5S - Seiketsu (Padronização)", category: "5S", description: "Verificação da padronização dos processos" },
-    { value: "Checklist 5S - Shitsuke (Disciplina)", category: "5S", description: "Verificação da manutenção da disciplina e melhoria" },
-    { value: "Inspeção de Organização Geral", category: "Organização", description: "Avaliação geral da organização do trabalho" },
-    { value: "Checklist de Layout do Trabalho", category: "Organização", description: "Verificação do layout e fluxo de trabalho" },
-    { value: "Inspeção de Produtividade", category: "Organização", description: "Avaliação dos indicadores de produtividade" },
+    // --- Tecnologia & TI ---
+    { value: "Inventário de Equipamentos de TI", category: "TI", description: "Controle de ativos de tecnologia" },
+    { value: "Checklist de Setup de Estação de Trabalho", category: "TI", description: "Padronização de novos postos de trabalho" },
+    { value: "Inspeção de Sala de Servidores (Data Center)", category: "TI", description: "Verificação de temperatura e segurança física" },
 
-    // Treinamentos
-    { value: "Checklist de Treinamento Admissional", category: "Treinamento", description: "Verificação do treinamento de integração" },
-    { value: "Inspeção de Capacitação Técnica", category: "Treinamento", description: "Avaliação de treinamentos técnicos específicos" },
-    { value: "Checklist de Treinamento em Segurança", category: "Treinamento", description: "Verificação de treinamentos de segurança do trabalho" },
-    { value: "Prova de Treinamento NR-10", category: "Treinamento", description: "Avaliação de conhecimento em segurança elétrica" },
-    { value: "Prova de Treinamento NR-33", category: "Treinamento", description: "Avaliação de conhecimento em espaços confinados" },
-    { value: "Prova de Treinamento NR-35", category: "Treinamento", description: "Avaliação de conhecimento em trabalho em altura" },
-    { value: "Checklist de Reciclagem", category: "Treinamento", description: "Verificação de treinamentos de reciclagem" },
-    { value: "Inspeção de Competências", category: "Treinamento", description: "Avaliação de competências técnicas e comportamentais" },
-
-    // Ordem de Serviço
-    { value: "Checklist de Ordem de Serviço", category: "Ordem de Serviço", description: "Verificação de cumprimento de ordens de serviço" },
-    { value: "Inspeção de Autorização de Trabalho", category: "Ordem de Serviço", description: "Verificação de autorizações para trabalhos especiais" },
-    { value: "Checklist de Permissão de Trabalho", category: "Ordem de Serviço", description: "Verificação de permissões para trabalhos de risco" },
-    { value: "Inspeção de Bloqueio e Etiquetagem", category: "Ordem de Serviço", description: "Verificação de procedimentos LOTO" },
-    { value: "Checklist de Trabalho a Quente", category: "Ordem de Serviço", description: "Verificação de trabalhos de soldagem e corte" },
-
-    // Instalações e Equipamentos
-    { value: "Inspeção de Máquinas e Equipamentos", category: "Equipamentos", description: "Verificação do estado e funcionamento de equipamentos" },
-    { value: "Inspeção de Instalações Elétricas", category: "Instalações", description: "Verificação da segurança elétrica" },
-    { value: "Checklist de Caldeiras e Vasos de Pressão", category: "Equipamentos", description: "Inspeção de equipamentos pressurizados" },
-    { value: "Inspeção de Ventilação e Climatização", category: "Instalações", description: "Verificação de sistemas de ar condicionado" },
-    { value: "Checklist de Ruído e Vibração", category: "Segurança", description: "Avaliação de níveis de ruído e vibração" },
-    { value: "Inspeção de Iluminação", category: "Instalações", description: "Verificação das condições de iluminação" },
-    { value: "Checklist de Radiações", category: "Segurança", description: "Monitoramento de radiações ionizantes e não-ionizantes" },
-
-    // Trabalhos Especiais
-    { value: "Inspeção de Trabalho em Altura", category: "Segurança", description: "Verificação de condições para trabalho em altura" },
-    { value: "Checklist de Espaços Confinados", category: "Segurança", description: "Avaliação de segurança em espaços confinados" },
-    { value: "Checklist de Soldagem e Corte", category: "Segurança", description: "Verificação de segurança em processos de soldagem" },
-    { value: "Inspeção de Trabalho Noturno", category: "Segurança", description: "Verificação de condições para trabalho noturno" },
-    { value: "Checklist de Trabalho com Produtos Químicos", category: "Segurança", description: "Verificação do manuseio de substâncias químicas" },
-
-    // Construção Civil
-    { value: "Inspeção de Obras e Construção", category: "Construção", description: "Verificação de segurança em obras" },
-    { value: "Checklist de Andaimes", category: "Construção", description: "Verificação da segurança de andaimes" },
-    { value: "Inspeção de Escavações", category: "Construção", description: "Verificação de segurança em escavações" },
-    { value: "Checklist de Demolição", category: "Construção", description: "Verificação de procedimentos de demolição" },
-    { value: "Inspeção de Estruturas Metálicas", category: "Construção", description: "Verificação de estruturas e soldas" },
-
-    // Transporte
-    { value: "Inspeção de Veículos e Transporte", category: "Transporte", description: "Verificação de segurança de veículos" },
-    { value: "Checklist de Empilhadeiras", category: "Transporte", description: "Verificação de empilhadeiras e equipamentos de movimentação" },
-    { value: "Inspeção de Materiais Perigosos", category: "Transporte", description: "Verificação do transporte de materiais perigosos" },
-
-    // Normas Regulamentadoras
-    { value: "Checklist de NR-01 Gestão SST", category: "Normas", description: "Verificação de conformidade com NR-01" },
-    { value: "Checklist de NR-04 SESMT", category: "Normas", description: "Verificação de conformidade com NR-04" },
-    { value: "Checklist de NR-05 CIPA", category: "Normas", description: "Verificação de conformidade com NR-05" },
-    { value: "Checklist de NR-06 EPI", category: "Normas", description: "Verificação de conformidade com NR-06" },
-    { value: "Checklist de NR-07 PCMSO", category: "Normas", description: "Verificação de conformidade com NR-07" },
-    { value: "Checklist de NR-09 PPRA", category: "Normas", description: "Verificação de conformidade com NR-09" },
-    { value: "Checklist de NR-10 Elétrica", category: "Normas", description: "Verificação de conformidade com NR-10" },
-    { value: "Checklist de NR-12 Máquinas", category: "Normas", description: "Verificação de conformidade com NR-12" },
-    { value: "Checklist de NR-13 Caldeiras", category: "Normas", description: "Verificação de conformidade com NR-13" },
-    { value: "Checklist de NR-15 Insalubridade", category: "Normas", description: "Verificação de conformidade com NR-15" },
-    { value: "Checklist de NR-16 Periculosidade", category: "Normas", description: "Verificação de conformidade com NR-16" },
-    { value: "Checklist de NR-17 Ergonomia", category: "Normas", description: "Verificação de conformidade com NR-17" },
-    { value: "Inspeção de NR-18 Construção", category: "Normas", description: "Verificação de conformidade com NR-18" },
-    { value: "Checklist de NR-20 Inflamáveis", category: "Normas", description: "Verificação de conformidade com NR-20" },
-    { value: "Checklist de NR-23 Incêndio", category: "Normas", description: "Verificação de conformidade com NR-23" },
-    { value: "Checklist de NR-24 Sanitárias", category: "Normas", description: "Verificação de conformidade com NR-24" },
-    { value: "Checklist de NR-26 Sinalização", category: "Normas", description: "Verificação de conformidade com NR-26" },
-    { value: "Checklist de NR-32 Saúde", category: "Normas", description: "Verificação de conformidade com NR-32" },
-    { value: "Inspeção de NR-33 Espaços Confinados", category: "Normas", description: "Verificação de conformidade com NR-33" },
-    { value: "Inspeção de NR-35 Trabalho em Altura", category: "Normas", description: "Verificação de conformidade com NR-35" },
-    { value: "Checklist de NR-36 Abate e Processamento", category: "Normas", description: "Verificação de conformidade com NR-36" },
-
-    // ISOs e Certificações
-    { value: "Checklist ISO 9001 Qualidade", category: "ISO", description: "Verificação de conformidade com ISO 9001" },
-    { value: "Checklist ISO 14001 Ambiental", category: "ISO", description: "Verificação de conformidade com ISO 14001" },
-    { value: "Checklist ISO 45001 SST", category: "ISO", description: "Verificação de conformidade com ISO 45001" },
-    { value: "Checklist OHSAS 18001", category: "ISO", description: "Verificação de conformidade com OHSAS 18001" },
-    { value: "Inspeção de Certificação", category: "Conformidade", description: "Preparação para auditorias de certificação" }
+    // --- Sustentabilidade & Meio Ambiente ---
+    { value: "Auditoria de Gestão de Resíduos", category: "Meio Ambiente", description: "Verificação de coleta seletiva e descarte" },
+    { value: "Checklist de Eficiência Energética", category: "Sustentabilidade", description: "Identificação de desperdícios de energia" },
+    { value: "Inspeção de Tratamento de Efluentes", category: "Meio Ambiente", description: "Monitoramento de estação de tratamento" }
   ];
 
-  // Sugestões padronizadas para categorias
+  // Sugestões padronizadas para categorias (Enterprise Vision)
   const categorySuggestions: SuggestionItem[] = [
-    { value: "Segurança do Trabalho", description: "Checklists relacionados à segurança ocupacional" },
-    { value: "Equipamentos de Proteção", description: "Verificação de EPIs e EPCs" },
-    { value: "Máquinas e Equipamentos", description: "Inspeção de equipamentos industriais" },
-    { value: "Instalações Elétricas", description: "Verificação de segurança elétrica" },
-    { value: "Higiene Ocupacional", description: "Avaliação de condições de higiene" },
-    { value: "Meio Ambiente", description: "Checklists ambientais e sustentabilidade" },
-    { value: "Ergonomia", description: "Avaliação ergonômica dos postos de trabalho" },
-    { value: "Construção Civil", description: "Inspeções específicas para obras e construção" },
-    { value: "Transporte e Logística", description: "Verificação de veículos e processos logísticos" },
-    { value: "Produtos Químicos", description: "Manuseio e armazenamento de químicos" },
-    { value: "Trabalho em Altura", description: "Procedimentos para trabalho em altura" },
-    { value: "Espaços Confinados", description: "Entrada e trabalho em espaços confinados" },
-    { value: "Combate a Incêndio", description: "Equipamentos e procedimentos de emergência" },
-    { value: "Primeiros Socorros", description: "Equipamentos e procedimentos médicos" },
-    { value: "Qualidade", description: "Controle e gestão da qualidade" },
-    { value: "Manutenção", description: "Procedimentos de manutenção preventiva" },
-    { value: "Operações", description: "Procedimentos operacionais padrão" },
-    { value: "Treinamento", description: "Verificação de treinamentos e capacitações" },
-    { value: "Documentação", description: "Controle de documentos e registros" },
-    { value: "Auditoria", description: "Checklists para auditorias internas" },
-    { value: "Normas Regulamentadoras", description: "Conformidade com NRs do Ministério do Trabalho" },
-    { value: "ISO 45001", description: "Sistema de gestão de saúde e segurança ocupacional" },
-    { value: "OHSAS 18001", description: "Sistemas de gestão de segurança e saúde ocupacional" },
-    { value: "Emergência e Contingência", description: "Procedimentos de emergência e planos de contingência" }
+    { value: "Manutenção", description: "Manutenção preventiva, corretiva e preditiva" },
+    { value: "Qualidade", description: "Controle de qualidade, ISO e padronização" },
+    { value: "Operações", description: "Procedimentos operacionais e rotinas diárias" },
+    { value: "Segurança do Trabalho", description: "Saúde e segurança ocupacional (SST)" },
+    { value: "Facilities", description: "Limpeza, conservação e infraestrutura predial" },
+    { value: "Varejo", description: "Lojas, merchandising e prevenção de perdas" },
+    { value: "Logística", description: "Frota, armazém, recebimento e expedição" },
+    { value: "Meio Ambiente", description: "Sustentabilidade e gestão de resíduos" },
+    { value: "TI e Tecnologia", description: "Infraestrutura de TI e ativos" },
+    { value: "Segurança Patrimonial", description: "Controle de acesso e vigilância" },
+    { value: "Auditoria", description: "Auditorias internas e compliance" },
+    { value: "Treinamento", description: "Verificação de capacitação e onboarding" },
+    { value: "Engenharia", description: "Projetos e obras" },
+    { value: "Frota", description: "Inspeção de veículos e equipamentos móveis" }
   ];
 
   const suggestions = type === 'name' ? nameSuggestions : categorySuggestions;

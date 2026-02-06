@@ -116,7 +116,14 @@ app.use('*', async (c, next) => {
         '/api/',
         '/api/shared',
         '/api/public-plans', // CORREÇÃO: Adicionada rota de planos públicos
-        '/api/auth/callback' // Garantir callback
+        '/api/auth/callback', // Garantir callback
+        '/api/auth/login', // Login não requer autenticação prévia
+        '/api/auth/register', // Registro não requer autenticação prévia
+        '/api/auth/forgot-password', // Recuperação de senha não requer autenticação
+        '/api/auth/reset-password', // Reset de senha não requer autenticação
+        '/api/invitations/validate', // Validação de token de convite
+        '/api/cep', // Consulta de CEP
+        '/api/cnpj' // Consulta de CNPJ
     ];
 
     // Verificação flexível (exact match ou prefixo)
@@ -165,7 +172,7 @@ app.use('*', async (c, next) => {
             log.debug('AUTH-DEBUG Lazy loading Supabase Client...');
             try {
                 // Lazy load Supabase Client to reduce boot time
-                const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                const { createClient } = await import('npm:@supabase/supabase-js@2');
                 log.debug('AUTH-DEBUG Supabase Client loaded');
 
                 const supabaseClient = createClient(
@@ -302,7 +309,14 @@ const lazy = (importer: () => Promise<any>) => async (c: any) => {
             executionCtx = c.executionCtx;
         } catch { }
 
-        return router.fetch(c.req.raw, c.env, executionCtx);
+        // Normalização de URL para Lazy Routes (Remover /functions/v1)
+        const url = new URL(c.req.url);
+        if (url.pathname.startsWith('/functions/v1')) {
+            url.pathname = url.pathname.replace('/functions/v1', '');
+        }
+        const req = new Request(url.toString(), c.req.raw);
+
+        return router.fetch(req, c.env, executionCtx);
     } catch (e: any) {
         log.error(`Lazy Load Error (${c.req.path})`, e);
         return c.json({
@@ -352,6 +366,7 @@ apiRoutes.all('/auth/*', lazy(() => import('./auth-routes.ts')));
 apiRoutes.all('/ai-assistants/*', lazy(() => import('./ai-assistants-routes.ts')));
 apiRoutes.all('/share/*', lazy(() => import('./share-routes.ts')));
 apiRoutes.all('/notifications/*', lazy(() => import('./notifications-routes.ts')));
+apiRoutes.all('/test-email/*', lazy(() => import('./test-email-routes.ts'))); // Temporary test route
 apiRoutes.all('/admin/*', lazy(() => import('./admin-approval-routes.ts')));
 apiRoutes.all('/user-assignments/*', lazy(() => import('./user-assignment-routes.ts')));
 apiRoutes.all('/multi-tenant/*', lazy(() => import('./multi-tenant-routes.ts')));
@@ -400,6 +415,7 @@ apiRoutes.all('/system-commerce/*', lazy(() => import('./system-plans-routes.ts'
 apiRoutes.all('/leads/*', lazy(() => import('./lead-capture.ts')));
 apiRoutes.all('/test-orgs/*', lazy(() => import('./test-orgs.ts')));
 apiRoutes.all('/test/*', lazy(() => import('./test-rls-routes.ts'))); // RLS Testing Routes
+apiRoutes.all('/invitations/*', lazy(() => import('./invitation-routes.ts'))); // Sistema de Convites
 
 // PUBLIC ROUTES (Landing Page)
 apiRoutes.get('/public-plans', async (c) => {

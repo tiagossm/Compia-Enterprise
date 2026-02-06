@@ -34,7 +34,7 @@ interface UseATADocumentProps {
             id?: number;
         };
     };
-    onChecklistUpdate?: (updates: Array<{ item_id: number; status: string; observation: string }>) => void;
+    onChecklistUpdate?: (updates: Array<{ item_id: number; status: string; observation: string; item_title?: string; confidence?: number }>) => void;
 }
 
 export function useATADocument({ inspectionId, inspectionData, onChecklistUpdate }: UseATADocumentProps) {

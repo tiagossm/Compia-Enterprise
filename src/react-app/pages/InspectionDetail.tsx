@@ -44,7 +44,7 @@ export default function InspectionDetail() {
     updateItemCompliance, updateItemAnalysis, handleFormSubmit,
     handleSignatureSaved, handleFinalizeInspection, handleReopenInspection,
     handleMediaUploaded, handleMediaDeleted, handleCreateManualAction,
-    generateAIAnalysis, fetchAuditLogs, handleAutoSave
+    generateAIAnalysis, fetchAuditLogs, fetchInspectionDetails, handleAutoSave
   } = useInspectionLogic(id);
 
   // UI-only state remains here
@@ -242,28 +242,30 @@ export default function InspectionDetail() {
     setShowATAPreview(true);
   };
 
-  const handleChecklistUpdateFromATA = (updates: Array<{ item_id: number; status: string; observation: string }>) => {
-    // Apply updates to checklist items via handleAutoSave
-    // Map ATA status codes to compliance_status values
+  const handleChecklistUpdateFromATA = async (updates: Array<{ item_id: number; status: string; observation: string; item_title?: string; confidence?: number }>) => {
+    // Apply ATA extracted items to the *template item responses* (InspectionTemplateItem.id).
+    // `handleAutoSave` expects keys to be templateItems ids, not inspection items.
     const complianceStatuses: Record<string, string> = {};
     const comments: Record<string, string> = {};
 
     updates.forEach(update => {
-      const item = items.find(i => i.id === update.item_id);
-      if (item && item.id !== undefined) {
-        const complianceStatus = update.status === 'C' ? 'compliant' :
-                                 update.status === 'NC' ? 'non_compliant' :
-                                 'not_applicable';
-        complianceStatuses[String(item.id)] = complianceStatus;
-        if (update.observation) {
-          comments[String(item.id)] = update.observation;
-        }
+      const templateItem = templateItems.find(ti => ti.id === update.item_id);
+      if (!templateItem) return;
+
+      const complianceStatus = update.status === 'C' ? 'compliant' :
+                               update.status === 'NC' ? 'non_compliant' :
+                               'not_applicable';
+
+      complianceStatuses[String(templateItem.id)] = complianceStatus;
+      if (update.observation) {
+        comments[String(templateItem.id)] = update.observation;
       }
     });
 
-    // Batch update all items
     if (Object.keys(complianceStatuses).length > 0) {
-      handleAutoSave({}, comments, complianceStatuses);
+      await handleAutoSave({}, comments, complianceStatuses);
+      // Refresh to reflect new compliance status/comments on UI.
+      await fetchInspectionDetails();
     }
   };
 

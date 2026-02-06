@@ -12,8 +12,9 @@ export default function CompiaLogo({ size = 36, textSize = 22, className = '' }:
         <div className={`compia-logo-container ${className}`}>
             <div className="compia-symbol" style={{ width: size, height: size }}>
                 <img
-                    src="/compia_logo.png"
+                    src="/COMPIA_BRAND_KIT/png/2x/compia-logo-compact.png"
                     alt="Compia Logo"
+                    className={` object-contain`}
                     style={{
                         width: '100%',
                         height: '100%',

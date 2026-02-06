@@ -1,28 +1,83 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/react-app/components/Layout';
 import TemplateSuggestions from '@/react-app/components/TemplateSuggestions';
 import OptionsEditor from '@/react-app/components/OptionsEditor';
-import { 
-  Save, 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  GripVertical
+import NewCategoryModal from '@/react-app/components/NewCategoryModal';
+import {
+  Save,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  GripVertical,
+  FolderPlus,
+  Folder
 } from 'lucide-react';
-import { ChecklistTemplate, ChecklistField, ChecklistFieldType } from '@/shared/checklist-types';
+import { ChecklistTemplate, ChecklistField, ChecklistFieldType, ChecklistFolder } from '@/shared/checklist-types';
 
 export default function NewChecklistTemplate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
-  
+
+  // Folder Management
+  const [folders, setFolders] = useState<ChecklistFolder[]>([]);
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [folderLoading, setFolderLoading] = useState(false);
+
   const [template, setTemplate] = useState<Partial<ChecklistTemplate>>({
     name: '',
     description: '',
     category: '',
-    is_public: false
+    is_public: false,
+    folder_id: searchParams.get('folder_id') || undefined
   });
-  
+
+  useEffect(() => {
+    fetchFolders();
+  }, []);
+
+  const fetchFolders = async () => {
+    try {
+      const response = await fetch('/api/checklist/checklist-folders');
+      if (response.ok) {
+        const data = await response.json();
+        setFolders(data);
+      }
+    } catch (error) {
+      console.error('Error fetching folders:', error);
+    }
+  };
+
+  const handleCreateFolder = async (folderData: any) => {
+    setFolderLoading(true);
+    try {
+      const response = await fetch('/api/checklist/checklist-folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(folderData)
+      });
+
+      if (response.ok) {
+        const newFolder = await response.json();
+        // Refresh folders
+        await fetchFolders();
+        // Select the new folder
+        setTemplate(prev => ({ ...prev, folder_id: newFolder.id }));
+        setShowNewFolderModal(false);
+      } else {
+        alert('Erro ao criar pasta');
+      }
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      alert('Erro ao criar pasta');
+    } finally {
+      setFolderLoading(false);
+    }
+  };
+
+
+
   const [fields, setFields] = useState<Partial<ChecklistField>[]>([
     {
       field_name: '',
@@ -54,11 +109,11 @@ export default function NewChecklistTemplate() {
     // VALIDAÇÃO CRÍTICA: Verificar se todos os campos que precisam de opções têm opções válidas
     const fieldsRequiringOptions = ['select', 'multiselect', 'radio'];
     const invalidFields: number[] = [];
-    
+
     fields.forEach((field, index) => {
       if (field.field_type && fieldsRequiringOptions.includes(field.field_type)) {
         let hasValidOptions = false;
-        
+
         try {
           if (field.options) {
             const parsed = JSON.parse(field.options);
@@ -67,13 +122,13 @@ export default function NewChecklistTemplate() {
         } catch {
           hasValidOptions = field.options ? field.options.trim().length > 0 : false;
         }
-        
+
         if (!hasValidOptions) {
           invalidFields.push(index + 1);
         }
       }
     });
-    
+
     if (invalidFields.length > 0) {
       alert(`Os seguintes campos precisam ter opções configuradas: Campo(s) ${invalidFields.join(', ')}. Por favor, adicione as opções necessárias antes de salvar.`);
       setLoading(false);
@@ -82,6 +137,7 @@ export default function NewChecklistTemplate() {
 
     try {
       // Create template
+      console.log('Creating template with payload:', template);
       const templateResponse = await fetch('/api/checklist/checklist-templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,7 +145,7 @@ export default function NewChecklistTemplate() {
       });
 
       if (!templateResponse.ok) throw new Error('Erro ao criar template');
-      
+
       const templateResult = await templateResponse.json();
       const templateId = templateResult.id;
 
@@ -133,12 +189,12 @@ export default function NewChecklistTemplate() {
   const updateField = (index: number, updates: Partial<ChecklistField>) => {
     const newFields = [...fields];
     newFields[index] = { ...newFields[index], ...updates };
-    
+
     // Se o tipo de campo mudou para um que precisa de opções e não há opções, fornecer padrões
     if (updates.field_type && needsOptions(updates.field_type)) {
       const currentField = newFields[index];
       let hasValidOptions = false;
-      
+
       try {
         if (currentField.options) {
           const parsed = JSON.parse(currentField.options);
@@ -147,30 +203,30 @@ export default function NewChecklistTemplate() {
       } catch {
         hasValidOptions = currentField.options ? currentField.options.trim().length > 0 : false;
       }
-      
+
       if (!hasValidOptions) {
-        const defaultOptions = updates.field_type === 'multiselect' 
+        const defaultOptions = updates.field_type === 'multiselect'
           ? ['Adequado', 'Inadequado', 'Não Verificado', 'Não Aplicável']
           : ['Conforme', 'Não Conforme', 'Não Aplicável'];
         newFields[index].options = JSON.stringify(defaultOptions);
       }
     }
-    
+
     setFields(newFields);
   };
 
   const moveField = (index: number, direction: 'up' | 'down') => {
     const newFields = [...fields];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+
     if (targetIndex >= 0 && targetIndex < fields.length) {
       [newFields[index], newFields[targetIndex]] = [newFields[targetIndex], newFields[index]];
-      
+
       // Update order indices
       newFields.forEach((field, i) => {
         field.order_index = i;
       });
-      
+
       setFields(newFields);
     }
   };
@@ -206,14 +262,14 @@ export default function NewChecklistTemplate() {
             <h2 className="font-heading text-xl font-semibold text-slate-900 mb-6">
               Informações do Template
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <TemplateSuggestions
                 label="Nome do Template"
                 name="name"
                 value={template.name || ''}
                 onChange={(value) => setTemplate({ ...template, name: value })}
-                placeholder="Ex: Checklist de EPIs"
+                placeholder="Ex: Checklist de Manutenção Preventiva"
                 required={true}
                 type="name"
               />
@@ -223,10 +279,45 @@ export default function NewChecklistTemplate() {
                 name="category"
                 value={template.category || ''}
                 onChange={(value) => setTemplate({ ...template, category: value })}
-                placeholder="Ex: Segurança do Trabalho"
+                placeholder="Ex: Manutenção ou Qualidade"
                 required={true}
                 type="category"
               />
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Pasta / Local
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Folder className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <select
+                      value={template.folder_id || ''}
+                      onChange={(e) => setTemplate({ ...template, folder_id: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                    >
+                      <option value="">Selecione uma pasta...</option>
+                      {folders.map(folder => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewFolderModal(true)}
+                    className="flex items-center px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                    title="Criar Nova Pasta"
+                  >
+                    <FolderPlus className="w-5 h-5 mr-1" />
+                    Nova
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Selecione onde este checklist será salvo.
+                </p>
+              </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -314,7 +405,7 @@ export default function NewChecklistTemplate() {
                         value={field.field_name}
                         onChange={(e) => updateField(index, { field_name: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Ex: Estado dos EPIs"
+                        placeholder="Ex: Condição do Equipamento"
                       />
                     </div>
 
@@ -354,7 +445,7 @@ export default function NewChecklistTemplate() {
                         value={field.options || ''}
                         onChange={(value) => updateField(index, { options: value })}
                         fieldType={field.field_type!}
-                        placeholder={field.field_type === 'multiselect' 
+                        placeholder={field.field_type === 'multiselect'
                           ? "Adequado, Inadequado, Não Verificado, Não Aplicável"
                           : "Conforme, Não Conforme, Não Aplicável"
                         }
@@ -390,6 +481,13 @@ export default function NewChecklistTemplate() {
           </div>
         </form>
       </div>
+
+      <NewCategoryModal
+        isOpen={showNewFolderModal}
+        onClose={() => setShowNewFolderModal(false)}
+        onSave={handleCreateFolder}
+        loading={folderLoading}
+      />
     </Layout>
   );
 }

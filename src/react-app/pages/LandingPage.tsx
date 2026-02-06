@@ -224,7 +224,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-4 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="relative">
               {/* Increased Logo Size */}
-              <img src="/compia_logo.png" alt="Compia" className="h-10 md:h-12 w-auto relative z-10 transition-transform duration-300 group-hover:scale-105" />
+              <img src="/COMPIA_BRAND_KIT/png/2x/compia-logo-main.png" alt="Compia" className="h-10 md:h-12 w-auto relative z-10 transition-transform duration-300 group-hover:scale-105" />
               <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </div>
             <div className="h-8 w-px bg-slate-200 mx-1 hidden md:block"></div>
@@ -249,13 +249,7 @@ export default function LandingPage() {
                 onClick={() => {
                   const element = document.getElementById('planos');
                   if (element) {
-                    const headerOffset = 120;
-                    const elementPosition = element.getBoundingClientRect().top;
-                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                    window.scrollTo({
-                      top: offsetPosition,
-                      behavior: "smooth"
-                    });
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
                 className="px-6 py-3 text-base font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-all shadow-md shadow-slate-200 hover:shadow-lg hover:-translate-y-0.5"
@@ -321,13 +315,7 @@ export default function LandingPage() {
               onClick={() => {
                 const element = document.getElementById('planos');
                 if (element) {
-                  const headerOffset = 120;
-                  const elementPosition = element.getBoundingClientRect().top;
-                  const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                  window.scrollTo({
-                    top: offsetPosition,
-                    behavior: "smooth"
-                  });
+                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
               }}
               className="w-full sm:w-auto px-12 py-5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all hover:-translate-y-1 shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 text-lg"
@@ -614,7 +602,7 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="md:col-span-1">
               <div className="flex items-center gap-3 mb-4">
-                <img src="/compia_logo.png" alt="Compia" className="h-8 w-auto brightness-0 invert" />
+                <img src="/COMPIA_BRAND_KIT/png/2x/compia-logo-mono-white.png" alt="Compia" className="h-8 w-auto" />
                 <span className="font-bold text-xl">COMPIA</span>
               </div>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
@@ -641,6 +629,8 @@ export default function LandingPage() {
                 <li><a href="#recursos" className="hover:text-white transition-colors">Recursos</a></li>
                 <li><a href="#setores" className="hover:text-white transition-colors">Setores</a></li>
                 <li><a href="#planos" className="hover:text-white transition-colors">Planos e Preços</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Termos de Uso</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Política de Privacidade</a></li>
               </ul>
             </div>
 
@@ -649,18 +639,18 @@ export default function LandingPage() {
               <h4 className="font-bold text-white mb-4">Contato</h4>
               <ul className="space-y-3 text-sm text-slate-400">
                 <li>
-                  <a href="mailto:contato@compia.tech" className="hover:text-white transition-colors">
-                    contato@compia.tech
+                  <a href="mailto:suporte@compia.tech" className="hover:text-white transition-colors">
+                    suporte@compia.tech
                   </a>
                 </li>
                 <li>
                   <a
-                    href="https://wa.me/5511999999999"
+                    href="https://wa.me/5511933333333"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors"
                   >
-                    WhatsApp: (11) 99999-9999
+                    WhatsApp: (11) 93333-3333
                   </a>
                 </li>
               </ul>

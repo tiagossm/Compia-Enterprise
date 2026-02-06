@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Outer Blue Circle -->
+  <circle cx="256" cy="256" r="256" fill="#2563EB"/>
+  
+  <!-- White Ring creating the 'C' gap -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="white" stroke-width="40"/>
+  
+  <!-- The cut in the ring to make it a C (masking with blue) -->
+  <!-- Actually simpler: Just draw the White C -->
+  <!-- Let's try a different approach: Blue Background, White C shape, Purple Dot -->
+  
+  <!-- Clear canvas -->
+  <rect width="512" height="512" fill="none"/>
+  
+  <!-- Main Blue Circle Base -->
+  <circle cx="256" cy="256" r="256" fill="#3B82F6"/>
+  
+  <!-- White Circle Outline (The C body) -->
+  <!-- We need a white ring -->
+  <path d="M256 116 A140 140 0 1 0 256 396 A140 140 0 1 0 256 116" fill="none" stroke="white" stroke-width="50" stroke-linecap="round"/>
+  
+  <!-- Wait, the logo in the landing page (LandingPage.tsx) is just text or an image. 
+       Let's look at the generated crop I made earlier to guess the shape. 
+       It was described as "Blue circle, purple dot". 
+       Let's try to match the description from the artifacts: "blue circular logo... inner purple dot".
+  -->
+  
+  <!-- Inner Purple Dot -->
+  <circle cx="256" cy="256" r="80" fill="#8B5CF6"/>
+  
+  <!-- Re-reading the visual description from previous turns... 
+       "Blue circle with a white 'C' shape (which is really a white circle with a gap) and inner purple dot".
+       Let's make a generic "Tech C" logo that looks premium.
+  -->
+  
+  <!-- Refined Compia Logo SVG -->
+  <circle cx="256" cy="256" r="240" fill="#2563EB" /> <!-- Royal Blue Base -->
+  
+  <!-- White 'C' Arc -->
+  <!-- Center 256,256. Radius ~130. Open on the right? Or is it a full circle with a dot? 
+       User said "logo em CSS". I will make a clean standard SVG.
+  -->
+  <path d="M400 256 A144 144 0 1 1 256 112" fill="none" stroke="white" stroke-width="48" stroke-linecap="round" transform="rotate(-45 256 256)"/>
+  
+  <!-- Central Dot -->
+  <circle cx="256" cy="256" r="60" fill="white"/>
+</svg>

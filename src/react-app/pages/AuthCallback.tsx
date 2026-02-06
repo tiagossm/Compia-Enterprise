@@ -105,7 +105,20 @@ export default function AuthCallback() {
   // Redireciona quando o status é success (não precisa esperar user carregar)
   if (status === 'success') {
     const sp = new URLSearchParams(window.location.search);
-    const redirectTo = sp.get('redirect') || '/dashboard';
+    const redirectFromQuery = sp.get('redirect');
+    const redirectFromStorage = (() => {
+      try { return localStorage.getItem('auth_redirect_after_login'); } catch { return null; }
+    })();
+
+    // Prefer explicit query param; fallback to stored value; then to dashboard.
+    const redirectTo =
+      (redirectFromQuery && redirectFromQuery.startsWith('/'))
+        ? redirectFromQuery
+        : ((redirectFromStorage && redirectFromStorage.startsWith('/')) ? redirectFromStorage : '/dashboard');
+
+    // Cleanup so future logins don't reuse stale redirects.
+    try { localStorage.removeItem('auth_redirect_after_login'); } catch { }
+
     return <Navigate to={redirectTo} replace />;
   }
 

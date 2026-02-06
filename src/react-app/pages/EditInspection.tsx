@@ -219,7 +219,7 @@ export default function EditInspection() {
               Editar Inspeção
             </h1>
             <p className="text-slate-600 mt-1">
-              Atualize os dados da inspeção de segurança do trabalho
+              Atualize os dados da inspeção
             </p>
           </div>
         </div>
@@ -247,7 +247,7 @@ export default function EditInspection() {
                     value={formData.title}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ex: Inspeção de Equipamentos de Proteção"
+                    placeholder="Ex: Auditoria de Processos - Filial Centro"
                   />
                 </div>
                 <div>
@@ -318,7 +318,7 @@ export default function EditInspection() {
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Assistente Geral de Segurança do Trabalho</option>
+                    <option value="">Assistente Geral de Inspeções</option>
                     {aiAssistants.map(assistant => (
                       <option key={assistant.id} value={assistant.id}>
                         {assistant.name} - {assistant.specialization}
@@ -384,7 +384,7 @@ export default function EditInspection() {
                     value={formData.location}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ex: Galpão A - Setor de Produção"
+                    placeholder="Ex: Loja 01 - Estoque Principal"
                   />
                 </div>
                 <div>

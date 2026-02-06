@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { cors } from 'hono/cors';
 
 const leadRoutes = new Hono().basePath('/api/leads');

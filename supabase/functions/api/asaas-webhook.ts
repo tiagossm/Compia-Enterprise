@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const asaasWebhookRoutes = new Hono();
 
@@ -183,7 +183,44 @@ async function handlePaymentConfirmed(supabase: any, payload: AsaasWebhookPayloa
                 .eq('id', subData.organization_id);
 
             if (orgError) console.error("Error updating organization:", orgError);
-            else console.log(`[ASAAS-WEBHOOK] Organization ${subData.organization_id} activated.`);
+            else {
+                console.log(`[ASAAS-WEBHOOK] Organization ${subData.organization_id} activated.`);
+
+                // TRIGGER EMAIL: Access Granted
+                // 1. Find the owner/admin of the organization
+                const { data: ownerLink } = await supabase
+                    .from('user_organizations')
+                    .select('user_id, users(email, name)')
+                    .eq('organization_id', subData.organization_id)
+                    .eq('role', 'owner') // Assuming there is an owner
+                    .limit(1)
+                    .maybeSingle();
+
+                if (ownerLink && ownerLink.users) {
+                    const user = ownerLink.users;
+                    console.log(`[ASAAS-WEBHOOK] Sending Access Granted email to ${user.email}`);
+
+                    // Helper to fetch (using global fetch since we are in Deno/Edge)
+                    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+                    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""; // Use Service Role for internal worker call
+
+                    await fetch(`${supabaseUrl}/functions/v1/email-worker`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${supabaseKey}`
+                        },
+                        body: JSON.stringify({
+                            to: user.email,
+                            type: 'approval', // Reusing approval template which says "Access Approved"
+                            data: {
+                                name: user.name || "Cliente",
+                                loginUrl: "https://compia.tech/login"
+                            }
+                        })
+                    });
+                }
+            }
         }
     }
 }

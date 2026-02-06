@@ -80,6 +80,10 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                     if (targetOrg) {
                         localStorage.setItem('compia_selected_org_id', String(targetOrg.id));
                     }
+                } else if (response.status === 401) {
+                    console.warn('[OrganizationContext] API returned 401. Signing out.');
+                    window.location.href = '/login'; // Hard redirect to ensure clean state
+                    return;
                 } else {
                     console.error('Failed to fetch user organizations');
                 }

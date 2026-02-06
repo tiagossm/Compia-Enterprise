@@ -36,7 +36,7 @@ interface ATAPreviewProps {
             id?: number;
         };
     };
-    onChecklistUpdate?: (updates: Array<{ item_id: number; status: string; observation: string }>) => void;
+    onChecklistUpdate?: (updates: Array<{ item_id: number; status: string; observation: string; item_title?: string; confidence?: number }>) => void;
 }
 
 export function ATAPreview({
@@ -396,38 +396,49 @@ export function ATAPreview({
                                     <h3 className="text-sm font-medium mb-3">Itens Identificados</h3>
                                     {ata.identified_items && ata.identified_items.length > 0 ? (
                                         <div className="space-y-3">
-                                            {ata.identified_items.map((item, index) => (
-                                                <div
-                                                    key={index}
-                                                    className={`p-3 rounded-lg border ${
-                                                        item.status === 'NC' ? 'border-red-200 bg-red-50' :
-                                                        item.status === 'C' ? 'border-green-200 bg-green-50' :
-                                                        'border-gray-200 bg-gray-50'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-start justify-between">
-                                                        <div>
-                                                            <div className="font-medium text-sm">
-                                                                Item #{item.item_id}
+                                            {ata.identified_items.map((item, index) => {
+                                                const ctxItem = inspectionData?.items?.find(i => i.id === item.item_id);
+                                                const title = item.item_title || ctxItem?.title || ctxItem?.description || '';
+                                                const confidence = typeof item.confidence === 'number' ? item.confidence : null;
+
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        className={`p-3 rounded-lg border ${
+                                                            item.status === 'NC' ? 'border-red-200 bg-red-50' :
+                                                            item.status === 'C' ? 'border-green-200 bg-green-50' :
+                                                            'border-gray-200 bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-start justify-between">
+                                                            <div>
+                                                                <div className="font-medium text-sm">
+                                                                    Item #{item.item_id}{title ? ` — ${title}` : ''}
+                                                                </div>
+                                                                {confidence !== null && (
+                                                                    <div className="text-xs text-gray-500 mt-0.5">
+                                                                        Confiança: {(confidence * 100).toFixed(0)}%
+                                                                    </div>
+                                                                )}
+                                                                <p className="text-sm text-gray-600 mt-1">
+                                                                    {item.observation}
+                                                                </p>
                                                             </div>
-                                                            <p className="text-sm text-gray-600 mt-1">
-                                                                {item.observation}
-                                                            </p>
+                                                            <span
+                                                                className={`px-2 py-1 text-xs rounded-full ${
+                                                                    item.status === 'NC' ? 'bg-red-100 text-red-700' :
+                                                                    item.status === 'C' ? 'bg-green-100 text-green-700' :
+                                                                    'bg-gray-100 text-gray-700'
+                                                                }`}
+                                                            >
+                                                                {item.status === 'C' ? 'Conforme' :
+                                                                    item.status === 'NC' ? 'Não Conforme' :
+                                                                        'N/A'}
+                                                            </span>
                                                         </div>
-                                                        <span
-                                                            className={`px-2 py-1 text-xs rounded-full ${
-                                                                item.status === 'NC' ? 'bg-red-100 text-red-700' :
-                                                                item.status === 'C' ? 'bg-green-100 text-green-700' :
-                                                                'bg-gray-100 text-gray-700'
-                                                            }`}
-                                                        >
-                                                            {item.status === 'C' ? 'Conforme' :
-                                                             item.status === 'NC' ? 'Não Conforme' :
-                                                             'N/A'}
-                                                        </span>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <p className="text-sm text-gray-600 text-center py-8">

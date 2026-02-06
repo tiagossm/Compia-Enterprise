@@ -130,26 +130,39 @@ export default function ChecklistPreview({
     >
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Document Title Section */}
-        <Card variant="flat" className="p-4 md:p-6 bg-slate-50/50">
-          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-            Nome do Template
-          </label>
-          <input
-            type="text"
-            required
-            value={editedTemplate.name || ''}
-            onChange={(e) => setEditedTemplate({ ...editedTemplate, name: e.target.value })}
-            className="w-full text-xl md:text-2xl font-bold text-slate-900 border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 transition-all placeholder-slate-300 bg-transparent"
-            placeholder="Digite o nome do checklist..."
-          />
+        <Card variant="flat" className="relative overflow-hidden p-6 bg-gradient-to-br from-white to-slate-50 border-slate-200">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <CheckCircle2 className="w-32 h-32 -mr-8 -mt-8" />
+          </div>
 
-          <input
-            type="text"
-            value={editedTemplate.description || ''}
-            onChange={(e) => setEditedTemplate({ ...editedTemplate, description: e.target.value })}
-            className="w-full text-sm text-slate-500 border-0 border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-0 px-0 py-1 mt-2 transition-all placeholder-slate-400 bg-transparent"
-            placeholder="Adicionar uma breve descrição (opcional)..."
-          />
+          <div className="relative z-10 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 font-heading">
+                Nome do Template
+              </label>
+              <input
+                type="text"
+                required
+                value={editedTemplate.name || ''}
+                onChange={(e) => setEditedTemplate({ ...editedTemplate, name: e.target.value })}
+                className="w-full text-2xl md:text-3xl font-bold text-slate-900 border-0 border-b-2 border-transparent hover:border-slate-200 focus:border-blue-500 focus:ring-0 px-0 py-1 transition-all placeholder-slate-300 bg-transparent font-heading leading-tight"
+                placeholder="Digite o nome do checklist..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 font-heading">
+                Descrição
+              </label>
+              <textarea
+                value={editedTemplate.description || ''}
+                onChange={(e) => setEditedTemplate({ ...editedTemplate, description: e.target.value })}
+                className="w-full text-sm leading-relaxed text-slate-600 border-0 border-b-2 border-transparent hover:border-slate-200 focus:border-blue-500 focus:ring-0 px-0 py-1 transition-all placeholder-slate-400 bg-transparent resize-y min-h-[60px]"
+                placeholder="Adicione uma descrição detalhada sobre o objetivo deste checklist, instruções de uso ou referências normativas..."
+                rows={2}
+              />
+            </div>
+          </div>
         </Card>
 
         {/* Fields Section */}
@@ -171,8 +184,8 @@ export default function ChecklistPreview({
                 key={index}
                 variant={editingField === index ? 'glass' : 'default'}
                 className={`transition-all duration-300 ${editingField === index
-                    ? 'ring-2 ring-blue-500 shadow-lg scale-[1.01]'
-                    : 'hover:shadow-md hover:border-blue-200'
+                  ? 'ring-2 ring-blue-500 shadow-lg scale-[1.01]'
+                  : 'hover:shadow-md hover:border-blue-200'
                   }`}
               >
                 {editingField === index ? (

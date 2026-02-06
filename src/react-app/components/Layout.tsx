@@ -257,7 +257,7 @@ export default function Layout({ children, actionButton }: LayoutProps) {
             <UsageIndicator
               currentUsage={orgUsage.current}
               limit={orgUsage.limit}
-              className="hidden sm:block mr-2"
+              className="mr-2"
             />
           )}
 
