@@ -13,16 +13,13 @@ import {
   Copy,
   Upload,
   FileSpreadsheet,
-  Image as ImageIcon,
   FileText
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
-import * as XLSX from 'xlsx';
+import { convertFileToCSV, validateCompiaCSV } from '@/react-app/utils/file-to-csv-converter';
 
-// Import worker directly for Vite
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Define worker globally if possible or setting dynamically
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function AIChecklistGenerator() {
   const navigate = useNavigate();
@@ -61,10 +58,6 @@ export default function AIChecklistGenerator() {
     custom_location: '',
     generation_mode: 'standard' // 'standard' | 'import'
   });
-
-  // New State for Smart Import
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [importedFiles, setImportedFiles] = useState<{ name: string, type: string }[]>([]); // Track files for UI feedback
 
   const industryOptions = [
     'Construção Civil',
@@ -152,136 +145,47 @@ export default function AIChecklistGenerator() {
     return { seconds: totalSeconds, label, speed };
   };
 
-  // Helper: Convert File to Base64
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  const handleSmartUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     setGenerating(true);
     setError('');
 
-    const newFilesList = [...importedFiles];
-    const newImages: File[] = [];
-    let aggregatedText = formData.specific_requirements || '';
-
     try {
-      for (const file of Array.from(files)) {
-        // Determine Type
-        let type: 'pdf' | 'excel' | 'image' | 'unknown' = 'unknown';
-        if (file.type === 'application/pdf') type = 'pdf';
-        else if (file.type.includes('image/')) type = 'image';
-        else if (['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'].includes(file.type) || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) type = 'excel';
+      console.log(`[FILE-UPLOAD] Processing ${file.name}`);
 
-        if (type === 'pdf') {
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          let pdfText = `\n--- PDF: ${file.name} ---\n`;
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            pdfText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
-          }
-          aggregatedText += pdfText;
-          newFilesList.push({ name: file.name, type: 'PDF' });
-        }
-        else if (type === 'excel') {
-          const arrayBuffer = await file.arrayBuffer();
-          const workbook = XLSX.read(arrayBuffer);
-          let excelText = `\n--- EXCEL: ${file.name} ---\n`;
-          workbook.SheetNames.forEach(sheetName => {
-            const sheet = workbook.Sheets[sheetName];
-            const csv = XLSX.utils.sheet_to_csv(sheet);
-            excelText += `[ABA: ${sheetName}]\n${csv}\n`;
-          });
-          aggregatedText += excelText;
-          newFilesList.push({ name: file.name, type: 'Excel' });
-        }
-        else if (type === 'image') {
-          newImages.push(file);
-          newFilesList.push({ name: file.name, type: 'Imagem' });
-        }
+      // Converte arquivo para CSV ou texto
+      const convertedData = await convertFileToCSV(file);
+
+      // Valida se é CSV válido
+      const validation = validateCompiaCSV(convertedData);
+
+      if (validation.valid) {
+        // CSV válido - usar diretamente
+        console.log('[FILE-UPLOAD] Valid CSV detected, using directly');
+        setFormData(prev => ({
+          ...prev,
+          specific_requirements: convertedData,
+          template_name: file.name.replace(/\.[^.]+$/, '') // Remove extensão
+        }));
+      } else {
+        // Texto bruto (PDF, Word) - enviar para IA processar
+        console.log('[FILE-UPLOAD] Raw text detected, will be processed by AI');
+        setFormData(prev => ({
+          ...prev,
+          specific_requirements: convertedData,
+          template_name: file.name.replace(/\.[^.]+$/, '')
+        }));
       }
 
-      // Update State
-      setFormData(prev => ({
-        ...prev,
-        specific_requirements: aggregatedText,
-        template_name: prev.template_name || (files[0] ? files[0].name.split('.')[0] : '')
-      }));
-
-      setSelectedImages(prev => [...prev, ...newImages]);
-      setImportedFiles(newFilesList);
-
     } catch (err) {
-      console.error('Erro no upload inteligente:', err);
-      setError('Erro ao processar arquivos. Tente novamente.');
+      console.error('[FILE-UPLOAD] Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Falha ao processar arquivo: ${errorMessage}`);
     } finally {
       setGenerating(false);
     }
-  };
-
-  // Helper: Parse CSV to Fields
-  const parseCSVToFields = (csv: string): any[] => {
-    const lines = csv.split('\n').filter(l => l.trim());
-    const fields: any[] = [];
-
-    // Skip header if present (heuristic)
-    const startIndex = lines[0].toLowerCase().includes('nome do item') ? 1 : 0;
-
-    for (let i = startIndex; i < lines.length; i++) {
-      // Simple CSV regex to handle quoted values
-      const matches = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
-      if (!matches) continue;
-
-      const parts = matches.map(m => m.replace(/^"|"$/g, '').trim());
-      if (parts.length < 2) continue;
-
-      const label = parts[0];
-      const type = parts[1] || 'text'; // Default to text
-      const required = parts[2] === 'true';
-      const optionsStr = parts[3] || '';
-
-      let fieldType = 'text';
-      let options: string[] = [];
-
-      // Map CSV types to System types
-      if (type === 'select' && optionsStr) {
-        fieldType = 'select';
-        options = optionsStr.split('|').map(o => o.trim());
-      } else if (type === 'boolean') {
-        fieldType = 'select';
-        options = ['Conforme', 'Não Conforme', 'N/A'];
-      } else if (type === 'date') {
-        fieldType = 'date';
-      } else if (type === 'rating') {
-        fieldType = 'rating'; // System might need specific handling, simplified here
-        options = ['1', '2', '3', '4', '5']; // Fallback for select if rating not native
-        fieldType = 'select';
-      } else {
-        fieldType = 'text';
-      }
-
-      fields.push({
-        id: crypto.randomUUID(),
-        label,
-        type: fieldType,
-        required,
-        options
-      });
-    }
-    return fields;
   };
 
   const handleGenerate = async () => {
@@ -305,32 +209,19 @@ export default function AIChecklistGenerator() {
       console.log('Gerando checklist...', formData);
 
       // Prepare payload based on mode
-      // Prepare payload based on mode
-      let payload: any = {};
-      let endpoint = '/api/checklist/checklist-templates/generate-ai-simple';
-
-      if (formData.generation_mode === 'import') {
-        endpoint = '/api/checklist/checklist-templates/generate-ai-csv'; // Use CSV route
-
-        // Process Images
-        const processedImages = [];
-        if (selectedImages.length > 0) {
-          for (const file of selectedImages) {
-            processedImages.push({
-              mimeType: file.type,
-              data: await convertFileToBase64(file)
-            });
-          }
+      const payload = formData.generation_mode === 'import'
+        ? {
+          industry: 'Geral', // Default for import
+          location_type: 'Geral', // Default for import
+          template_name: formData.template_name,
+          category: formData.category,
+          num_questions: 15, // Max questions for imports to capture detail
+          specific_requirements: `[IMPORT_MODE] \n\n ${formData.specific_requirements}`, // Tag for prompt engineering if needed
+          detail_level: 'avancado', // Force detailed for imports
+          regulation: 'Baseado no Texto Importado',
+          priority_focus: 'conformidade_texto'
         }
-
-        payload = {
-          text: `[SOLICITAÇÃO DE IMPORTAÇÃO]\nNOME: ${formData.template_name}\nCATEGORIA: ${formData.category}\n\nCONTEÚDO:\n${formData.specific_requirements}`,
-          images: processedImages.length > 0 ? processedImages : undefined,
-          context: 'Legacy Import Retrofit'
-        };
-      } else {
-        // Standard Mode
-        payload = {
+        : {
           industry: formData.industry,
           location_type: formData.location_type,
           template_name: formData.template_name,
@@ -341,9 +232,8 @@ export default function AIChecklistGenerator() {
           regulation: formData.regulation,
           priority_focus: 'seguranca'
         };
-      }
 
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/checklist/checklist-templates/generate-ai-simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -370,35 +260,11 @@ export default function AIChecklistGenerator() {
 
       const result = await response.json();
 
-      if (formData.generation_mode === 'import') {
-        // Parse CSV Result
-        if (result.success && result.csv) {
-          const fields = parseCSVToFields(result.csv);
-
-          const templateStructure = {
-            id: 'temp_' + crypto.randomUUID(),
-            name: formData.template_name,
-            category: formData.category,
-            description: 'Gerado via Importação Inteligente',
-            items_count: fields.length
-          };
-
-          setGeneratedTemplate({
-            success: true,
-            template: templateStructure,
-            fields: fields
-          });
-        } else {
-          throw new Error('Falha ao gerar CSV válido.');
-        }
-      } else {
-        // Standard JSON Handling
-        if (!result.success) {
-          throw new Error(result.error || 'Falha ao gerar checklist');
-        }
-        setGeneratedTemplate(result);
+      if (!result.success) {
+        throw new Error(result.error || 'Falha ao gerar checklist');
       }
 
+      setGeneratedTemplate(result);
       console.log('Checklist gerado com sucesso!');
 
       // Increment AI usage count via backend API
@@ -548,50 +414,64 @@ export default function AIChecklistGenerator() {
                       <Copy size={16} />
                       Como funciona?
                     </h3>
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm text-blue-800 mb-3">
                       Cole aqui o texto de seus procedimentos, normas internas, manuais em PDF ou planilhas antigas.
                       A IA vai ler, entender a estrutura e converter automaticamente em um checklist digital pronto para uso.
                     </p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded text-xs font-medium text-blue-800">
+                        <FileText size={12} />
+                        PDF
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-green-300 rounded text-xs font-medium text-green-800">
+                        <FileSpreadsheet size={12} />
+                        Excel (.xlsx)
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded text-xs font-medium text-blue-800">
+                        <FileText size={12} />
+                        Word (.docx)
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-medium text-slate-800">
+                        <FileText size={12} />
+                        CSV
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Smart Dropzone */}
-                  <div className="border-2 border-dashed border-indigo-200 rounded-xl p-8 text-center hover:border-indigo-400 hover:bg-indigo-50 transition-colors group relative cursor-pointer">
+                  {/* Dropzone UNIVERSAL - PDF, Excel, Word, CSV */}
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-slate-50 transition-colors group relative cursor-pointer">
                     <input
                       type="file"
-                      accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.webp"
-                      onChange={handleSmartUpload}
-                      multiple
+                      accept="application/pdf,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       disabled={generating}
                     />
                     <div className="flex flex-col items-center gap-3">
-                      <div className="p-4 bg-indigo-100 text-indigo-600 rounded-full group-hover:scale-110 transition-transform">
-                        {generating ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div> : <Upload size={24} />}
+                      <div className="p-4 bg-gradient-to-br from-purple-100 to-blue-100 text-purple-600 rounded-full group-hover:scale-110 transition-transform">
+                        {generating ? (
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Upload size={20} />
+                            <FileSpreadsheet size={20} className="text-green-600" />
+                            <FileText size={20} className="text-blue-600" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h4 className="font-semibold text-slate-900">
-                          {generating ? 'Processando arquivos...' : 'Arraste PDF, Excel ou Fotos aqui'}
+                          {generating ? 'Processando arquivo...' : 'Arraste PDF, Excel ou Word aqui'}
                         </h4>
                         <p className="text-sm text-slate-500 mt-1">
-                          Suporta Documentos e Planilhas
+                          Formatos: PDF, Excel (.xlsx), Word (.docx), CSV
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          ou clique para selecionar do computador
                         </p>
                       </div>
                     </div>
                   </div>
-
-                  {/* Uploaded Files Feedback */}
-                  {importedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {importedFiles.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-full text-xs text-indigo-700">
-                          {f.type === 'PDF' && <FileText className="w-3 h-3" />}
-                          {f.type === 'Excel' && <FileSpreadsheet className="w-3 h-3" />}
-                          {f.type === 'Imagem' && <ImageIcon className="w-3 h-3" />}
-                          <span className="truncate max-w-[150px]">{f.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="flex items-center gap-2 text-xs text-slate-400 uppercase font-bold tracking-wider justify-center">
                     <span className="h-px w-12 bg-slate-200"></span>

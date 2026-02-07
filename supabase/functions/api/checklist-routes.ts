@@ -77,14 +77,10 @@ async function handleListTemplates(c: any) {
     // STAGE 2: Fetch Templates
     // SIMPLIFIED QUERY: Removed JOINs to rule out performance issues
     let query = `
-      SELECT ct.*,
-        COALESCE(ul.folder_id, ct.folder_id) as effective_folder_id,
-        COALESCE(ul.display_order, ct.display_order) as effective_display_order
+      SELECT ct.*
       FROM checklist_templates ct
-      LEFT JOIN user_checklist_layout ul
-        ON ul.checklist_template_id = ct.id AND ul.user_id = ?
     `;
-    let params: any[] = [user.id];
+    let params: any[] = [];
     let whereClause = ["(ct.is_category_folder = false OR ct.is_category_folder IS NULL)"];
 
     // ADMIN SYSTEM TEM ACESSO IRRESTRITO A TUDO
@@ -108,41 +104,226 @@ async function handleListTemplates(c: any) {
     const rawFolderId = c.req.query("folder_id");
     const folderId = (rawFolderId === undefined || rawFolderId === null || rawFolderId === '' || rawFolderId === 'null' || rawFolderId === 'undefined') ? null : rawFolderId;
 
-    if (folderId && folderId !== null) {
-      whereClause.push("COALESCE(ul.folder_id, ct.folder_id) = ?");
-      params.push(folderId);
-    } else if (folderId === null) {
-      whereClause.push("COALESCE(ul.folder_id, ct.folder_id) IS NULL");
+    // PASTA VIRTUAL "FAVORITOS"
+    const isFavoritesFilter = rawFolderId === 'favorites';
+    let templates: any[] = [];
+
+    if (isFavoritesFilter) {
+      // Buscar apenas templates favoritados
+      console.log('[TEMPLATES] Filtering by FAVORITES virtual folder');
+
+      let favQuery = `
+        SELECT ct.*
+        FROM checklist_templates ct
+        INNER JOIN user_favorites uf ON ct.id = uf.template_id
+        WHERE uf.user_id = ?
+      `;
+      const favParams: any[] = [user.id];
+
+      // Aplicar filtros de organização se não for sysadmin
+      if (userProfile?.role !== USER_ROLES.SYSTEM_ADMIN && userProfile?.role !== 'admin') {
+        favQuery += ` AND (ct.is_public = true OR ct.created_by_user_id = ? OR ct.organization_id = ?)`;
+        favParams.push(user.id);
+        favParams.push(userProfile?.organization_id || null);
+      }
+
+      favQuery += ` ORDER BY uf.display_order ASC, uf.created_at DESC`;
+
+      const favResult = await env.DB.prepare(favQuery).bind(...favParams).all();
+      templates = favResult.results || [];
+      console.log(`[TEMPLATES] Found ${templates.length} favorites`);
+
+    } else {
+      // Query normal (não favoritos)
+      if (folderId && folderId !== null) {
+        whereClause.push("ct.folder_id = ?");
+        params.push(folderId);
+      } else if (folderId === null) {
+        whereClause.push("ct.folder_id IS NULL");
+      }
+
+      if (whereClause.length > 0) {
+        query += " WHERE " + whereClause.join(" AND ");
+      }
+
+      query += " ORDER BY ct.display_order ASC, ct.created_at DESC";
+
+      console.log(`[TEMPLATES] [DEBUG] Query: ${query}`);
+      console.log(`[TEMPLATES] [DEBUG] Params: ${JSON.stringify(params)}`);
+      if (params.length > 1) {
+        console.log(`[TEMPLATES] [DEBUG] OrgID Type: ${typeof params[1]} Value: ${params[1]}`);
+      }
+
+      const startTime = Date.now();
+      const result = await env.DB.prepare(query).bind(...params).all();
+      console.log(`[TEMPLATES] [DEBUG] DB Exec Time: ${Date.now() - startTime}ms`);
+      templates = result.results || [];
     }
 
-    if (whereClause.length > 0) {
-      query += " WHERE " + whereClause.join(" AND ");
+    // STAGE 3: Apply Personal Folder Preferences
+    // Fetch user's personal folder preferences for templates
+    let personalPreferences: Map<number, number | null> = new Map();
+
+    if (templates.length > 0 && userProfile?.organization_id) {
+      try {
+        const templateIds = templates.map((t: any) => t.id);
+        const placeholders = templateIds.map(() => '?').join(',');
+
+        const prefsQuery = `
+          SELECT item_id, personal_folder_id
+          FROM user_folder_preferences
+          WHERE user_id = ?
+            AND organization_id = ?
+            AND item_type = 'template'
+            AND item_id IN (${placeholders})
+        `;
+
+        const prefsResult = await env.DB.prepare(prefsQuery)
+          .bind(user.id, userProfile.organization_id, ...templateIds)
+          .all();
+
+        if (prefsResult.results) {
+          prefsResult.results.forEach((pref: any) => {
+            personalPreferences.set(pref.item_id, pref.personal_folder_id);
+          });
+        }
+
+        console.log(`[TEMPLATES] Loaded ${personalPreferences.size} personal folder preferences`);
+      } catch (prefErr) {
+        console.error('[TEMPLATES] Error loading personal preferences:', prefErr);
+        // Continue without preferences on error
+      }
     }
 
-    query += " ORDER BY COALESCE(ul.display_order, ct.display_order) ASC, ct.created_at DESC";
+    // STAGE 4: Fetch favorites
+    let favoritesSet: Set<number> = new Set();
 
-    console.log(`[TEMPLATES] [DEBUG] Query: ${query}`);
-    console.log(`[TEMPLATES] [DEBUG] Params: ${JSON.stringify(params)}`);
-    if (params.length > 1) {
-      console.log(`[TEMPLATES] [DEBUG] OrgID Type: ${typeof params[1]} Value: ${params[1]}`);
+    if (templates.length > 0 && templates.length < 100) { // Proteção: não executar se lista muito grande
+      try {
+        const templateIds = templates.map((t: any) => t.id);
+
+        // Buscar favoritos sem usar IN clause (mais seguro)
+        const favsResult = await env.DB.prepare(`
+          SELECT template_id
+          FROM user_favorites
+          WHERE user_id = ?
+        `).bind(user.id).all();
+
+        if (favsResult.results) {
+          const templateIdsSet = new Set(templateIds);
+          favsResult.results.forEach((fav: any) => {
+            if (templateIdsSet.has(fav.template_id)) {
+              favoritesSet.add(fav.template_id);
+            }
+          });
+        }
+
+        console.log(`[TEMPLATES] User has ${favoritesSet.size} favorites in current list`);
+      } catch (favErr) {
+        console.error('[TEMPLATES] Error loading favorites:', favErr);
+        // Continue without favorites on error
+      }
     }
 
-    const startTime = Date.now();
-    // Using .all() directly on the prepared statement
-    const result = await env.DB.prepare(query).bind(...params).all();
-    console.log(`[TEMPLATES] [DEBUG] DB Exec Time: ${Date.now() - startTime}ms`);
+    // STAGE 5: Fetch fork metadata for compliance/audit (DISABLED TEMPORARILY FOR DEBUG)
+    let forkMetadata: Map<number, any> = new Map();
 
-    const templates = result.results || [];
+    // TODO: Re-enable after fixing the 500 error
+    /*
+    if (templates.length > 0) {
+      try {
+        const templateIds = templates.map((t: any) => t.id);
+        const forkedFromIds = templates
+          .filter((t: any) => t.forked_from_template_id)
+          .map((t: any) => t.forked_from_template_id);
 
-    // Manually calculate field_count (if critical, otherwise remove or fetch separately)
-    // For now returning 0 to fix stability
-    const templatesWithCounts = templates.map((t: any) => ({
-      ...t,
-      folder_id: t.effective_folder_id ?? t.folder_id,
-      display_order: t.effective_display_order ?? t.display_order,
-      field_count: 0, // Placeholder to avoid JOIN
-      is_folder: t.is_category_folder
-    }));
+        if (forkedFromIds.length > 0) {
+          const placeholders = forkedFromIds.map(() => '?').join(',');
+          const forkQuery = `
+            SELECT id, name, created_by
+            FROM checklist_templates
+            WHERE id IN (${placeholders})
+          `;
+
+          const forkResult = await env.DB.prepare(forkQuery)
+            .bind(...forkedFromIds)
+            .all();
+
+          if (forkResult.results) {
+            forkResult.results.forEach((orig: any) => {
+              forkMetadata.set(orig.id, {
+                original_name: orig.name,
+                original_created_by: orig.created_by
+              });
+            });
+          }
+
+          console.log(`[TEMPLATES] Loaded ${forkMetadata.size} fork metadata entries for audit`);
+        }
+      } catch (forkErr) {
+        console.error('[TEMPLATES] Error loading fork metadata:', forkErr);
+        // Continue without fork metadata on error
+      }
+    }
+    */
+
+    // STAGE 6: Fetch hidden items (soft deleted)
+    let hiddenItemsSet: Set<number> = new Set();
+
+    if (templates.length > 0) {
+      try {
+        const templateIds = templates.map((t: any) => t.id);
+        const placeholders = templateIds.map(() => '?').join(',');
+
+        const hiddenQuery = `
+          SELECT item_id
+          FROM user_hidden_items
+          WHERE user_id = ?
+            AND item_type = 'template'
+            AND item_id IN (${placeholders})
+        `;
+
+        const hiddenResult = await env.DB.prepare(hiddenQuery)
+          .bind(user.id, ...templateIds)
+          .all();
+
+        if (hiddenResult.results) {
+          hiddenResult.results.forEach((hidden: any) => {
+            hiddenItemsSet.add(hidden.item_id);
+          });
+        }
+
+        console.log(`[TEMPLATES] User has ${hiddenItemsSet.size} hidden items`);
+      } catch (hiddenErr) {
+        console.error('[TEMPLATES] Error loading hidden items:', hiddenErr);
+        // Continue without hidden items filtering on error
+      }
+    }
+
+    // Apply personal preferences, fork metadata, favorites, and filter hidden items
+    const templatesWithCounts = templates
+      .filter((t: any) => !hiddenItemsSet.has(t.id)) // FILTRAR ITENS OCULTOS
+      .map((t: any) => {
+        const personalFolderId = personalPreferences.get(t.id);
+        const forkInfo = t.forked_from_template_id ? forkMetadata.get(t.forked_from_template_id) : null;
+        const isFavorite = favoritesSet.has(t.id);
+
+        return {
+          ...t,
+          folder_id: personalFolderId !== undefined ? personalFolderId : t.folder_id,
+          original_folder_id: t.folder_id, // Keep original for reference
+          has_personal_preference: personalFolderId !== undefined,
+          field_count: 0, // Placeholder to avoid JOIN
+          is_folder: t.is_category_folder,
+          // COMPLIANCE: Fork information for audit trail
+          is_fork: !!t.forked_from_template_id,
+          forked_from_template_id: t.forked_from_template_id || null,
+          fork_original_name: forkInfo?.original_name || null,
+          fork_original_created_by: forkInfo?.original_created_by || null,
+          // FAVORITOS: Indicador se está nos favoritos
+          is_favorite: isFavorite
+        };
+      });
 
     console.log(`[TEMPLATES] [PROD] Found ${templates.length} templates. Serializing...`);
 
@@ -481,14 +662,15 @@ checklistRoutes.post("/checklist-templates/:id/duplicate", tenantAuthMiddleware,
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
-    // Create duplicate template
+    // Create duplicate template (FORK) with audit trail
     const newName = `${originalTemplate.name} - Cópia`;
     const result = await env.DB.prepare(`
       INSERT INTO checklist_templates (
-        name, description, category, created_by, created_by_user_id, 
-        organization_id, is_public, parent_category_id,
+        name, description, category, created_by, created_by_user_id,
+        organization_id, is_public, parent_category_id, folder_id,
+        forked_from_template_id,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `).bind(
       newName,
       originalTemplate.description,
@@ -497,7 +679,9 @@ checklistRoutes.post("/checklist-templates/:id/duplicate", tenantAuthMiddleware,
       user.id,
       userProfile?.organization_id || null,
       false, // Copies are private by default
-      originalTemplate.parent_category_id
+      originalTemplate.parent_category_id,
+      originalTemplate.folder_id,
+      templateId  // COMPLIANCE: Rastreabilidade do fork
     ).run();
 
     const newTemplateId = result.meta.last_row_id as number;
@@ -537,9 +721,33 @@ checklistRoutes.post("/checklist-templates/:id/duplicate", tenantAuthMiddleware,
       console.log(`[DUPLICATE] Batch inserted ${fieldResults.length} fields for template ${newTemplateId}`);
     }
 
+    // COMPLIANCE: Log completo de auditoria para fork
+    await logActivity(env, {
+      userId: user.id,
+      orgId: userProfile?.organization_id || null,
+      actionType: 'FORK',
+      actionDescription: `Template forked: "${originalTemplate.name}" (ID: ${templateId}) → "${newName}" (ID: ${newTemplateId})`,
+      targetType: 'CHECKLIST_TEMPLATE',
+      targetId: newTemplateId,
+      metadata: {
+        original_template_id: templateId,
+        original_template_name: originalTemplate.name,
+        forked_template_id: newTemplateId,
+        forked_template_name: newName,
+        fields_copied: fieldResults.length,
+        created_by_user_id: user.id,
+        created_by_user_email: user.email
+      },
+      req: c.req
+    });
+
+    console.log(`[FORK-AUDIT] Template ${templateId} forked to ${newTemplateId} by user ${user.email}`);
+
     return c.json({
       id: newTemplateId,
-      message: "Template duplicated successfully"
+      message: "Template duplicated successfully",
+      forked_from: templateId,
+      audit_trail: true
     });
   } catch (error) {
     console.error('Error duplicating template:', error);
@@ -925,116 +1133,6 @@ IMPORTANTE:
   }
 });
 
-// Generate AI CSV - Universal Importer Route
-checklistRoutes.post("/checklist-templates/generate-ai-csv", tenantAuthMiddleware, aiRateLimitMiddleware('analysis'), async (c) => {
-  const env = c.env;
-  const user = c.get("user");
-
-  console.log('[AI-CSV] CSV Generation Route Hit');
-
-  if (!user) {
-    return c.json({ error: "User not found" }, 401);
-  }
-
-  try {
-    const body = await c.req.json();
-    const { text, images, context } = body;
-
-    // Check API keys
-    const openAiKey = env?.OPENAI_API_KEY || Deno.env.get('OPENAI_API_KEY');
-    const geminiKey = env?.GEMINI_API_KEY || Deno.env.get('GEMINI_API_KEY');
-
-    if (!openAiKey && !geminiKey) {
-      return c.json({
-        success: false,
-        error: "IA não configurada no sistema."
-      }, 500);
-    }
-
-    // SYSTEM PROMPT FOR CSV
-    const systemPrompt = \`Você é um especialista em Segurança do Trabalho e estruturação de dados.
-SUA TAREFA: Analisar o input (texto, imagem ou planilha) e converter para um CHECKLIST no formato CSV padrão do sistema.
-
-FORMATO CSV OBRIGATÓRIO (Cabeçalho + Dados):
-campo,tipo,obrigatorio,opcoes
-"Nome do Item","text","true",
-"Condição","select","true","Conforme|Não Conforme|N/A"
-
-REGRAS DE TIPOS DE CAMPO:
-- "text": Para nomes, localizações, identificadores.
-- "textarea": Para observações ou descrições (use para campos abertos).
-- "boolean": Para perguntas de Sim/Não ou Conforme/Não Conforme simples.
-- "select": Para listas. AS OPÇÕES DEVEM SER SEPARADAS POR PIPE (|). Ex: "Bom|Ruim".
-- "rating": Para avaliações de 1 a 5.
-- "date": Para datas.
-- "file": Para evidências (fotos/arquivos).
-
-DIRETRIZES:
-1. Se o input for uma imagem de um checklist físico, transcreva fielmente.
-2. Se o input for um texto descrevendo um processo, crie perguntas lógicas de segurança.
-3. Se for um PDF/Planilha convertido em texto, tente manter a estrutura original.
-4. "obrigatorio" deve ser "true" ou "false".
-5. REMOVA qualquer texto introdutório. RETORNE APENAS O CSV BRUTO.
-6. Use aspas duplas nos valores para evitar erros com vírgulas.
-\`;
-
-    // User Prompt Construction
-    let userPrompt = \`Contexto: \${context || 'Geral'}\n\n\`;
-    
-    if (text) {
-      userPrompt += \`Conteúdo para processar:\n\${text}\n\n\`;
-    }
-
-    if (images && images.length > 0) {
-      userPrompt += \`[O input contem \${images.length} imagens para análise visual]\n\`;
-    }
-
-    userPrompt += "Gere o CSV agora.";
-
-    // Fetch Settings
-    let preferredProvider: 'gemini' | 'openai' = 'gemini';
-    let fallbackEnabled = true;
-
-    try {
-        const settings = await env.DB.prepare("SELECT ai_primary_provider, ai_fallback_enabled FROM system_settings WHERE id = 'global'").first() as any;
-        if (settings) {
-            if (settings.ai_primary_provider === 'openai') preferredProvider = 'openai';
-            if (settings.ai_fallback_enabled === false || settings.ai_fallback_enabled === 0) fallbackEnabled = false;
-        }
-    } catch (e) { console.warn('Failed to fetch settings', e); }
-
-    // Call AI Service
-    const aiResult = await generateAICompletion(geminiKey, openAiKey, {
-      systemPrompt,
-      userPrompt,
-      images: images, // Pass images to updated service
-      maxTokens: 3000, 
-      temperature: 0.2
-    }, { preferredProvider, fallbackEnabled });
-
-    if (!aiResult.success) {
-      return c.json({ success: false, error: aiResult.error }, 500);
-    }
-
-    // Clean up result (remove markdown code blocks if present)
-    let csvContent = aiResult.content;
-    const codeBlockRegex = /\`\`\`csv([\s\S]*?)\`\`\`|\`\`\`([\s\S]*?)\`\`\`/i;
-    const match = csvContent.match(codeBlockRegex);
-    if (match) {
-        csvContent = match[1] || match[2];
-    }
-    
-    return c.json({
-      success: true,
-      csv: csvContent.trim()
-    });
-
-  } catch (error) {
-    console.error('[AI-CSV] Error:', error);
-    return c.json({ success: false, error: "Internal Server Error" }, 500);
-  }
-});
-
 // Save generated checklist
 checklistRoutes.post("/checklist-templates/save-generated", tenantAuthMiddleware, async (c) => {
   const env = c.env;
@@ -1081,12 +1179,12 @@ checklistRoutes.post("/checklist-templates/save-generated", tenantAuthMiddleware
     });
 
     const templateResult = await env.DB.prepare(`
-      INSERT INTO checklist_templates(
-      name, description, category, created_by, created_by_user_id,
-      organization_id, is_public, folder_id, created_at, updated_at
-    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      INSERT INTO checklist_templates (
+        name, description, category, created_by, created_by_user_id, 
+        organization_id, is_public, folder_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       RETURNING id
-      `).bind(
+    `).bind(
       template.name || 'Checklist sem nome',
       template.description || null,
       template.category || 'Geral',
@@ -1169,10 +1267,10 @@ checklistRoutes.post("/checklist-templates/save-generated", tenantAuthMiddleware
       console.log('[SAVE-GENERATED] Inserting field:', { fieldName, fieldType, isRequired, orderIndex });
 
       await env.DB.prepare(`
-        INSERT INTO checklist_fields(
-        template_id, field_name, field_type, is_required, options, order_index,
-        created_at, updated_at
-      ) VALUES(?, ?, ?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO checklist_fields (
+          template_id, field_name, field_type, is_required, options, order_index,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
       `).bind(
         templateId,
         fieldName,
@@ -1292,7 +1390,7 @@ checklistRoutes.post("/checklist-fields", tenantAuthMiddleware, async (c) => {
       // Se ainda não há opções, retornar erro
       if (validOptions.length === 0) {
         return c.json({
-          error: `Campo do tipo "${field_type}" requer pelo menos uma opção válida.Por favor, forneça as opções necessárias.`,
+          error: `Campo do tipo "${field_type}" requer pelo menos uma opção válida. Por favor, forneça as opções necessárias.`,
           field_type,
           suggested_options: ['Conforme', 'Não Conforme', 'Não Aplicável']
         }, 400);
@@ -1325,11 +1423,11 @@ checklistRoutes.post("/checklist-fields", tenantAuthMiddleware, async (c) => {
 
     // Create field
     await env.DB.prepare(`
-      INSERT INTO checklist_fields(
+      INSERT INTO checklist_fields (
         template_id, field_name, field_type, is_required, options, order_index,
         created_at, updated_at
-      ) VALUES(?, ?, ?, ?, ?, ?, NOW(), NOW())
-        `).bind(
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `).bind(
       template_id,
       field_name,
       field_type,
@@ -1362,12 +1460,12 @@ checklistRoutes.post("/checklist-templates/create-folder", tenantAuthMiddleware,
 
     // Create folder
     const result = await env.DB.prepare(`
-      INSERT INTO checklist_templates(
-          name, description, category, is_category_folder, folder_color, folder_icon,
-          parent_category_id, created_by, created_by_user_id, organization_id, is_public,
-          created_at, updated_at
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-          `).bind(
+      INSERT INTO checklist_templates (
+        name, description, category, is_category_folder, folder_color, folder_icon,
+        parent_category_id, created_by, created_by_user_id, organization_id, is_public,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `).bind(
       name,
       description || null,
       category,
@@ -1415,7 +1513,7 @@ checklistRoutes.post("/inspection-items/:itemId/pre-analysis", tenantAuthMiddlew
       FROM inspection_items ii
       JOIN inspections i ON ii.inspection_id = i.id
       WHERE ii.id = ?
-      `).bind(itemId).first() as any;
+    `).bind(itemId).first() as any;
 
     if (!item) {
       return c.json({ error: "Item de inspeção não encontrado" }, 404);
@@ -1432,48 +1530,48 @@ checklistRoutes.post("/inspection-items/:itemId/pre-analysis", tenantAuthMiddlew
         return acc;
       }, {});
 
-      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: ${ mediaTypes.image || 0 } foto(s), ${ mediaTypes.audio || 0 } áudio(s), ${ mediaTypes.video || 0 } vídeo(s) foram analisados.`;
+      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: ${mediaTypes.image || 0} foto(s), ${mediaTypes.audio || 0} áudio(s), ${mediaTypes.video || 0} vídeo(s) foram analisados.`;
     } else {
-      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: Nenhuma mídia(foto, áudio ou vídeo) foi anexada.Análise baseada apenas na resposta do inspetor.`;
+      mediaContext = `EVIDÊNCIAS DISPONÍVEIS: Nenhuma mídia (foto, áudio ou vídeo) foi anexada. Análise baseada apenas na resposta do inspetor.`;
     }
 
     // Create comprehensive and detailed prompt for deeper analysis
     const prompt = `Você é um especialista sênior em segurança do trabalho e saúde ocupacional, com vasta experiência em análise de conformidade regulatória e gestão de riscos.
 
 CONTEXTO DETALHADO DA INSPEÇÃO:
-    - Local da Inspeção: ${ item.location }
-    - Empresa Inspecionada: ${ item.company_name }
-    - Título da Inspeção: ${ item.inspection_title }
+- Local da Inspeção: ${item.location}
+- Empresa Inspecionada: ${item.company_name}
+- Título da Inspeção: ${item.inspection_title}
 
 ITEM ESPECÍFICO EM ANÁLISE:
-    - Campo Inspecionado: ${ field_name }
-    - Categoria do Item: ${ item.category }
-      - Descrição Completa do Item: ${ item.item_description }
-        - Resposta Fornecida pelo Inspetor: ${ response_value !== null && response_value !== undefined ? response_value : 'Não respondido' }
-    - Observações Adicionais do Inspetor: ${ item.observations || 'Nenhuma observação prévia' }
+- Campo Inspecionado: ${field_name}
+- Categoria do Item: ${item.category}
+- Descrição Completa do Item: ${item.item_description}
+- Resposta Fornecida pelo Inspetor: ${response_value !== null && response_value !== undefined ? response_value : 'Não respondido'}
+- Observações Adicionais do Inspetor: ${item.observations || 'Nenhuma observação prévia'}
 
-${ mediaContext }
+${mediaContext}
 
-${ user_prompt ? `FOCO PRINCIPAL FORNECIDO PELO USUÁRIO: ${user_prompt}. Priorize esta informação em sua análise detalhada.` : '' }
+${user_prompt ? `FOCO PRINCIPAL FORNECIDO PELO USUÁRIO: ${user_prompt}. Priorize esta informação em sua análise detalhada.` : ''}
 
 SUA TAREFA:
-Realize uma ** análise técnica aprofundada e abrangente ** deste item inspecionado considerando:
+Realize uma **análise técnica aprofundada e abrangente** deste item inspecionado considerando:
 
-    1. ** Observações Detalhadas **: Descreva minuciosamente o que foi observado e como se relaciona com as evidências disponíveis
-    2. ** Análise de Conformidade **: Avalie claramente se o item está conforme ou não conforme com as normas de segurança aplicáveis(cite NRs específicas quando relevante)
-    3. ** Identificação de Riscos **: Detalhe os riscos potenciais associados à condição atual do item, incluindo consequências de curto e longo prazo
-    4. ** Causa Raiz **: Identifique possíveis causas fundamentais da não conformidade(se aplicável)
-    5. ** Implicações Regulatórias **: Mencione possíveis implicações com órgãos fiscalizadores se relevante
-    6. ** Urgência e Prioridade **: Indique claramente a urgência de uma ação corretiva(Baixa, Média, Alta, Crítica) e justifique
-    7. ** Recomendação Específica **: Sugira claramente se uma ação corretiva é necessária e qual a natureza geral dessa ação
+1. **Observações Detalhadas**: Descreva minuciosamente o que foi observado e como se relaciona com as evidências disponíveis
+2. **Análise de Conformidade**: Avalie claramente se o item está conforme ou não conforme com as normas de segurança aplicáveis (cite NRs específicas quando relevante)
+3. **Identificação de Riscos**: Detalhe os riscos potenciais associados à condição atual do item, incluindo consequências de curto e longo prazo
+4. **Causa Raiz**: Identifique possíveis causas fundamentais da não conformidade (se aplicável)
+5. **Implicações Regulatórias**: Mencione possíveis implicações com órgãos fiscalizadores se relevante
+6. **Urgência e Prioridade**: Indique claramente a urgência de uma ação corretiva (Baixa, Média, Alta, Crítica) e justifique
+7. **Recomendação Específica**: Sugira claramente se uma ação corretiva é necessária e qual a natureza geral dessa ação
 
-Forneça uma análise estruturada e técnica(máximo 600 caracteres) em texto corrido simples.NÃO use markdown, asteriscos, negrito, itálico, listas ou qualquer formatação especial.Seja direto, objetivo e tecnicamente preciso.`;
+Forneça uma análise estruturada e técnica (máximo 600 caracteres) em texto corrido simples. NÃO use markdown, asteriscos, negrito, itálico, listas ou qualquer formatação especial. Seja direto, objetivo e tecnicamente preciso.`;
 
     // Call OpenAI API
     const openaiResponse = await globalThis.fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${ env.OPENAI_API_KEY } `,
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -1496,7 +1594,7 @@ Forneça uma análise estruturada e técnica(máximo 600 caracteres) em texto co
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text();
       console.error('OpenAI API Error:', openaiResponse.status, errorText);
-      throw new Error(`Erro na API da OpenAI: ${ openaiResponse.status } `);
+      throw new Error(`Erro na API da OpenAI: ${openaiResponse.status}`);
     }
 
     // Robust JSON parsing with HTML error handling
@@ -1527,34 +1625,34 @@ Forneça uma análise estruturada e técnica(máximo 600 caracteres) em texto co
       .replace(/\*\*/g, '')
       .replace(/\*/g, '')
       .replace(/#{1,6}\s/g, '')
-      .replace(/`/ g, '')
-  .replace(/^\s*-\s*/gm, '• ')
-  .replace(/\n{3,}/g, '\n\n')
-  .trim();
+      .replace(/`/g, '')
+      .replace(/^\s*-\s*/gm, '• ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
 
-// Update the inspection item with the analysis
-await env.DB.prepare(`
+    // Update the inspection item with the analysis
+    await env.DB.prepare(`
       UPDATE inspection_items 
       SET ai_pre_analysis = ?, updated_at = NOW()
       WHERE id = ?
     `).bind(cleanAnalysis, itemId).run();
 
-return c.json({
-  success: true,
-  analysis: cleanAnalysis,
-  pre_analysis: cleanAnalysis,
-  media_analyzed: hasMedia ? media_data.length : 0,
-  item_id: itemId,
-  timestamp: new Date().toISOString()
-});
+    return c.json({
+      success: true,
+      analysis: cleanAnalysis,
+      pre_analysis: cleanAnalysis,
+      media_analyzed: hasMedia ? media_data.length : 0,
+      item_id: itemId,
+      timestamp: new Date().toISOString()
+    });
 
   } catch (error) {
-  console.error('Error in pre-analysis:', error);
-  return c.json({
-    error: "Erro ao fazer pré-análise",
-    details: error instanceof Error ? error.message : "Erro desconhecido"
-  }, 500);
-}
+    console.error('Error in pre-analysis:', error);
+    return c.json({
+      error: "Erro ao fazer pré-análise",
+      details: error instanceof Error ? error.message : "Erro desconhecido"
+    }, 500);
+  }
 });
 
 // Generate field response with AI multimodal analysis
@@ -2516,6 +2614,592 @@ checklistRoutes.delete("/action-items/:id", tenantAuthMiddleware, async (c) => {
   } catch (error) {
     console.error('Error deleting action item:', error);
     return c.json({ error: "Erro ao excluir ação" }, 500);
+  }
+});
+
+// FAVORITOS: Adicionar checklist aos favoritos
+checklistRoutes.post("/checklist-templates/:id/favorite", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const templateId = parseInt(c.req.param("id"));
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    if (!userProfile?.organization_id) {
+      return c.json({ error: "Organização não encontrada" }, 400);
+    }
+
+    // Verificar se template existe e usuário tem acesso
+    const template = await env.DB.prepare(`
+      SELECT * FROM checklist_templates
+      WHERE id = ?
+        AND (
+          organization_id = ?
+          OR is_public = true
+          OR created_by_user_id = ?
+        )
+    `).bind(templateId, userProfile.organization_id, user.id).first();
+
+    if (!template) {
+      return c.json({ error: "Template não encontrado ou sem acesso" }, 404);
+    }
+
+    // Adicionar aos favoritos (ou ignorar se já existe devido ao UNIQUE constraint)
+    await env.DB.prepare(`
+      INSERT INTO user_favorites (user_id, organization_id, template_id, display_order, created_at)
+      VALUES (?, ?, ?, 0, NOW())
+      ON CONFLICT (user_id, template_id) DO NOTHING
+    `).bind(user.id, userProfile.organization_id, templateId).run();
+
+    return c.json({
+      message: "Checklist adicionado aos favoritos",
+      template_id: templateId
+    });
+
+  } catch (error) {
+    console.error('[FAVORITES] Error adding favorite:', error);
+    return c.json({
+      error: "Erro ao adicionar favorito",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// FAVORITOS: Remover checklist dos favoritos
+checklistRoutes.delete("/checklist-templates/:id/favorite", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const templateId = parseInt(c.req.param("id"));
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    await env.DB.prepare(`
+      DELETE FROM user_favorites
+      WHERE user_id = ? AND template_id = ?
+    `).bind(user.id, templateId).run();
+
+    return c.json({
+      message: "Checklist removido dos favoritos",
+      template_id: templateId
+    });
+
+  } catch (error) {
+    console.error('[FAVORITES] Error removing favorite:', error);
+    return c.json({
+      error: "Erro ao remover favorito",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// FAVORITOS: Listar favoritos do usuário
+checklistRoutes.get("/favorites", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    // Buscar favoritos com informações do template
+    const result = await env.DB.prepare(`
+      SELECT
+        uf.id as favorite_id,
+        uf.template_id,
+        uf.display_order,
+        uf.created_at as favorited_at,
+        ct.name,
+        ct.description,
+        ct.category,
+        ct.created_by,
+        ct.created_by_user_id,
+        ct.organization_id,
+        ct.is_public,
+        ct.folder_id,
+        ct.forked_from_template_id,
+        ct.is_category_folder
+      FROM user_favorites uf
+      JOIN checklist_templates ct ON uf.template_id = ct.id
+      WHERE uf.user_id = ?
+      ORDER BY uf.display_order ASC, uf.created_at DESC
+    `).bind(user.id).all();
+
+    const favorites = result.results || [];
+
+    return c.json({
+      total: favorites.length,
+      favorites: safeJson(favorites)
+    });
+
+  } catch (error) {
+    console.error('[FAVORITES] Error listing favorites:', error);
+    return c.json({
+      error: "Erro ao listar favoritos",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// COMPLIANCE: Fork Audit Report
+// Endpoint para gerar relatórios de auditoria de forks para compliance
+checklistRoutes.get("/audit/forks", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    // Apenas sysadmins e org_admins podem acessar relatórios de auditoria
+    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
+      userProfile?.role === 'sys_admin' ||
+      userProfile?.role === 'admin';
+    const isOrgAdmin = userProfile?.role === USER_ROLES.ORG_ADMIN;
+
+    if (!isSysAdmin && !isOrgAdmin) {
+      return c.json({ error: "Acesso negado. Apenas administradores podem acessar relatórios de auditoria." }, 403);
+    }
+
+    // Query para buscar todos os forks e seus originais
+    let query = `
+      SELECT
+        fork.id as fork_id,
+        fork.name as fork_name,
+        fork.created_by as fork_created_by,
+        fork.created_by_user_id as fork_user_id,
+        fork.created_at as fork_created_at,
+        fork.organization_id as fork_org_id,
+        original.id as original_id,
+        original.name as original_name,
+        original.created_by as original_created_by,
+        original.created_by_user_id as original_user_id,
+        original.organization_id as original_org_id,
+        (SELECT COUNT(*) FROM checklist_fields WHERE template_id = fork.id) as fork_field_count,
+        (SELECT COUNT(*) FROM checklist_fields WHERE template_id = original.id) as original_field_count
+      FROM checklist_templates fork
+      LEFT JOIN checklist_templates original ON fork.forked_from_template_id = original.id
+      WHERE fork.forked_from_template_id IS NOT NULL
+    `;
+
+    const params: any[] = [];
+
+    // Filtrar por organização se não for sysadmin
+    if (!isSysAdmin && userProfile?.organization_id) {
+      query += ` AND fork.organization_id = ?`;
+      params.push(userProfile.organization_id);
+    }
+
+    query += ` ORDER BY fork.created_at DESC`;
+
+    const result = await env.DB.prepare(query).bind(...params).all();
+    const forks = result.results || [];
+
+    // Buscar logs de auditoria relacionados aos forks
+    const auditLogs: any[] = [];
+    if (forks.length > 0) {
+      const forkIds = forks.map((f: any) => f.fork_id);
+      const placeholders = forkIds.map(() => '?').join(',');
+
+      const logsQuery = `
+        SELECT * FROM activity_logs
+        WHERE action_type = 'FORK'
+          AND target_type = 'CHECKLIST_TEMPLATE'
+          AND target_id IN (${placeholders})
+        ORDER BY created_at DESC
+      `;
+
+      const logsResult = await env.DB.prepare(logsQuery).bind(...forkIds).all();
+      auditLogs.push(...(logsResult.results || []));
+    }
+
+    return c.json({
+      total_forks: forks.length,
+      forks: safeJson(forks),
+      audit_logs: safeJson(auditLogs),
+      generated_at: new Date().toISOString(),
+      generated_by: user.email,
+      organization_id: userProfile?.organization_id || null
+    });
+
+  } catch (error) {
+    console.error('[AUDIT-FORKS] Error generating fork audit report:', error);
+    return c.json({
+      error: "Erro ao gerar relatório de auditoria",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// FALLBACK INTELIGENTE: Tenta editar globalmente, se falhar cria fork
+checklistRoutes.put("/checklist-templates/:id/smart", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const templateId = parseInt(c.req.param("id"));
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { name, description, category, is_public, folder_id } = body;
+
+    const template = await env.DB.prepare("SELECT * FROM checklist_templates WHERE id = ?").bind(templateId).first() as any;
+
+    if (!template) {
+      return c.json({ error: "Template not found" }, 404);
+    }
+
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
+                       userProfile?.role === 'sys_admin' ||
+                       userProfile?.role === 'admin';
+
+    const isOwner = template.created_by_user_id === user.id;
+    const isSameOrg = template.organization_id === userProfile?.organization_id;
+
+    // Verificar se pode editar globalmente
+    const canEditGlobally = isSysAdmin || isOwner || (isSameOrg && (userProfile?.role === 'org_admin' || userProfile?.role === 'manager'));
+
+    if (canEditGlobally) {
+      // TENTAR EDITAR GLOBALMENTE
+      try {
+        await env.DB.prepare(`
+          UPDATE checklist_templates
+          SET name = ?, description = ?, category = ?, is_public = ?, folder_id = ?, updated_at = NOW()
+          WHERE id = ?
+        `).bind(name, description, category, is_public, folder_id || null, templateId).run();
+
+        await logActivity(env, {
+          userId: user.id,
+          orgId: template.organization_id,
+          actionType: 'UPDATE',
+          actionDescription: `Checklist Template Updated (Global): ${name || template.name}`,
+          targetType: 'CHECKLIST_TEMPLATE',
+          targetId: templateId,
+          metadata: { name, mode: 'global' },
+          req: c.req
+        });
+
+        console.log(`[SMART-EDIT] Global edit successful for template ${templateId}`);
+
+        return c.json({
+          message: "Template updated successfully (global)",
+          mode: "global",
+          template_id: templateId
+        });
+
+      } catch (globalErr) {
+        console.error(`[SMART-EDIT] Global edit failed for template ${templateId}, creating fork`, globalErr);
+
+        // FALLBACK: Criar fork
+        const result = await env.DB.prepare(`
+          INSERT INTO checklist_templates (
+            name, description, category, created_by, created_by_user_id,
+            organization_id, is_public, parent_category_id, folder_id,
+            forked_from_template_id,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        `).bind(
+          name,
+          description,
+          category,
+          user.google_user_data?.name || user.email,
+          user.id,
+          userProfile?.organization_id || null,
+          false,
+          template.parent_category_id,
+          folder_id || null,
+          templateId
+        ).run();
+
+        const newTemplateId = result.meta.last_row_id as number;
+
+        // Copiar campos
+        const fields = await env.DB.prepare("SELECT * FROM checklist_fields WHERE template_id = ?").bind(templateId).all();
+        if (fields.results && fields.results.length > 0) {
+          for (const field of fields.results) {
+            await env.DB.prepare(`
+              INSERT INTO checklist_fields (template_id, field_name, field_type, is_required, options, order_index, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+            `).bind(newTemplateId, (field as any).field_name, (field as any).field_type, (field as any).is_required, (field as any).options, (field as any).order_index).run();
+          }
+        }
+
+        await logActivity(env, {
+          userId: user.id,
+          orgId: userProfile?.organization_id || null,
+          actionType: 'FORK',
+          actionDescription: `Template forked (edit fallback): "${template.name}" (ID: ${templateId}) → "${name}" (ID: ${newTemplateId})`,
+          targetType: 'CHECKLIST_TEMPLATE',
+          targetId: newTemplateId,
+          metadata: {
+            original_template_id: templateId,
+            forked_template_id: newTemplateId,
+            reason: 'global_edit_failed'
+          },
+          req: c.req
+        });
+
+        return c.json({
+          message: "Created personal copy (fork) with your changes",
+          mode: "fork",
+          template_id: newTemplateId,
+          original_id: templateId,
+          note: "Could not edit original, created your own copy"
+        });
+      }
+
+    } else {
+      // SEM PERMISSÃO GLOBAL: Criar fork automaticamente
+      const result = await env.DB.prepare(`
+        INSERT INTO checklist_templates (
+          name, description, category, created_by, created_by_user_id,
+          organization_id, is_public, parent_category_id, folder_id,
+          forked_from_template_id,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `).bind(
+        name,
+        description,
+        category,
+        user.google_user_data?.name || user.email,
+        user.id,
+        userProfile?.organization_id || null,
+        false,
+        template.parent_category_id,
+        folder_id || null,
+        templateId
+      ).run();
+
+      const newTemplateId = result.meta.last_row_id as number;
+
+      // Copiar campos
+      const fields = await env.DB.prepare("SELECT * FROM checklist_fields WHERE template_id = ?").bind(templateId).all();
+      if (fields.results && fields.results.length > 0) {
+        for (const field of fields.results) {
+          await env.DB.prepare(`
+            INSERT INTO checklist_fields (template_id, field_name, field_type, is_required, options, order_index, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+          `).bind(newTemplateId, (field as any).field_name, (field as any).field_type, (field as any).is_required, (field as any).options, (field as any).order_index).run();
+        }
+      }
+
+      await logActivity(env, {
+        userId: user.id,
+        orgId: userProfile?.organization_id || null,
+        actionType: 'FORK',
+        actionDescription: `Template forked (no permission): "${template.name}" (ID: ${templateId}) → "${name}" (ID: ${newTemplateId})`,
+        targetType: 'CHECKLIST_TEMPLATE',
+        targetId: newTemplateId,
+        metadata: {
+          original_template_id: templateId,
+          forked_template_id: newTemplateId,
+          reason: 'no_permission'
+        },
+        req: c.req
+      });
+
+      console.log(`[SMART-EDIT] Fork created for template ${templateId} → ${newTemplateId} (no permission)`);
+
+      return c.json({
+        message: "Created personal copy (fork) with your changes",
+        mode: "fork",
+        template_id: newTemplateId,
+        original_id: templateId,
+        note: "You don't have permission to edit original"
+      });
+    }
+
+  } catch (error) {
+    console.error('[SMART-EDIT] Error:', error);
+    return c.json({
+      error: "Failed to update template",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// FALLBACK INTELIGENTE: Tenta excluir globalmente, se falhar usa soft delete pessoal
+checklistRoutes.delete("/checklist-templates/:id/smart", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const templateId = parseInt(c.req.param("id"));
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    const template = await env.DB.prepare("SELECT * FROM checklist_templates WHERE id = ?").bind(templateId).first() as any;
+
+    if (!template) {
+      return c.json({ error: "Template not found" }, 404);
+    }
+
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    const isSysAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
+                       userProfile?.role === 'sys_admin' ||
+                       userProfile?.role === 'admin';
+
+    const isOwner = template.created_by_user_id === user.id;
+    const isSameOrg = template.organization_id === userProfile?.organization_id;
+
+    // Verificar se pode excluir globalmente
+    const canDeleteGlobally = isSysAdmin || isOwner || (isSameOrg && (userProfile?.role === 'org_admin' || userProfile?.role === 'manager'));
+
+    if (canDeleteGlobally) {
+      // TENTAR EXCLUIR GLOBALMENTE
+      try {
+        await env.DB.prepare("DELETE FROM checklist_fields WHERE template_id = ?").bind(templateId).run();
+        await env.DB.prepare("DELETE FROM checklist_templates WHERE id = ?").bind(templateId).run();
+
+        await logActivity(env, {
+          userId: user.id,
+          orgId: template.organization_id,
+          actionType: 'DELETE',
+          actionDescription: `Checklist Template Deleted (Global): ${template.name}`,
+          targetType: 'CHECKLIST_TEMPLATE',
+          targetId: templateId,
+          metadata: { name: template.name, mode: 'global' },
+          req: c.req
+        });
+
+        console.log(`[SMART-DELETE] Global delete successful for template ${templateId}`);
+
+        return c.json({
+          message: "Template deleted successfully (global)",
+          mode: "global",
+          template_id: templateId
+        });
+
+      } catch (globalErr) {
+        console.error(`[SMART-DELETE] Global delete failed for template ${templateId}, falling back to personal hide`, globalErr);
+
+        // FALLBACK: Ocultar pessoalmente
+        await env.DB.prepare(`
+          INSERT INTO user_hidden_items
+            (user_id, organization_id, item_type, item_id, hidden_at, reason)
+          VALUES (?, ?, 'template', ?, NOW(), 'Failed global delete, personal hide')
+          ON CONFLICT (user_id, item_type, item_id) DO NOTHING
+        `).bind(user.id, userProfile?.organization_id || null, templateId).run();
+
+        await logActivity(env, {
+          userId: user.id,
+          orgId: template.organization_id,
+          actionType: 'HIDE',
+          actionDescription: `Checklist Template Hidden (Personal): ${template.name}`,
+          targetType: 'CHECKLIST_TEMPLATE',
+          targetId: templateId,
+          metadata: { name: template.name, mode: 'personal', reason: 'global_delete_failed' },
+          req: c.req
+        });
+
+        return c.json({
+          message: "Template hidden from your view (personal)",
+          mode: "personal",
+          template_id: templateId,
+          note: "Could not delete globally, hidden for you only"
+        });
+      }
+
+    } else {
+      // SEM PERMISSÃO GLOBAL: Apenas ocultar pessoalmente
+      await env.DB.prepare(`
+        INSERT INTO user_hidden_items
+          (user_id, organization_id, item_type, item_id, hidden_at, reason)
+        VALUES (?, ?, 'template', ?, NOW(), 'No permission for global delete')
+        ON CONFLICT (user_id, item_type, item_id) DO NOTHING
+      `).bind(user.id, userProfile?.organization_id || null, templateId).run();
+
+      await logActivity(env, {
+        userId: user.id,
+        orgId: template.organization_id,
+        actionType: 'HIDE',
+        actionDescription: `Checklist Template Hidden (Personal): ${template.name}`,
+        targetType: 'CHECKLIST_TEMPLATE',
+        targetId: templateId,
+        metadata: { name: template.name, mode: 'personal', reason: 'no_permission' },
+        req: c.req
+      });
+
+      console.log(`[SMART-DELETE] Personal hide for template ${templateId} (no global permission)`);
+
+      return c.json({
+        message: "Template hidden from your view (personal)",
+        mode: "personal",
+        template_id: templateId,
+        note: "You don't have permission to delete globally"
+      });
+    }
+
+  } catch (error) {
+    console.error('[SMART-DELETE] Error:', error);
+    return c.json({
+      error: "Failed to delete template",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// RESTAURAR item oculto (desfazer soft delete pessoal)
+checklistRoutes.post("/checklist-templates/:id/unhide", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const templateId = parseInt(c.req.param("id"));
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    await env.DB.prepare(`
+      DELETE FROM user_hidden_items
+      WHERE user_id = ? AND item_type = 'template' AND item_id = ?
+    `).bind(user.id, templateId).run();
+
+    return c.json({
+      message: "Template restored to your view",
+      template_id: templateId
+    });
+
+  } catch (error) {
+    console.error('[UNHIDE] Error:', error);
+    return c.json({
+      error: "Failed to restore template",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
   }
 });
 

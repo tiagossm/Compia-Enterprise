@@ -739,7 +739,7 @@ async function deleteFolder(db: any, folderId: string) {
 }
 
 // Mover itens em lote (requires checklist:folders:write scope)
-checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, async (c) => {
+checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, requireScopes(SCOPES.CHECKLIST_FOLDERS_WRITE), async (c) => {
   const env = c.env;
   const user = c.get("user");
   const targetFolderId = c.req.param("id");
@@ -758,101 +758,342 @@ checklistFoldersRoutes.post("/folders/:id/move-items", tenantAuthMiddleware, asy
       userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
     }
 
+    console.log(`[MOVE-ITEMS] User: ${user.email}, Role: ${userProfile?.role}, OrgId: ${userProfile?.organization_id}`);
+
     // Verificar se pasta destino existe (pode ser null para raiz)
-    if (targetFolderId && targetFolderId !== 'null' && targetFolderId !== 'undefined') {
-      const targetFolder = await env.DB.prepare(`
-        SELECT id FROM checklist_folders 
-        WHERE id = ? AND (organization_id = ? OR organization_id IS NULL)
-      `).bind(targetFolderId, userProfile?.organization_id || null).first();
+    if (targetFolderId && targetFolderId !== 'null') {
+      // SYSADMIN pode mover para qualquer pasta, não filtrar por organization
+      const isSysAdmin = userProfile?.role === 'sysadmin' ||
+                         userProfile?.role === 'sys_admin' ||
+                         userProfile?.role === 'admin';
+
+      console.log(`[MOVE-ITEMS] Is SysAdmin: ${isSysAdmin}, Target Folder: ${targetFolderId}`);
+
+      let targetFolderQuery = `SELECT id FROM checklist_folders WHERE id = ?`;
+      let targetFolderParams = [targetFolderId];
+
+      if (!isSysAdmin && userProfile?.organization_id) {
+        targetFolderQuery += ` AND organization_id = ?`;
+        targetFolderParams.push(userProfile.organization_id);
+      }
+
+      const targetFolder = await env.DB.prepare(targetFolderQuery).bind(...targetFolderParams).first();
 
       if (!targetFolder) {
-        return c.json({
-          error: `Pasta destino não encontrada. ID: ${targetFolderId}, Org: ${userProfile?.organization_id}`
-        }, 404);
+        return c.json({ error: "Pasta destino não encontrada" }, 404);
       }
     }
 
     const finalTargetId = (targetFolderId === 'null') ? null : targetFolderId;
     let movedCount = 0;
 
-    const isAdmin = userProfile?.role === USER_ROLES.SYSTEM_ADMIN ||
-      userProfile?.role === 'sys_admin' ||
-      userProfile?.role === 'admin';
+    // SYSADMIN pode mover qualquer template, não filtrar por organization
+    const isSysAdmin = userProfile?.role === 'sysadmin' ||
+                       userProfile?.role === 'sys_admin' ||
+                       userProfile?.role === 'admin';
 
     // Mover templates
     if (templateIds.length > 0) {
       for (const templateId of templateIds) {
-        if (isAdmin) {
-          const result = await env.DB.prepare(`
-            UPDATE checklist_templates 
-            SET folder_id = ?, updated_at = NOW()
-            WHERE id = ? AND organization_id = ?
-          `).bind(finalTargetId, templateId, userProfile?.organization_id || null).run();
+        let updateQuery = `
+          UPDATE checklist_templates
+          SET folder_id = ?, updated_at = NOW()
+          WHERE id = ?
+        `;
+        let updateParams = [finalTargetId, templateId];
 
-          movedCount += result.meta.changes || 0;
-        } else {
-          const result = await env.DB.prepare(`
-            INSERT INTO user_checklist_layout (
-              user_id, checklist_template_id, folder_id, display_order, created_at, updated_at
-            ) VALUES (?, ?, ?, 0, NOW(), NOW())
-            ON CONFLICT (user_id, checklist_template_id)
-            DO UPDATE SET folder_id = EXCLUDED.folder_id, updated_at = NOW()
-          `).bind(user.id, templateId, finalTargetId).run();
-
-          movedCount += result.meta.changes || 0;
+        if (!isSysAdmin && userProfile?.organization_id) {
+          updateQuery += ` AND organization_id = ?`;
+          updateParams.push(userProfile.organization_id);
         }
+
+        const result = await env.DB.prepare(updateQuery).bind(...updateParams).run();
+        movedCount += result.meta.changes || 0;
       }
     }
 
-    // Mover pastas (somente system admin). Para outros, ignorar silently.
+    // Mover pastas
     if (folderIds.length > 0) {
-      if (isAdmin) {
-        for (const folderId of folderIds) {
-          // Verificar se não está tentando mover para dentro de si mesma
-          if (finalTargetId) {
-            let currentParent = finalTargetId;
-            let isCycle = false;
+      for (const folderId of folderIds) {
+        // Verificar se não está tentando mover para dentro de si mesma
+        if (finalTargetId) {
+          let currentParent = finalTargetId;
+          let isCycle = false;
 
-            while (currentParent && !isCycle) {
-              if (currentParent === folderId) {
-                isCycle = true;
-                break;
-              }
-
-              const parent = await env.DB.prepare("SELECT parent_id FROM checklist_folders WHERE id = ?")
-                .bind(currentParent).first() as any;
-              currentParent = parent?.parent_id;
+          while (currentParent && !isCycle) {
+            if (currentParent === folderId) {
+              isCycle = true;
+              break;
             }
 
-            if (isCycle) {
-              continue; // Pular esta pasta para evitar ciclo
-            }
+            const parent = await env.DB.prepare("SELECT parent_id FROM checklist_folders WHERE id = ?")
+              .bind(currentParent).first() as any;
+            currentParent = parent?.parent_id;
           }
 
-          const result = await env.DB.prepare(`
-            UPDATE checklist_folders 
-            SET parent_id = ?, updated_at = NOW()
-            WHERE id = ? AND organization_id = ?
-          `).bind(finalTargetId, folderId, userProfile?.organization_id || null).run();
-
-          if (result.meta.changes && result.meta.changes > 0) {
-            // Atualizar paths em cascata
-            await updateFolderPaths(env.DB, folderId);
-            movedCount += result.meta.changes;
+          if (isCycle) {
+            continue; // Pular esta pasta para evitar ciclo
           }
+        }
+
+        let updateFolderQuery = `
+          UPDATE checklist_folders
+          SET parent_id = ?, updated_at = NOW()
+          WHERE id = ?
+        `;
+        let updateFolderParams = [finalTargetId, folderId];
+
+        if (!isSysAdmin && userProfile?.organization_id) {
+          updateFolderQuery += ` AND organization_id = ?`;
+          updateFolderParams.push(userProfile.organization_id);
+        }
+
+        const result = await env.DB.prepare(updateFolderQuery).bind(...updateFolderParams).run();
+
+        if (result.meta.changes && result.meta.changes > 0) {
+          // Atualizar paths em cascata
+          await updateFolderPaths(env.DB, folderId);
+          movedCount += result.meta.changes;
         }
       }
     }
 
     return c.json({
       message: `${movedCount} itens movidos com sucesso`,
-      moved_count: movedCount,
-      mode: isAdmin ? 'global' : 'user_layout'
+      moved_count: movedCount
     });
 
   } catch (error) {
     console.error('Error moving items:', error);
     return c.json({ error: "Failed to move items" }, 500);
+  }
+});
+
+// Mover itens pessoalmente (sem afetar outros usuários)
+// Este endpoint permite que inspetores e org_admins organizem checklists em pastas
+// sem modificar o folder_id original - apenas cria preferências pessoais
+checklistFoldersRoutes.post("/folders/:id/move-items-personal", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const targetFolderId = c.req.param("id");
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { templateIds = [], folderIds = [] } = body;
+
+    // Buscar perfil do usuário
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    if (!userProfile?.organization_id) {
+      return c.json({ error: "Organização não encontrada" }, 400);
+    }
+
+    // Verificar se pasta destino existe (pode ser null para raiz)
+    if (targetFolderId && targetFolderId !== 'null') {
+      const targetFolder = await env.DB.prepare(`
+        SELECT id FROM checklist_folders
+        WHERE id = ? AND organization_id = ?
+      `).bind(targetFolderId, userProfile.organization_id).first();
+
+      if (!targetFolder) {
+        return c.json({ error: "Pasta destino não encontrada" }, 404);
+      }
+    }
+
+    const finalTargetId = (targetFolderId === 'null') ? null : targetFolderId;
+    let movedCount = 0;
+
+    // Mover templates (criar/atualizar preferências pessoais)
+    if (templateIds.length > 0) {
+      for (const templateId of templateIds) {
+        // Verificar se template existe e pertence à organização
+        const template = await env.DB.prepare(`
+          SELECT id FROM checklist_templates
+          WHERE id = ? AND organization_id = ?
+        `).bind(templateId, userProfile.organization_id).first();
+
+        if (!template) {
+          continue; // Pular se não encontrar
+        }
+
+        // Upsert preferência pessoal
+        await env.DB.prepare(`
+          INSERT INTO user_folder_preferences
+            (user_id, organization_id, item_type, item_id, personal_folder_id, created_at, updated_at)
+          VALUES (?, ?, 'template', ?, ?, NOW(), NOW())
+          ON CONFLICT (user_id, organization_id, item_type, item_id)
+          DO UPDATE SET
+            personal_folder_id = EXCLUDED.personal_folder_id,
+            updated_at = NOW()
+        `).bind(user.id, userProfile.organization_id, templateId, finalTargetId).run();
+
+        movedCount++;
+      }
+    }
+
+    // Mover pastas (criar/atualizar preferências pessoais)
+    if (folderIds.length > 0) {
+      for (const folderId of folderIds) {
+        // Verificar se pasta existe e pertence à organização
+        const folder = await env.DB.prepare(`
+          SELECT id FROM checklist_folders
+          WHERE id = ? AND organization_id = ?
+        `).bind(folderId, userProfile.organization_id).first();
+
+        if (!folder) {
+          continue; // Pular se não encontrar
+        }
+
+        // Verificar se não está tentando mover para dentro de si mesma
+        if (finalTargetId && finalTargetId === folderId) {
+          continue; // Pular ciclo direto
+        }
+
+        // Upsert preferência pessoal
+        await env.DB.prepare(`
+          INSERT INTO user_folder_preferences
+            (user_id, organization_id, item_type, item_id, personal_folder_id, created_at, updated_at)
+          VALUES (?, ?, 'folder', ?, ?, NOW(), NOW())
+          ON CONFLICT (user_id, organization_id, item_type, item_id)
+          DO UPDATE SET
+            personal_folder_id = EXCLUDED.personal_folder_id,
+            updated_at = NOW()
+        `).bind(user.id, userProfile.organization_id, folderId, finalTargetId).run();
+
+        movedCount++;
+      }
+    }
+
+    return c.json({
+      message: `${movedCount} itens organizados pessoalmente com sucesso`,
+      moved_count: movedCount,
+      personal: true
+    });
+
+  } catch (error) {
+    console.error('Error moving items personally:', error);
+    return c.json({
+      error: "Failed to move items personally",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// FALLBACK INTELIGENTE: Tenta mover globalmente, se falhar usa pessoal
+checklistFoldersRoutes.post("/folders/:id/move-items-smart", tenantAuthMiddleware, async (c) => {
+  const env = c.env;
+  const user = c.get("user");
+  const targetFolderId = c.req.param("id");
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { templateIds = [], folderIds = [] } = body;
+
+    // Buscar perfil do usuário
+    let userProfile = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first() as any;
+    if (!userProfile && (user as any).profile) {
+      userProfile = { ...(user as any).profile, id: user.id, email: user.email, name: (user as any).name };
+    }
+
+    if (!userProfile?.organization_id) {
+      return c.json({ error: "Organização não encontrada" }, 400);
+    }
+
+    const isSysAdmin = userProfile?.role === 'sysadmin' ||
+                       userProfile?.role === 'sys_admin' ||
+                       userProfile?.role === 'admin';
+
+    const hasWritePermission = isSysAdmin ||
+                               userProfile?.role === 'org_admin' ||
+                               userProfile?.role === 'manager';
+
+    let globalMoves = 0;
+    let personalMoves = 0;
+    const finalTargetId = (targetFolderId === 'null') ? null : targetFolderId;
+
+    // Mover templates
+    for (const templateId of templateIds) {
+      const template = await env.DB.prepare(`
+        SELECT * FROM checklist_templates WHERE id = ?
+      `).bind(templateId).first() as any;
+
+      if (!template) continue;
+
+      // Verificar se pode mover globalmente
+      const canMoveGlobally = isSysAdmin ||
+                             template.created_by_user_id === user.id ||
+                             (hasWritePermission && template.organization_id === userProfile.organization_id);
+
+      if (canMoveGlobally) {
+        // TENTAR MOVER GLOBALMENTE
+        try {
+          await env.DB.prepare(`
+            UPDATE checklist_templates
+            SET folder_id = ?, updated_at = NOW()
+            WHERE id = ?
+          `).bind(finalTargetId, templateId).run();
+
+          globalMoves++;
+          console.log(`[SMART-MOVE] Global move successful for template ${templateId}`);
+        } catch (globalErr) {
+          console.error(`[SMART-MOVE] Global move failed for template ${templateId}, falling back to personal`, globalErr);
+          // FALLBACK: Mover pessoalmente
+          await env.DB.prepare(`
+            INSERT INTO user_folder_preferences
+              (user_id, organization_id, item_type, item_id, personal_folder_id, created_at, updated_at)
+            VALUES (?, ?, 'template', ?, ?, NOW(), NOW())
+            ON CONFLICT (user_id, organization_id, item_type, item_id)
+            DO UPDATE SET
+              personal_folder_id = EXCLUDED.personal_folder_id,
+              updated_at = NOW()
+          `).bind(user.id, userProfile.organization_id, templateId, finalTargetId).run();
+
+          personalMoves++;
+        }
+      } else {
+        // SEM PERMISSÃO GLOBAL: Mover apenas pessoalmente
+        await env.DB.prepare(`
+          INSERT INTO user_folder_preferences
+            (user_id, organization_id, item_type, item_id, personal_folder_id, created_at, updated_at)
+          VALUES (?, ?, 'template', ?, ?, NOW(), NOW())
+          ON CONFLICT (user_id, organization_id, item_type, item_id)
+          DO UPDATE SET
+            personal_folder_id = EXCLUDED.personal_folder_id,
+            updated_at = NOW()
+        `).bind(user.id, userProfile.organization_id, templateId, finalTargetId).run();
+
+        personalMoves++;
+        console.log(`[SMART-MOVE] Personal move for template ${templateId} (no global permission)`);
+      }
+    }
+
+    const totalMoves = globalMoves + personalMoves;
+
+    return c.json({
+      message: `${totalMoves} itens movidos com sucesso`,
+      global_moves: globalMoves,
+      personal_moves: personalMoves,
+      total_moves: totalMoves,
+      mode: globalMoves > 0 ? (personalMoves > 0 ? 'mixed' : 'global') : 'personal'
+    });
+
+  } catch (error) {
+    console.error('[SMART-MOVE] Error:', error);
+    return c.json({
+      error: "Failed to move items",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
   }
 });
 

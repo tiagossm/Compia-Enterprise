@@ -27,6 +27,7 @@
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
     "lucide-react": "^0.469.0",
+    "mammoth": "^1.11.0",
     "openai": "^4.77.0",
     "pdfjs-dist": "^5.4.530",
     "postgres": "^3.4.8",
