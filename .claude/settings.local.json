@@ -14,7 +14,12 @@
       "Bash(git pull:*)",
       "Bash(git merge:*)",
       "WebFetch(domain:github.com)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__a516e8a1-f9de-4f41-bc52-e0d0b50c6438__get_logs",
+      "Bash(supabase functions deploy:*)",
+      "Bash(supabase migration up:*)",
+      "Bash(curl:*)",
+      "Bash(vercel:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

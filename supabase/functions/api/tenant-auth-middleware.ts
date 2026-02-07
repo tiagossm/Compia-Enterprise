@@ -303,11 +303,13 @@ export async function tenantAuthMiddleware(c: Context, next: Next) {
         await next();
     } finally {
         // RLS: Limpar variável de sessão para evitar vazamento em conexões reutilizadas
+        // IMPORTANTE: Não resetar 'role' para string vazia pois causa erro "role '' does not exist"
+        // As session variables com escopo 'true' são automaticamente limpas no fim da transação
         try {
             if (env.DB) {
-                // Reset usando padrão Supabase
+                // Reset usando padrão Supabase - removido reset de 'role' para evitar erro
                 await env.DB.prepare("SELECT set_config('request.jwt.claim.sub', '', true)").bind().run();
-                await env.DB.prepare("SELECT set_config('role', '', true)").bind().run();
+                // await env.DB.prepare("SELECT set_config('role', '', true)").bind().run(); // REMOVIDO - causa erro
             }
         } catch (e) {
             console.error("[TENANT-AUTH] Erro ao limpar RLS session:", e);

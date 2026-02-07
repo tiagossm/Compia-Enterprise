@@ -11,9 +11,12 @@ import {
   RefreshCw,
   AlertCircle,
   Copy,
-  Upload
+  Upload,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { convertFileToCSV, validateCompiaCSV } from '@/react-app/utils/file-to-csv-converter';
 
 // Define worker globally if possible or setting dynamically
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -142,44 +145,44 @@ export default function AIChecklistGenerator() {
     return { seconds: totalSeconds, label, speed };
   };
 
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      setError('Por favor, selecione um arquivo PDF.');
-      return;
-    }
 
     setGenerating(true);
     setError('');
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
+      console.log(`[FILE-UPLOAD] Processing ${file.name}`);
 
-      console.log(`PDF carregado: ${pdf.numPages} páginas`);
+      // Converte arquivo para CSV ou texto
+      const convertedData = await convertFileToCSV(file);
 
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        fullText += pageText + '\n\n';
+      // Valida se é CSV válido
+      const validation = validateCompiaCSV(convertedData);
+
+      if (validation.valid) {
+        // CSV válido - usar diretamente
+        console.log('[FILE-UPLOAD] Valid CSV detected, using directly');
+        setFormData(prev => ({
+          ...prev,
+          specific_requirements: convertedData,
+          template_name: file.name.replace(/\.[^.]+$/, '') // Remove extensão
+        }));
+      } else {
+        // Texto bruto (PDF, Word) - enviar para IA processar
+        console.log('[FILE-UPLOAD] Raw text detected, will be processed by AI');
+        setFormData(prev => ({
+          ...prev,
+          specific_requirements: convertedData,
+          template_name: file.name.replace(/\.[^.]+$/, '')
+        }));
       }
 
-      setFormData(prev => ({
-        ...prev,
-        specific_requirements: fullText,
-        template_name: file.name.replace('.pdf', '') // Sugere nome do arquivo
-      }));
-
     } catch (err) {
-      console.error('Erro ao ler PDF:', err);
-      // Fallback
-      setError('Falha ao processar o arquivo PDF. Tente copiar e colar o texto.');
+      console.error('[FILE-UPLOAD] Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Falha ao processar arquivo: ${errorMessage}`);
     } finally {
       setGenerating(false);
     }
@@ -411,30 +414,59 @@ export default function AIChecklistGenerator() {
                       <Copy size={16} />
                       Como funciona?
                     </h3>
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm text-blue-800 mb-3">
                       Cole aqui o texto de seus procedimentos, normas internas, manuais em PDF ou planilhas antigas.
                       A IA vai ler, entender a estrutura e converter automaticamente em um checklist digital pronto para uso.
                     </p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded text-xs font-medium text-blue-800">
+                        <FileText size={12} />
+                        PDF
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-green-300 rounded text-xs font-medium text-green-800">
+                        <FileSpreadsheet size={12} />
+                        Excel (.xlsx)
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded text-xs font-medium text-blue-800">
+                        <FileText size={12} />
+                        Word (.docx)
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-medium text-slate-800">
+                        <FileText size={12} />
+                        CSV
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Dropzone PDF */}
+                  {/* Dropzone UNIVERSAL - PDF, Excel, Word, CSV */}
                   <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-slate-50 transition-colors group relative cursor-pointer">
                     <input
                       type="file"
-                      accept="application/pdf"
-                      onChange={handlePdfUpload}
+                      accept="application/pdf,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       disabled={generating}
                     />
                     <div className="flex flex-col items-center gap-3">
-                      <div className="p-4 bg-purple-100 text-purple-600 rounded-full group-hover:scale-110 transition-transform">
-                        {generating ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div> : <Upload size={24} />}
+                      <div className="p-4 bg-gradient-to-br from-purple-100 to-blue-100 text-purple-600 rounded-full group-hover:scale-110 transition-transform">
+                        {generating ? (
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Upload size={20} />
+                            <FileSpreadsheet size={20} className="text-green-600" />
+                            <FileText size={20} className="text-blue-600" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h4 className="font-semibold text-slate-900">
-                          {generating ? 'Lendo PDF...' : 'Arraste seu PDF aqui'}
+                          {generating ? 'Processando arquivo...' : 'Arraste PDF, Excel ou Word aqui'}
                         </h4>
                         <p className="text-sm text-slate-500 mt-1">
+                          Formatos: PDF, Excel (.xlsx), Word (.docx), CSV
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
                           ou clique para selecionar do computador
                         </p>
                       </div>
